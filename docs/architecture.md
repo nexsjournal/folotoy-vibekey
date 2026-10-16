@@ -410,6 +410,15 @@ LanguagePicker(设置 › 通用 / 欢迎页)→ LanguageState.set(即时生效,
 系统权限弹窗文字:InfoPlist.xcstrings
 ```
 
+## 10a. 窗口显示(设置 / 引导 / 字幕记录)
+
+```
+菜单「设置…」/ 字幕条「翻译设置…」/ 总结页「设置」→ WindowManager.showSettings(pane) → present
+ → NSApp.setActivationPolicy(.regular)(菜单栏应用在 macOS 14+ 协作式激活下单纯 activate 偶尔不前置)
+ → 下一轮事件循环(等菜单关闭)→ NSApp.activate → makeKeyAndOrderFront + orderFrontRegardless
+windowWillClose → restoreMenuBarMode(没有其他打开 / 最小化的窗口时切回 .accessory)
+```
+
 ## 11. 设置联动
 
 ```

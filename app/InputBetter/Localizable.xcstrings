@@ -151,6 +151,16 @@
         }
       }
     },
+    "AI 总结": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Summary"
+          }
+        }
+      }
+    },
     "AI 润色": {
       "localizations": {
         "en": {
@@ -1199,6 +1209,16 @@
         }
       }
     },
+    "可用模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available Models"
+          }
+        }
+      }
+    },
     "右键已下载的模型可以删除。首次加载 Whisper 时系统需要为本机优化模型，可能需要一两分钟。": {
       "localizations": {
         "en": {
@@ -1839,12 +1859,22 @@
         }
       }
     },
-    "总结使用 设置 › AI 润色与翻译 里配置的服务": {
+    "总结使用 设置 › AI 润色与翻译 里配置的接口，模型可以另选": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Summaries use the service in Settings › AI Polish & Translation"
+            "value": "Summaries use the API set up in Settings › AI Polish & Translation; you can pick a different model"
+          }
+        }
+      }
+    },
+    "总结使用 设置 › AI 润色与翻译 里配置的服务，请先配置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summaries use the service in Settings › AI Polish & Translation. Set it up first."
           }
         }
       }
@@ -1869,12 +1899,12 @@
         }
       }
     },
-    "打开「自动总结」后，每隔 %lld 分钟会用 AI 总结一次这段时间的内容。": {
+    "打开上方的「自动总结」，每隔 %lld 分钟总结一次刚才的内容，要点按时间排列在这里。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Turn on Auto Summary and AI will summarize what was said every %lld minutes."
+            "value": "Turn on Auto Summary above to summarize what was said every %lld minutes. Key points appear here in order."
           }
         }
       }
@@ -1919,22 +1949,22 @@
         }
       }
     },
+    "拷贝": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
     "拷贝全部": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Copy All"
-          }
-        }
-      }
-    },
-    "拷贝总结": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy Summary"
           }
         }
       }
@@ -2059,16 +2089,6 @@
         }
       }
     },
-    "接口": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API"
-          }
-        }
-      }
-    },
     "接口地址": {
       "localizations": {
         "en": {
@@ -2105,6 +2125,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The API didn't return a model list"
+          }
+        }
+      }
+    },
+    "接口：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API: %@"
           }
         }
       }
@@ -2405,6 +2435,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No model selected"
+          }
+        }
+      }
+    },
+    "未配置 AI 服务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No AI service set up"
           }
         }
       }
@@ -3525,6 +3565,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The device didn't answer the handshake"
+          }
+        }
+      }
+    },
+    "设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
           }
         }
       }

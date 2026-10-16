@@ -108,9 +108,26 @@ final class WindowManager: NSObject, NSWindowDelegate {
         return window
     }
 
+    /// 把窗口放到最前并获得焦点。
+    /// 菜单栏应用(LSUIElement)在 macOS 14 起的协作式激活下,单纯 activate() 偶尔会被系统拒绝:
+    /// 窗口出现了却停在别的应用后面。按菜单栏应用的通行做法,显示窗口期间临时切成普通应用
+    /// (出现在 Dock 和 ⌘Tab 里),激活后放到最前;这些窗口都关闭后再切回只在菜单栏(见 restoreMenuBarMode)。
+    /// 放到下一轮事件循环执行:从菜单项点击时,等菜单关闭后再激活。
     private func present(_ window: NSWindow?) {
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        guard let window else { return }
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
+        DispatchQueue.main.async {
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+        }
+    }
+
+    /// 最后一个窗口关闭后切回只在菜单栏(最小化在 Dock 里的窗口还算打开,否则就没法还原了)。
+    private func restoreMenuBarMode(closing: NSWindow) {
+        let open = [settingsWindow, onboardingWindow, transcriptWindow].compactMap { $0 }
+            .filter { $0 !== closing && ($0.isVisible || $0.isMiniaturized) }
+        if open.isEmpty { NSApp.setActivationPolicy(.accessory) }
     }
 
     /// 字幕记录窗口最小化时总结也暂停,还原后继续。
@@ -124,6 +141,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+        restoreMenuBarMode(closing: window)
         // 关闭字幕记录窗口:总结自动暂停。
         if window === transcriptWindow { app.summarizer.setWindowVisible(false) }
         if window === onboardingWindow {
