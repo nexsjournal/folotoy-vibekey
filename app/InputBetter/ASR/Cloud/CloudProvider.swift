@@ -70,6 +70,31 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// 可选的模型。只有 OpenAI 兼容服务提供模型列表接口(`GET /models`,见 CloudASREngine.fetchModels);
+    /// 其他三家没有公开的列表接口,这里是各家文档列出的实时识别模型 / 资源 ID。
+    /// 对 OpenAI 兼容服务,这是拉取列表之前(或拉取失败时)的常用选项。
+    var knownModels: [ModelOption] {
+        switch self {
+        case .volcengine: [
+            ModelOption(id: "volc.seedasr.sauc.duration", title: String(localized: "豆包流式识别 2.0 · 按时长计费", bundle: .l10n)),
+            ModelOption(id: "volc.seedasr.sauc.concurrent", title: String(localized: "豆包流式识别 2.0 · 按并发计费", bundle: .l10n)),
+            ModelOption(id: "volc.bigasr.sauc.duration", title: String(localized: "豆包流式识别 1.0 · 按时长计费", bundle: .l10n)),
+            ModelOption(id: "volc.bigasr.sauc.concurrent", title: String(localized: "豆包流式识别 1.0 · 按并发计费", bundle: .l10n)),
+        ]
+        case .bailian: [
+            ModelOption(id: "fun-asr-realtime", title: "Fun-ASR"),
+            ModelOption(id: "paraformer-realtime-v2", title: "Paraformer v2"),
+        ]
+        case .elevenlabs: [
+            ModelOption(id: "scribe_v2_realtime", title: "Scribe v2 Realtime"),
+        ]
+        case .openAICompatible: ModelOption.ids(["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1", "whisper-large-v3-turbo", "whisper-large-v3"])
+        }
+    }
+
+    /// 能否从接口拉取模型列表。
+    var canFetchModels: Bool { self == .openAICompatible }
+
     /// 是否需要填写接口地址(OpenAI 兼容服务)。
     var needsBaseURL: Bool { self == .openAICompatible }
 }

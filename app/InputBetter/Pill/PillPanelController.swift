@@ -53,8 +53,10 @@ final class PillPanelController {
         })
     }
 
-    func show() {
-        guard settings.showPill else { return }
+    /// 显示状态条。用户在设置里隐藏了状态条时只有 `force`(字幕运行 / 选择字幕应用)才显示,
+    /// 因为字幕条就是状态条,不显示就看不到字幕。
+    func show(force: Bool = false) {
+        guard settings.showPill || force else { return }
         reposition()
         panel.orderFrontRegardless()
         startMouseTracking()

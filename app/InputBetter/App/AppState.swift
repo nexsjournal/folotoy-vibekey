@@ -73,7 +73,8 @@ final class AppState {
         bridge = DeviceBridge(link: deviceLink, dictation: dictation, subtitles: subtitles, agent: agent,
                               settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
                                   setCaptionsCollapsed(!captionsCollapsed)
-                              }, startCaptions: { [unowned self] app in startCaptions(app) }))
+                              }, startCaptions: { [unowned self] app in startCaptions(app) },
+                              stopCaptions: { [unowned self] in stopCaptions() }))
         bridge.start()
         // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
         updateBluetooth()
@@ -122,6 +123,15 @@ final class AppState {
         agent.handle(url: url)
     }
 
+    /// 退出前:字幕还有没保存的记录时先询问(和结束字幕的询问相同),然后再退出。
+    func prepareToQuit() {
+        guard subtitles.isRunning else { return }
+        subtitles.stop()
+        let record = subtitles.transcript
+        guard settings.askToSaveCaptions, record.hasUnsavedEntries else { return }
+        if TranscriptSaver.askToSave(record, settings: settings) { subtitles.markTranscriptSaved(record) }
+    }
+
     func shutdown() {
         subtitles.stop()
         dictation.cancel()
@@ -136,7 +146,8 @@ final class AppState {
             startCaptions: { [unowned self] point in pill.popUp(menus.captionAppsMenu(), at: point) },
             expandCaptions: { [unowned self] in setCaptionsCollapsed(false) },
             collapseCaptions: { [unowned self] in setCaptionsCollapsed(true) },
-            stopCaptions: { [unowned self] in subtitles.stop() },
+            stopCaptions: { [unowned self] in stopCaptions() },
+            showTranscript: { [unowned self] in windows.showTranscript() },
             showMenu: { [unowned self] point in pill.popUp(menus.build(), at: point) },
             cancel: { [unowned self] in dictation.cancel() },
             confirm: { [unowned self] in dictation.stop() },
@@ -151,18 +162,39 @@ final class AppState {
     }
 
     /// 开始为某个应用生成字幕(所有入口都走这里):字幕条默认展开。
+    /// 正在为别的应用生成字幕时,先按正常流程结束上一场(会询问是否保存它的记录)。
     func startCaptions(_ app: AudioApp) {
         pill.ui.subtitleCollapsed = false
+        // 已经在为这个应用生成字幕:只展开字幕条,不重新开始(否则会清掉当前记录)。
+        if subtitles.isRunning, subtitles.appBundleID == app.bundleID { return }
+        if subtitles.isRunning { stopCaptions() }
         subtitles.start(app: app)
     }
 
-    /// 开关字幕快捷键:运行中则停止;否则在状态条上方弹出应用列表让用户选择(不沿用上一次的应用)。
+    /// 结束字幕(所有入口都走这里:字幕条、菜单、快捷键、设置、Passport)。
+    /// 有未保存的记录且设置允许时,询问是否保存成文件。询问放到下一轮事件循环,
+    /// 避免在菜单 / 按钮的事件处理过程中弹出模态框;记录按值捕获,之后开始新字幕也不影响。
+    /// 启动失败时(字幕条显示原因)调用则只是关闭字幕条。
+    func stopCaptions() {
+        guard subtitles.needsSurface else { return }
+        let wasRunning = subtitles.isRunning
+        subtitles.stop()
+        let record = subtitles.transcript
+        guard wasRunning, settings.askToSaveCaptions, record.hasUnsavedEntries else { return }
+        Task { @MainActor [unowned self] in
+            if TranscriptSaver.askToSave(record, settings: settings) { subtitles.markTranscriptSaved(record) }
+        }
+    }
+
+    /// 开关字幕快捷键:运行中则结束;否则在状态条上方弹出应用列表让用户选择(不沿用上一次的应用)。
     func toggleCaptionsFromShortcut() {
         if subtitles.isRunning {
-            subtitles.stop()
+            stopCaptions()
         } else {
-            pill.show()
-            pill.popUpAtPill(menus.captionAppsMenu())
+            pill.show(force: true)
+            pill.popUpAtPill(menus.captionAppsMenu())  // 同步:菜单关闭后才返回
+            // 没选应用就关掉了菜单,且用户设置了隐藏状态条:恢复隐藏。
+            if !subtitles.needsSurface, !settings.showPill { pill.hide() }
         }
     }
 
@@ -198,8 +230,12 @@ final class AppState {
         }
         observeChanges({ [unowned self] in _ = settings.language }) { [unowned self] in models.languageChanged() }
         observeChanges({ [unowned self] in _ = subtitles.status }) { [unowned self] in
-            // 字幕停止后复位"收起"状态;字幕开启时确保状态条可见(字幕条就是状态条)。
-            if !subtitles.isRunning { pill.ui.subtitleCollapsed = false } else { pill.show() }
+            // 字幕停止后复位"收起"状态。
+            if !subtitles.isRunning { pill.ui.subtitleCollapsed = false }
+            // 字幕运行或显示启动失败原因时,即使设置了隐藏状态条也要显示(字幕条就是状态条);结束后恢复隐藏。
+            if subtitles.needsSurface { pill.show(force: true) } else if !settings.showPill { pill.hide() }
+            // 听写进行中才开始的字幕:新会话同样要暂停解码,保持听写优先。
+            if subtitles.status == .running { subtitles.setDecodingPaused(dictation.phase.isBusy) }
         }
         // 听写优先:听写进行中暂停字幕解码(音频照常缓存),结束后字幕自动补上。
         observeChanges({ [unowned self] in _ = dictation.phase }) { [unowned self] in

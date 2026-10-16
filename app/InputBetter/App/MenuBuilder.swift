@@ -71,7 +71,11 @@ final class MenuBuilder {
             items.append(ActionItem(collapsed ? String(localized: "展开字幕条", bundle: .l10n) : String(localized: "收起字幕条", bundle: .l10n)) { [app] in
                 app.setCaptionsCollapsed(!collapsed)
             })
-            items.append(ActionItem(String(localized: "停止字幕（\(app.subtitles.appName)）", bundle: .l10n)) { [app] in app.subtitles.stop() })
+            items.append(ActionItem(String(localized: "结束字幕（\(app.subtitles.appName)）", bundle: .l10n)) { [app] in app.stopCaptions() })
+        }
+        // 字幕记录:运行中或刚结束(记录还在内存里)时可以查看。
+        if app.subtitles.isRunning || !app.subtitles.transcript.isEmpty {
+            items.append(ActionItem(String(localized: "字幕记录…", bundle: .l10n)) { [app] in app.windows.showTranscript() })
             items.append(.separator())
         }
         items += captionAppItems { [app] audioApp in app.startCaptions(audioApp) }

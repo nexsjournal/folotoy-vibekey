@@ -48,6 +48,24 @@ final class CloudASREngine: ASREngine {
         }
     }
 
+    /// 可选模型:OpenAI 兼容服务从 `GET /models` 拉取,只保留转写类模型(名字里带 whisper / transcribe 等);
+    /// 一个都匹配不上时(服务的命名不同)返回全部,让用户自己选。其他服务返回已知模型列表。
+    static func fetchModels(provider: CloudProvider, config: CloudConfig) async throws -> [ModelOption] {
+        guard provider.canFetchModels else { return provider.knownModels }
+        let all = try await OpenAICompatibleAPI.listModels(baseURL: config.baseURL, apiKey: config.apiKey)
+        return ModelOption.ids(transcriptionModels(all))
+    }
+
+    /// 从模型列表里挑出语音转写模型。
+    nonisolated static func transcriptionModels(_ ids: [String]) -> [String] {
+        let keywords = ["whisper", "transcribe", "asr", "stt", "speech", "sensevoice", "paraformer", "scribe", "audio"]
+        let matched = ids.filter { id in
+            let lower = id.lowercased()
+            return keywords.contains { lower.contains($0) } && !lower.contains("tts")
+        }
+        return matched.isEmpty ? ids : matched
+    }
+
     /// 测试连接:送 1.5 秒近乎静音的音频并结束,没有收到错误即视为可用。返回错误说明,nil 表示正常。
     static func test(provider: CloudProvider, config: CloudConfig) async -> String? {
         let options = ASROptions(purpose: .dictation, language: .auto, vocabulary: [])

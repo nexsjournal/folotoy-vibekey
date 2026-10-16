@@ -27,6 +27,7 @@ cd firmware && ./tools/validate.sh --host    # 固件主机测试
 - `IB_TRANSCRIBE_FILE`:识别音频文件并打印耗时;
 - `IB_DOWNLOAD`:下载模型;
 - `IB_SUBTITLE_APP`:直接开字幕;
+- `IB_SHOW_TRANSCRIPT`:打开字幕记录窗口;
 - `IB_SHOW_PILL`:显示状态条。
 
 ## 规则

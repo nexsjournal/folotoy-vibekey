@@ -47,6 +47,16 @@ final class ModelManager {
     }
     func isInstalled(_ id: String) -> Bool { state(id) == .installed }
 
+    /// 模型不可用时给用户看的原因:本地模型"未下载",云端模型"未配置"。
+    func unavailableMessage(_ id: String) -> String {
+        guard let model = ModelCatalog.model(id) else {
+            return String(localized: "请先在设置里选择识别模型", bundle: .l10n)
+        }
+        return model.cloudProvider == nil
+            ? String(localized: "\(model.name) 尚未下载，请在 设置 › 识别模型 里下载", bundle: .l10n)
+            : String(localized: "\(model.name) 尚未配置，请在 设置 › 识别模型 里填写 API Key", bundle: .l10n)
+    }
+
     func refresh() {
         for model in ModelCatalog.all {
             if case .downloading = states[model.id] { continue }

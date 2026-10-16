@@ -22,6 +22,11 @@ struct ModelsPane: View {
                             Picker("", selection: $settings.subtitleModelID) {
                                 Text("与听写相同").tag("")
                                 ForEach(ModelCatalog.all.filter { app.models.isInstalled($0.id) }) { Text($0.name).tag($0.id) }
+                                // 选中的模型已删除 / 云端配置已移除:仍显示出来并标明不可用,不让选择框变空白。
+                                if !settings.subtitleModelID.isEmpty, !app.models.isInstalled(settings.subtitleModelID) {
+                                    Text("\(ModelCatalog.model(settings.subtitleModelID)?.name ?? settings.subtitleModelID)（不可用）")
+                                        .tag(settings.subtitleModelID)
+                                }
                             }
                             .labelsHidden()
                             .fixedSize()

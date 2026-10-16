@@ -7,6 +7,7 @@ import AVFoundation
 /// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
 /// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
 /// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
+/// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 @MainActor
 enum DebugHooks {
@@ -32,8 +33,9 @@ enum DebugHooks {
         }
         if let bid = env["IB_SUBTITLE_APP"] {
             let name = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bid }?.localizedName ?? bid
-            app.subtitles.start(app: AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
+            app.startCaptions(AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
         }
+        if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
     }
 
     private static func transcribe(path: String, modelIDs: [String], app: AppState) async {

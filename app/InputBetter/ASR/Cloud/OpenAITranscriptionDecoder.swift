@@ -16,9 +16,7 @@ nonisolated struct OpenAITranscriptionDecoder: SegmentDecoder {
 
     func decode(_ samples: [Float], options: ASROptions) async throws -> String {
         guard samples.count >= 4_000 else { return "" }
-        var base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") { base.removeLast() }
-        guard let url = URL(string: "\(base)/audio/transcriptions") else { throw CloudASRError.badURL }
+        guard let url = OpenAICompatibleAPI.endpoint(baseURL, "audio/transcriptions") else { throw CloudASRError.badURL }
 
         var form = MultipartForm()
         form.addFile(name: "file", filename: "audio.wav", mimeType: "audio/wav", data: AudioFormats.wav(samples))
@@ -27,22 +25,15 @@ nonisolated struct OpenAITranscriptionDecoder: SegmentDecoder {
         if let code = options.language.isoCode { form.addField(name: "language", value: code) }
         if !options.vocabulary.isEmpty { form.addField(name: "prompt", value: options.vocabulary.joined(separator: ", ")) }
 
-        var request = URLRequest(url: url, timeoutInterval: 30)
+        var request = OpenAICompatibleAPI.request(url, apiKey: apiKey, timeout: 30)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
         request.httpBody = form.body
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw CloudASRError.server(Self.errorMessage(data, status: http.statusCode))
+            throw CloudASRError.server(OpenAICompatibleAPI.errorMessage(data, status: http.statusCode))
         }
         return (CloudJSON.object(data)?["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func errorMessage(_ data: Data, status: Int) -> String {
-        let detail = ((CloudJSON.object(data)?["error"] as? [String: Any])?["message"] as? String)
-            ?? String(decoding: data.prefix(200), as: UTF8.self)
-        return "HTTP \(status) \(detail)".trimmingCharacters(in: .whitespaces)
     }
 }
 

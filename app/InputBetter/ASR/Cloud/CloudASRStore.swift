@@ -33,5 +33,12 @@ final class CloudASRStore {
         defaults.set(config.baseURL, forKey: "cloud.\(provider.rawValue).baseURL")
     }
 
+    /// 移除配置:删除本机保存的 API Key(其余设置保留,重新填 Key 即可恢复)。
+    func remove(_ provider: CloudProvider) {
+        var config = config(provider)
+        config.apiKey = ""
+        update(provider, config)
+    }
+
     private static func keyName(_ provider: CloudProvider) -> String { "cloud.\(provider.rawValue).apiKey" }
 }

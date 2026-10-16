@@ -189,3 +189,84 @@ nonisolated final class CloudASRTests: XCTestCase {
         XCTAssertEqual(store.value(for: "b"), "other")
     }
 }
+
+/// 链:LLMConfigForm / CloudConfigSheet → OpenAICompatibleAPI(地址拼接、模型列表解析)→ CloudASREngine.transcriptionModels。
+nonisolated final class ModelListTests: XCTestCase {
+    func testEndpointTrimsSlashesAndRejectsBadURL() {
+        XCTAssertEqual(OpenAICompatibleAPI.endpoint(" https://api.openai.com/v1// ", "models")?.absoluteString, "https://api.openai.com/v1/models")
+        XCTAssertNil(OpenAICompatibleAPI.endpoint("", "models"))
+        XCTAssertNil(OpenAICompatibleAPI.endpoint("api.openai.com", "models"), "没有 http(s) 协议头的地址无效")
+    }
+
+    func testParseModelListFormats() throws {
+        XCTAssertEqual(try OpenAICompatibleAPI.parseModelList(Data(#"{"object":"list","data":[{"id":"b"},{"id":"a"},{"id":"a"}]}"#.utf8)), ["a", "b"])
+        XCTAssertEqual(try OpenAICompatibleAPI.parseModelList(Data(#"{"models":[{"name":"qwen3:8b"}]}"#.utf8)), ["qwen3:8b"])
+        XCTAssertEqual(try OpenAICompatibleAPI.parseModelList(Data(#"["m1"]"#.utf8)), ["m1"])
+        XCTAssertThrowsError(try OpenAICompatibleAPI.parseModelList(Data("<html>".utf8)))
+    }
+
+    func testErrorMessage() {
+        XCTAssertEqual(OpenAICompatibleAPI.errorMessage(Data(#"{"error":{"message":"bad key"}}"#.utf8), status: 401), "HTTP 401 bad key")
+    }
+
+    func testTranscriptionModelFilter() {
+        let all = ["gpt-4o", "gpt-4o-mini-transcribe", "whisper-1", "tts-1", "gpt-4o-mini-tts"]
+        XCTAssertEqual(CloudASREngine.transcriptionModels(all), ["gpt-4o-mini-transcribe", "whisper-1"])
+        XCTAssertEqual(CloudASREngine.transcriptionModels(["foo", "bar"]), ["foo", "bar"], "匹配不上时返回全部")
+    }
+
+    func testEveryProviderHasModelsIncludingDefault() {
+        for provider in CloudProvider.allCases {
+            XCTAssertTrue(provider.knownModels.contains { $0.id == provider.defaultModel }, "\(provider) 的默认模型应在列表里")
+        }
+    }
+}
+
+/// 链:SubtitleController.handle(.final) → CaptionTranscript.append / setTranslation → TranscriptView / TranscriptSaver。
+nonisolated final class CaptionTranscriptTests: XCTestCase {
+    func testAppendTranslateAndExport() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        var transcript = CaptionTranscript(appName: "Chrome", startedAt: start)
+        XCTAssertTrue(transcript.isEmpty)
+        XCTAssertFalse(transcript.hasUnsavedEntries)
+        let first = CaptionTranscript.Entry(time: start.addingTimeInterval(5), text: "Hello")
+        transcript.append(first)
+        transcript.append(.init(time: start.addingTimeInterval(3_725), text: "World"))
+        transcript.setTranslation("你好", for: first.id)
+        XCTAssertEqual(transcript.offset(of: transcript.entries[1]), "01:02:05")
+        let text = transcript.plainText()
+        XCTAssertTrue(text.hasPrefix("Chrome\n"))
+        XCTAssertTrue(text.contains("[00:00:05] Hello\n           你好\n"))
+        XCTAssertTrue(text.contains("[01:02:05] World"))
+        XCTAssertFalse(transcript.plainText(includeTranslation: false).contains("你好"))
+    }
+
+    func testSavedStateTracksNewEntries() {
+        var transcript = CaptionTranscript(appName: "A")
+        transcript.append(.init(text: "1"))
+        XCTAssertTrue(transcript.hasUnsavedEntries)
+        transcript.markSaved()
+        XCTAssertFalse(transcript.hasUnsavedEntries, "保存后没有新内容就不再询问")
+        transcript.append(.init(text: "2"))
+        XCTAssertTrue(transcript.hasUnsavedEntries)
+    }
+
+    /// 保存面板打开期间新到的句子不能算作已保存(否则结束时不会再询问,内容丢失)。
+    func testMarkSavedUpToSnapshot() {
+        var transcript = CaptionTranscript(appName: "A")
+        transcript.append(.init(text: "1"))
+        let snapshot = transcript
+        transcript.append(.init(text: "2"))
+        transcript.markSaved(upTo: snapshot.entries.count)
+        XCTAssertTrue(transcript.hasUnsavedEntries)
+        transcript.markSaved(upTo: 99)
+        XCTAssertFalse(transcript.hasUnsavedEntries)
+    }
+
+    func testSuggestedFileNameIsSafe() {
+        let transcript = CaptionTranscript(appName: "A/B:C", startedAt: Date())
+        XCTAssertFalse(transcript.suggestedFileName.contains("/"))
+        XCTAssertFalse(transcript.suggestedFileName.contains(":"))
+        XCTAssertTrue(transcript.suggestedFileName.hasSuffix(".txt"))
+    }
+}

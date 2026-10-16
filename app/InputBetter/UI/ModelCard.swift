@@ -58,10 +58,18 @@ struct ModelCard: View {
         switch state {
         case .installed:
             if isActive {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(DS.success)
-                    .transition(.scale.combined(with: .opacity))
+                HStack(spacing: 8) {
+                    if let onConfigure {
+                        Button(action: onConfigure) { Image(systemName: "gearshape") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("编辑配置")
+                    }
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(DS.success)
+                        .transition(.scale.combined(with: .opacity))
+                }
             } else {
                 HStack(spacing: 6) {
                     if let onConfigure {

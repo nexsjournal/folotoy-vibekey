@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// 把 Passport 设备接到听写、字幕和 vibe coding 动作上:
 /// - 设备按键 → 手势(KeyPressTracker)→ 听写 / 字幕 / 快捷键 / 列表动作;
@@ -17,6 +17,8 @@ final class DeviceBridge {
         var toggleSubtitleBar: () -> Void
         /// 开始为某个应用生成字幕(与 Mac 上的入口走同一个函数)。
         var startCaptions: (AudioApp) -> Void
+        /// 结束字幕(与 Mac 上的入口走同一个函数,会询问是否保存记录)。
+        var stopCaptions: () -> Void
     }
 
     /// 设备上的列表页:切换应用,或为字幕选择应用。
@@ -97,9 +99,12 @@ final class DeviceBridge {
             }
             link.sendAgent(event, msg: notice.source)
         }
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 16, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0 / 16, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sync() }
         }
+        // 加到 common 模式:菜单打开、模态提示框(如"保存字幕吗?")显示时设备状态也继续同步。
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     // MARK: - 按键
@@ -136,8 +141,9 @@ final class DeviceBridge {
     private func pressBegan(_ key: DeviceKey) {
         guard key == .ok else { return }
         if inCaptionsMode {
-            guard !dictation.phase.isBusy else { return }
-            subtitles.isRunning ? subtitles.stop() : openCaptionAppPicker()
+            // 听写中,或 Mac 上正显示模态提示框(如"保存字幕吗?")时不开 / 停字幕,避免叠加弹框。
+            guard !dictation.phase.isBusy, NSApp.modalWindow == nil else { return }
+            subtitles.isRunning ? hooks.stopCaptions() : openCaptionAppPicker()
         } else {
             dictation.pressDown(mode: mode == .tr ? .translate : .dictate)
         }
@@ -167,7 +173,8 @@ final class DeviceBridge {
         case .up:
             guard isTap, !dictation.phase.isBusy else { return }
             if inCaptionsMode {
-                if subtitles.isRunning { settings.subtitleTranslate.toggle() }
+                // 和 Mac 上的翻译开关一致:没配置 AI 时不能打开翻译。
+                if subtitles.isRunning, settings.llmConfigured { settings.subtitleTranslate.toggle() }
             } else {
                 perform(settings.deviceUpAction)
             }
@@ -276,6 +283,11 @@ final class DeviceBridge {
             link.sendConfig(config)
         }
 
+        // 列表打开时开始了听写(Mac 上触发):设备已切到录音页,关闭列表,按键不再归列表。
+        if list != nil, dictation.phase.isBusy {
+            list = nil
+            lastState = nil
+        }
         if let current = list, Date().timeIntervalSince(current.touched) > listTimeout {
             closeList()
             return

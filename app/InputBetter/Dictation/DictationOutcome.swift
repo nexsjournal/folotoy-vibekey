@@ -51,7 +51,7 @@ nonisolated enum DictationFailure: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .noModel: String(localized: "请先在设置里下载识别模型", bundle: .l10n)
+        case .noModel: String(localized: "识别模型不可用，请在设置里下载或配置", bundle: .l10n)
         case .needsLLM: String(localized: "翻译需要先配置 AI", bundle: .l10n)
         case .engineNotReady: String(localized: "识别引擎未就绪", bundle: .l10n)
         case .noSpeech: String(localized: "没有听到声音", bundle: .l10n)

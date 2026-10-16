@@ -93,6 +93,8 @@ final class AppSettings {
     var subtitleTarget: TargetLanguage { didSet { defaults.set(subtitleTarget.rawValue, forKey: "subtitleTarget") } }
     var subtitleFontSize: Double { didSet { defaults.set(subtitleFontSize, forKey: "subtitleFontSize") } }
     var subtitleLocked: Bool { didSet { defaults.set(subtitleLocked, forKey: "subtitleLocked") } }
+    /// 结束字幕时询问是否保存字幕记录(提示框里勾选"不再询问"会关掉)。
+    var askToSaveCaptions: Bool { didSet { defaults.set(askToSaveCaptions, forKey: "askToSaveCaptions") } }
     var llmBaseURL: String { didSet { defaults.set(llmBaseURL, forKey: "llmBaseURL") } }
     var llmModel: String { didSet { defaults.set(llmModel, forKey: "llmModel") } }
     var llmAPIKey: String { didSet { CredentialStore.shared.set(llmAPIKey, for: "llmAPIKey") } }
@@ -120,6 +122,7 @@ final class AppSettings {
         subtitleTarget = TargetLanguage(rawValue: defaults.string(forKey: "subtitleTarget") ?? "") ?? .zhHans
         subtitleFontSize = defaults.object(forKey: "subtitleFontSize") as? Double ?? 22
         subtitleLocked = defaults.bool(forKey: "subtitleLocked")
+        askToSaveCaptions = defaults.object(forKey: "askToSaveCaptions") as? Bool ?? true
         llmBaseURL = defaults.string(forKey: "llmBaseURL") ?? "https://api.openai.com/v1"
         llmModel = defaults.string(forKey: "llmModel") ?? ""
         CredentialStore.shared.migrateFromKeychain(account: "llmAPIKey")

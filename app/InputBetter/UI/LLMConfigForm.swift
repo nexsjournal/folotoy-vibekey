@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// LLM 配置表单:服务商预设 + 地址 + Key + 模型(可拉取列表)+ 连接测试。
+/// LLM 配置表单:服务商预设 + 地址 + Key + 模型 + 连接测试。
+/// 地址或 Key 改动后自动从接口拉取模型列表(GET /models,输入停顿 0.6 秒后请求),在下拉菜单里选择。
 struct LLMConfigForm: View {
     @Bindable var settings: AppSettings
 
@@ -19,7 +20,11 @@ struct LLMConfigForm: View {
         Preset(name: String(localized: "Ollama 本地", bundle: .l10n), url: "http://localhost:11434/v1", model: ""),
     ]
 
-    @State private var availableModels: [String] = []
+    @State private var availableModels: [ModelOption] = []
+    @State private var loadingModels = false
+    @State private var modelsError: String?
+    /// 手动点"重新获取"时递增,触发重新拉取。
+    @State private var refreshToken = 0
     @State private var testState: TestState = .idle
 
     private enum TestState: Equatable {
@@ -32,8 +37,7 @@ struct LLMConfigForm: View {
                 ForEach(presets) { preset in
                     Button(preset.name) {
                         settings.llmBaseURL = preset.url
-                        if !preset.model.isEmpty { settings.llmModel = preset.model }
-                        availableModels = []
+                        settings.llmModel = preset.model
                         testState = .idle
                     }
                     .buttonStyle(SecondaryButtonStyle())
@@ -52,16 +56,9 @@ struct LLMConfigForm: View {
                     }
                     Divider()
                     field("模型") {
-                        HStack(spacing: 6) {
-                            TextField("例如 gpt-4o-mini", text: $settings.llmModel)
-                            if !availableModels.isEmpty {
-                                Menu {
-                                    ForEach(availableModels, id: \.self) { m in Button(m) { settings.llmModel = m } }
-                                } label: { Image(systemName: "chevron.down") }
-                                .menuStyle(.borderlessButton)
-                                .fixedSize()
-                            }
-                        }
+                        ModelPickerField(selection: $settings.llmModel, options: availableModels,
+                                         loading: loadingModels, error: modelsError,
+                                         onRefresh: { refreshToken += 1 }, placeholder: "gpt-4o-mini")
                     }
                 }
             }
@@ -89,6 +86,30 @@ struct LLMConfigForm: View {
             }
         }
         .textFieldStyle(.plain)
+        .task(id: "\(settings.llmBaseURL)|\(settings.llmAPIKey)|\(refreshToken)") { await fetchModels() }
+    }
+
+    /// 拉取模型列表。地址无效时不请求;连续输入时等停顿后再请求(task 被新的 id 取消即放弃)。
+    private func fetchModels() async {
+        modelsError = nil
+        guard OpenAICompatibleAPI.endpoint(settings.llmBaseURL, "models") != nil else {
+            availableModels = []
+            return
+        }
+        try? await Task.sleep(for: .milliseconds(600))
+        guard !Task.isCancelled else { return }
+        loadingModels = true
+        defer { loadingModels = false }
+        do {
+            let ids = try await OpenAICompatibleAPI.listModels(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey)
+            guard !Task.isCancelled else { return }
+            availableModels = ModelOption.ids(ids)
+            if ids.isEmpty { modelsError = String(localized: "接口没有返回可用模型，可以手动输入", bundle: .l10n) }
+        } catch {
+            guard !Task.isCancelled else { return }
+            availableModels = []
+            modelsError = String(localized: "无法获取模型列表：\(error.localizedDescription)", bundle: .l10n)
+        }
     }
 
     private func field(_ title: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
@@ -98,17 +119,14 @@ struct LLMConfigForm: View {
         }
     }
 
-    /// 先拉模型列表,再用一句话做真实请求,确认 Key 和模型都可用。
+    /// 用一句话做真实请求,确认地址、Key 和模型都可用。
     private func test() {
+        guard !settings.llmModel.isEmpty else {
+            testState = .failed(String(localized: "请先选择模型", bundle: .l10n))
+            return
+        }
         testState = .testing
-        let client = LLMClient(config: .init(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey, model: settings.llmModel))
         Task {
-            if let list = try? await client.listModels() { availableModels = list }
-            if settings.llmModel.isEmpty, let first = availableModels.first { settings.llmModel = first }
-            guard !settings.llmModel.isEmpty else {
-                testState = .failed(String(localized: "请填写模型名称", bundle: .l10n))
-                return
-            }
             do {
                 let started = Date()
                 _ = try await LLMClient(config: .init(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey, model: settings.llmModel))

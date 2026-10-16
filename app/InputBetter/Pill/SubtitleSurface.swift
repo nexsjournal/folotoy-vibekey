@@ -9,6 +9,8 @@ struct SubtitleSurface: View {
     let hovering: Bool
     /// 字幕运行时也可以听写(听写优先,字幕暂停解码,结束后补上)。
     let onDictate: () -> Void
+    /// 打开字幕记录窗口(查看前面的全部字幕)。
+    let onTranscript: () -> Void
     let onCollapse: () -> Void
     let onStop: () -> Void
 
@@ -43,7 +45,10 @@ struct SubtitleSurface: View {
                     .background(Capsule().strokeBorder(.white.opacity(0.2)))
             }
             Spacer(minLength: 12)
-            if hovering {
+            if case .failed = controller.status {
+                // 启动失败:没有可结束的字幕,只提供关闭(其他工具都没有意义)。
+                tool("xmark", help: String(localized: "关闭", bundle: .l10n), action: onStop)
+            } else if hovering {
                 HStack(spacing: 2) {
                     tool("textformat.size.smaller", help: String(localized: "缩小字号", bundle: .l10n)) { settings.subtitleFontSize = max(14, fontSize - 2) }
                     tool("textformat.size.larger", help: String(localized: "放大字号", bundle: .l10n)) { settings.subtitleFontSize = min(44, fontSize + 2) }
@@ -53,10 +58,11 @@ struct SubtitleSurface: View {
                     }
                     .disabled(!settings.llmConfigured)
                     tool("lock", help: String(localized: "锁定（鼠标穿透，可在菜单里解锁）", bundle: .l10n)) { settings.subtitleLocked = true }
+                    tool("text.page", help: String(localized: "字幕记录", bundle: .l10n), action: onTranscript)
                     Divider().frame(height: 14).padding(.horizontal, 4)
                     tool("mic.fill", help: String(localized: "听写", bundle: .l10n), action: onDictate)
                     tool("chevron.down", help: String(localized: "收起成小胶囊", bundle: .l10n), action: onCollapse)
-                    tool("xmark", help: String(localized: "停止字幕", bundle: .l10n), action: onStop)
+                    tool("stop.fill", help: String(localized: "结束字幕", bundle: .l10n), action: onStop)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .trailing)))
             }
@@ -72,7 +78,11 @@ struct SubtitleSurface: View {
         case .starting:
             hint("正在连接 \(controller.appName) 的声音…")
         case .failed(let message):
-            hint(LocalizedStringKey(message))
+            // 原因已经是本地化后的文字,按原样显示。
+            Text(verbatim: message)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
         default:
             if controller.silentTooLong {
                 VStack(alignment: .leading, spacing: 6) {

@@ -35,37 +35,18 @@ nonisolated struct LLMClient: Sendable {
         return try Self.parseCompletion(data)
     }
 
-    /// 拉取可用模型列表(GET /models)。
-    func listModels() async throws -> [String] {
-        let request = try makeRequest(path: "models")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try Self.check(response, data)
-        struct List: Decodable { struct Item: Decodable { let id: String }; let data: [Item] }
-        return try JSONDecoder().decode(List.self, from: data).data.map(\.id).sorted()
-    }
-
     // MARK: - 内部
 
     private func makeRequest(path: String) throws -> URLRequest {
-        var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") { base.removeLast() }
-        guard let url = URL(string: "\(base)/\(path)") else { throw LLMError.badURL }
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+        guard let url = OpenAICompatibleAPI.endpoint(config.baseURL, path) else { throw LLMError.badURL }
+        var request = OpenAICompatibleAPI.request(url, apiKey: config.apiKey, timeout: timeout)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if !config.apiKey.isEmpty {
-            request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        }
         return request
     }
 
     static func check(_ response: URLResponse, _ data: Data) throws {
-        guard let http = response as? HTTPURLResponse else { return }
-        guard (200..<300).contains(http.statusCode) else {
-            struct Err: Decodable { struct E: Decodable { let message: String }; let error: E }
-            let message = (try? JSONDecoder().decode(Err.self, from: data))?.error.message
-                ?? String(data: data.prefix(200), encoding: .utf8) ?? ""
-            throw LLMError.http(http.statusCode, message)
-        }
+        guard let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) else { return }
+        throw LLMError.server(OpenAICompatibleAPI.errorMessage(data, status: http.statusCode))
     }
 
     /// 解析 Chat Completions 响应,并去掉推理模型输出的 `<think>` 段。
@@ -85,14 +66,14 @@ nonisolated struct LLMClient: Sendable {
 
 nonisolated enum LLMError: LocalizedError {
     case badURL, empty, notConfigured
-    case http(Int, String)
+    case server(String)
 
     var errorDescription: String? {
         switch self {
         case .badURL: String(localized: "API 地址无效", bundle: .l10n)
         case .empty: String(localized: "模型没有返回内容", bundle: .l10n)
         case .notConfigured: String(localized: "尚未配置 LLM", bundle: .l10n)
-        case .http(let code, let msg): "HTTP \(code) \(msg)"
+        case .server(let message): message
         }
     }
 }

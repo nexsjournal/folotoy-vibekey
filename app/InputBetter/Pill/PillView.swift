@@ -7,7 +7,10 @@ struct PillActions {
     var startCaptions: (CGPoint) -> Void
     var expandCaptions: () -> Void
     var collapseCaptions: () -> Void
+    /// 结束字幕(结束后按设置询问是否保存记录)。
     var stopCaptions: () -> Void
+    /// 打开字幕记录窗口。
+    var showTranscript: () -> Void
     /// 打开快捷菜单,参数为点击位置(窗口坐标)。
     var showMenu: (CGPoint) -> Void
     var cancel: () -> Void
@@ -106,7 +109,7 @@ struct PillView: View {
         return PillPresentation.surface(
             recording: phase == .starting || phase == .recording,
             processing: processing, showingResult: result,
-            captionsRunning: subtitles.isRunning, captionsCollapsed: ui.subtitleCollapsed,
+            captionsRunning: subtitles.needsSurface, captionsCollapsed: ui.subtitleCollapsed,
             hovering: expanded, hasAgentNotice: agent.current != nil)
     }
 
@@ -145,6 +148,7 @@ struct PillView: View {
             case .captionsBar:
                 SubtitleSurface(controller: subtitles, settings: settings, permissions: permissions,
                                 hovering: expanded, onDictate: actions.toggleDictation,
+                                onTranscript: actions.showTranscript,
                                 onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions)
                     .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 22))
                     .glassEffectID("main", in: glass)
@@ -182,7 +186,7 @@ struct PillView: View {
     }
 
     /// 悬停展开:麦克风 + (字幕 / 菜单)两组按钮。
-    /// ◉:没有字幕时弹出应用列表开始字幕;字幕在后台运行时展开字幕条。停止字幕在字幕条和 ⌃ 菜单里。
+    /// ◉:没有字幕时弹出应用列表开始字幕;字幕在后台运行时展开字幕条。结束字幕在字幕条和 ⌃ 菜单里。
     private func toolbar(captions: CaptionsButton) -> some View {
         HStack(spacing: 10) {
             PillButton(symbol: "mic.fill", width: 46) { actions.toggleDictation() }

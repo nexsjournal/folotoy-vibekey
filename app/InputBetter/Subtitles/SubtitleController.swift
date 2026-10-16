@@ -1,15 +1,11 @@
 import AppKit
 
 /// 实时字幕:采集所选应用的声音 → 识别 → (可选)LLM 翻译 → 交给字幕条显示。
-/// 本类只维护字幕数据,显示由状态条(PillView 的字幕条形态)负责。
+/// 本类只维护字幕数据,显示由状态条(PillView 的字幕条形态)和字幕记录窗口负责。
 @MainActor @Observable
 final class SubtitleController {
     /// 一行字幕:原文 + 译文(译文异步到达)。
-    struct Line: Identifiable, Equatable {
-        let id = UUID()
-        var text: String
-        var translation: String?
-    }
+    typealias Line = CaptionTranscript.Entry
 
     enum Status: Equatable {
         case stopped
@@ -21,8 +17,10 @@ final class SubtitleController {
     private(set) var status: Status = .stopped
     private(set) var appName = ""
     private(set) var appBundleID = ""
-    /// 已定稿的字幕行(只保留最近几行)。
-    private(set) var lines: [Line] = []
+    /// 本次(或上一次)字幕会话的完整记录。停止后保留,直到下一次开始,供记录窗口查看和保存。
+    private(set) var transcript = CaptionTranscript()
+    /// 字幕条显示的最近几行定稿。
+    var lines: [Line] { Array(transcript.entries.suffix(maxLines)) }
     /// 正在说的那句(未定稿,会不断变化)。
     private(set) var partial = ""
     private(set) var level: Float = 0
@@ -33,6 +31,12 @@ final class SubtitleController {
 
     var isRunning: Bool { status == .running || status == .starting }
 
+    /// 字幕条是否要显示:运行中,或者启动失败(显示原因,用户点结束后消失)。
+    var needsSurface: Bool {
+        if case .failed = status { return true }
+        return isRunning
+    }
+
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let models: ModelManager
     @ObservationIgnored private let engines: EngineRegistry
@@ -41,6 +45,11 @@ final class SubtitleController {
     @ObservationIgnored private var session: ASRSession?
     @ObservationIgnored private var eventsTask: Task<Void, Never>?
     @ObservationIgnored private var silenceTask: Task<Void, Never>?
+    /// 正在进行的启动(加载模型、连接云端、建立音频采集)。
+    @ObservationIgnored private var startTask: Task<Void, Never>?
+    /// 每次 start / stop 递增。启动任务只在代数没变时才安装采集和会话,
+    /// 避免"上一次启动还没完成就开始下一次"时两次启动都装上、旧的再也停不掉。
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var lastSoundAt = Date()
 
     private let maxLines = 3
@@ -57,7 +66,7 @@ final class SubtitleController {
         stop()
         appName = app.name
         appBundleID = app.bundleID
-        lines = []
+        transcript = CaptionTranscript(appName: app.name)
         partial = ""
         streamError = nil
         silentTooLong = false
@@ -65,15 +74,19 @@ final class SubtitleController {
 
         let modelID = settings.effectiveSubtitleModelID
         guard models.isInstalled(modelID), let engine = engines.engine(for: modelID) else {
-            status = .failed(String(localized: "字幕模型未下载", bundle: .l10n))
+            status = .failed(models.unavailableMessage(modelID))
             return
         }
-        Task { [weak self] in
+        let current = generation
+        startTask = Task { [weak self] in
             guard let self else { return }
+            var pendingSession: ASRSession?
             do {
                 let options = ASROptions(purpose: .subtitles, language: settings.language, vocabulary: settings.vocabularyTerms)
                 let session = try await engine.makeSession(options)
-                guard status == .starting else { session.cancel(); return }
+                pendingSession = session
+                // 等待期间用户已经停止或重新开始了:丢弃这次的会话。
+                guard generation == current, status == .starting else { session.cancel(); return }
                 let tap = AppAudioTap(bundleID: app.bundleID)
                 tap.onSamples = { [weak self] samples in
                     session.feed(samples)
@@ -91,6 +104,9 @@ final class SubtitleController {
                 watchSilence()
                 Log.subtitles.info("subtitles started for \(app.bundleID, privacy: .public)")
             } catch {
+                // 采集启动失败(如没有系统音频录制权限)时,已建立的识别会话(云端连接)也要关掉。
+                pendingSession?.cancel()
+                guard generation == current else { return }
                 status = .failed(error.localizedDescription)
             }
         }
@@ -101,7 +117,14 @@ final class SubtitleController {
         session?.setDecodingPaused(paused)
     }
 
+    /// 停止采集和识别。正在说的半句会作为最后一句记入记录,不丢内容。
     func stop() {
+        let wasRunning = isRunning
+        generation += 1
+        startTask?.cancel()
+        startTask = nil
+        if !partial.isEmpty { transcript.append(Line(text: partial)) }
+        if wasRunning { transcript.endedAt = Date() }
         tap?.stop()
         tap = nil
         session?.cancel()
@@ -111,6 +134,12 @@ final class SubtitleController {
         level = 0
         partial = ""
         if status != .stopped { status = .stopped }
+    }
+
+    /// 记录已保存到第 `count` 句(之后没有新内容就不再提示保存)。只有仍是同一次会话时才标记;
+    /// 保存面板打开期间新到的句子不算已保存。
+    func markTranscriptSaved(_ saved: CaptionTranscript) {
+        if transcript.id == saved.id { transcript.markSaved(upTo: saved.entries.count) }
     }
 
     // MARK: - 内部
@@ -126,21 +155,19 @@ final class SubtitleController {
             streamError = nil
             let text = TranscriptText.normalize(raw)
             partial = ""
+            guard !text.isEmpty else { return }
             let line = Line(text: text)
-            lines.append(line)
-            if lines.count > maxLines { lines.removeFirst(lines.count - maxLines) }
+            transcript.append(line)
             if settings.subtitleTranslate { translate(line) }
         }
     }
 
     private func translate(_ line: Line) {
         guard processor.isAvailable else { return }
-        let context = lines.dropLast().suffix(3).map(\.text)
+        let context = transcript.entries.dropLast().suffix(3).map(\.text)
         Task {
             guard let translation = try? await processor.translateSubtitle(line.text, context: Array(context)) else { return }
-            if let index = lines.firstIndex(where: { $0.id == line.id }) {
-                lines[index].translation = translation
-            }
+            transcript.setTranslation(translation, for: line.id)
         }
     }
 

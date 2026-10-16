@@ -48,6 +48,10 @@ App(AppState 组合根)
 | Float → PCM16 / WAV | `AudioFormats.pcm16` / `AudioFormats.wav` | StreamingCloudSession、OpenAITranscriptionDecoder |
 | gzip | `Gzip` | VolcengineCodec |
 | 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
+| OpenAI 兼容接口地址 / 鉴权 / 错误信息 / 模型列表 | `OpenAICompatibleAPI` | LLMClient、OpenAITranscriptionDecoder、LLMConfigForm、CloudASREngine.fetchModels |
+| 模型下拉选择(列表 + 手动输入 + 重新获取) | `ModelPickerField` | LLMConfigForm、CloudConfigSheet |
+| 结束字幕(含询问保存) | `AppState.stopCaptions` | 字幕条 ⏹、⌃ 菜单 / 菜单栏、快捷键、设置 › 实时字幕、Passport、切换应用 |
+| 字幕记录保存成文件 | `TranscriptSaver`(`CaptionTranscript.plainText`) | AppState.stopCaptions / prepareToQuit、字幕记录窗口 |
 
 ## 1. 听写(快捷键按住说话)
 
@@ -150,10 +154,13 @@ DeviceBridge.sync(16 Hz 定时器,或连接变化时)
 ```
 设备模式(长按上键循环 dict → tr → sub,听写进行中不切换)
  dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在后台运行也不影响;空闲页 msg "LIVE" 显示 LIVE 标记
- sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时停止字幕
-       上 / 下短按 = 字幕翻译开关 / 收起展开字幕条(仅字幕运行时)
+ sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时 Hooks.stopCaptions(= AppState.stopCaptions)
+       (Mac 上正显示模态框时不响应)
+       上 / 下短按 = 字幕翻译开关(需已配置 AI,与 Mac 上一致)/ 收起展开字幕条(仅字幕运行时)
 DeviceStateMapper.state:听写阶段优先 → 列表 → 字幕页(仅 sub 模式且字幕运行)→ 空闲页(+LIVE)
 列表页 ListSession:切换应用(长按下键)/ 选择字幕应用(sub 模式 OK),按键规则相同
+列表打开时 Mac 上开始了听写:DeviceBridge.sync 关闭列表(设备已切到录音页,按键不再归列表)
+定时器加在 RunLoop common 模式,菜单 / 模态框显示时设备状态照常同步
 ```
 
 ## 3b. Passport 按键手势(所有按键动作的入口)
@@ -210,10 +217,23 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → AudioConverter.convert → onSamples → ASRSession.feed + AudioFormats.level → updateLevel
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
-          → TranscriptText.normalize → lines / partial
-          → .final 且开启翻译 → TextProcessor.translateSubtitle → LLMClient.complete → line.translation
+          → TranscriptText.normalize → partial / CaptionTranscript.append(完整记录;lines = 最后 3 句)
+          → .final 且开启翻译 → TextProcessor.translateSubtitle → LLMClient.complete → CaptionTranscript.setTranslation
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
-停止:SubtitleController.stop → AppAudioTap.stop → ASRSession.cancel
+结束(所有入口):AppState.stopCaptions
+ → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
+ → 有未保存内容且 askToSaveCaptions → 下一轮事件循环 TranscriptSaver.askToSave(NSAlert:保存… / 不保存 / 不再询问)
+     → 保存… → NSSavePanel(用户选位置)→ CaptionTranscript.plainText → 写 UTF-8 文本 → SubtitleController.markTranscriptSaved(id)
+退出 app:AppDelegate.applicationShouldTerminate → AppState.prepareToQuit(同样询问,同步)
+```
+
+字幕记录(app 不保存任何历史,记录只在内存里,下次开始字幕或退出后清除):
+
+```
+字幕条 📄 / ⌃ 菜单与菜单栏「字幕记录…」/ 设置 › 实时字幕「查看」→ WindowManager.showTranscript
+ → TranscriptView(只读 SubtitleController.transcript / partial,跟随最新自动滚动)
+     「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
+     「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
 ```
 
 ## 6. 胶囊状态条与字幕交互
@@ -223,13 +243,23 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 | 条件 | 形态 | 可做的事 |
 | --- | --- | --- |
 | 听写录音 / 处理 / 结果 | 听写形态(优先级最高) | 听写进行时字幕在后台继续采集,解码暂停(`SubtitleController.setDecodingPaused`),结束后补上 |
-| 字幕运行且展开 | 字幕条 | 悬停:字号、翻译、锁定、🎤 听写、⌄ 收起、✕ 停止 |
+| 字幕启动失败 | 字幕条(只显示原因和 ✕ 关闭) | 关闭 → `AppState.stopCaptions` |
+| 字幕运行且展开 | 字幕条 | 悬停:字号、翻译、锁定、📄 字幕记录、🎤 听写、⌄ 收起、⏹ 结束 |
 | 悬停,没有字幕 | 工具条 | 🎤 听写;◉ 弹出应用列表(`MenuBuilder.captionAppsMenu`)选择后开始;⌃ 菜单 |
-| 悬停,字幕已收起 | 工具条 | ◉ 展开字幕条;停止在 ⌃ 菜单 |
+| 悬停,字幕已收起 | 工具条 | ◉ 展开字幕条;结束、字幕记录在 ⌃ 菜单 |
 | 不悬停 | Agent 通知 / 细胶囊 | 字幕在后台运行时细胶囊带红点 |
 
 开始字幕的所有入口(胶囊 ◉、开关字幕快捷键、菜单栏、设置页、Passport 字幕模式)都先选择应用,然后调用 `AppState.startCaptions`(展开字幕条 → `SubtitleController.start`);不沿用上次的应用。
-字幕条锁定(穿透)后,收起 / 展开 / 停止都可以在菜单栏和 ⌃ 菜单里操作。
+正在为某个应用生成字幕时选择另一个应用:`AppState.startCaptions` 先走 `stopCaptions`(询问保存上一场),再开始新的;
+选的是正在转录的同一个应用时只展开字幕条,不重新开始(不清空记录)。
+
+启动规则(`SubtitleController.start`):每次 start / stop 递增 `generation`,启动任务(加载模型 / 连接云端)完成时代数变了就丢弃会话,
+不会出现两场同时运行;音频采集启动失败时关闭已建立的识别会话。启动失败(模型不可用、没有系统音频权限)时 `needsSurface` 为真,
+字幕条显示原因(`ModelManager.unavailableMessage` 区分"未下载"和"未配置"),只有 ✕ 关闭,点了走 `stopCaptions`(不询问保存)。
+设置里隐藏了状态条时,字幕运行 / 失败 / 选择字幕应用期间仍强制显示(`PillPanelController.show(force:)`),结束后恢复隐藏。
+听写进行中才开始的字幕:会话进入 running 时按 `dictation.phase` 立即暂停解码。
+同时只会有一个"保存字幕吗?"询问框(`TranscriptSaver.isAsking`);询问框显示期间 Passport 字幕模式的 OK 不响应。
+结束字幕的所有入口都调用 `AppState.stopCaptions`。字幕条锁定(穿透)后,收起 / 展开 / 结束都可以在菜单栏和 ⌃ 菜单里操作。
 
 空闲胶囊:`IdleCapsule` 呼吸(Core Animation 循环,尊重"减少动态效果");`PillView.task(id: activityKey)` 计时,
 30 秒无活动 → dimmed(内芯降低亮度、玻璃换 clear 样式),任何状态 / 悬停变化立即恢复。
@@ -274,12 +304,25 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
 设置 › 模型「云端识别」/ 引导模型页 → ModelCard「配置」(未配置)或 ⚙(已配置)
  → ModelList.editing → CloudConfigSheet(provider)
      → CloudASRStore.config(provider)(API Key 来自 CredentialStore,其余来自 UserDefaults)
+     → 模型:ModelPickerField(选项 = CloudASREngine.fetchModels:
+         OpenAI 兼容 → 地址和 Key 填好后停顿 0.6 秒 → OpenAICompatibleAPI.listModels → transcriptionModels 过滤;
+         其他服务没有列表接口 → CloudProvider.knownModels(官方文档列出的实时识别模型 / 资源 ID))
      → 「测试连接」CloudASREngine.test → 1.5 秒近静音 → 有 .failure 则显示原因
      → 「保存」CloudASRStore.update → CredentialStore.set("cloud.<provider>.apiKey") + UserDefaults
  → ModelManager.state(cloud-…) == .installed(配置齐全即"可用")→ 可选为听写模型 / 字幕模型
 听写和字幕各自选模型:AppSettings.dictationModelID / subtitleModelID(字幕选项里列出所有可用模型,含云端)
 密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
 旧版本存在钥匙串里的 LLM Key 在启动时静默迁移一次(不弹授权框),之后删除钥匙串条目
+```
+
+## 8b. LLM 配置
+
+```
+设置 › AI / 引导 AI 页 → LLMConfigForm
+ → 服务商预设 → AppSettings.llmBaseURL / llmModel
+ → 地址或 Key 变化 → .task(id:) 停顿 0.6 秒 → OpenAICompatibleAPI.listModels(GET /models)
+     → ModelPickerField 下拉选择(当前值不在列表里也保留显示;"手动输入…"切换成文本框;失败时显示原因并可手动输入)
+ → 「测试连接」LLMClient.complete(一句 ping)
 ```
 
 ## 9. 一键刷固件 / 更新固件

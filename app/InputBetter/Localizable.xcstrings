@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ · %lld 句。不保存的话，下次开始字幕或退出 InputBetter 后记录会被清除。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld lines. If you don't save, the transcript is cleared the next time you start captions or quit InputBetter."
+          }
+        }
+      }
+    },
     "%@ 不是有效的 JSON 对象": {
       "localizations": {
         "en": {
@@ -41,12 +51,32 @@
         }
       }
     },
+    "%@ 尚未下载，请在 设置 › 识别模型 里下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ isn't downloaded. Download it in Settings › Speech Models."
+          }
+        }
+      }
+    },
     "%@ 尚未配置 API Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ has no API key configured"
+          }
+        }
+      }
+    },
+    "%@ 尚未配置，请在 设置 › 识别模型 里填写 API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ isn't set up. Add an API key in Settings › Speech Models."
           }
         }
       }
@@ -67,6 +97,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stopped: %@ would overwrite a protected partition"
+          }
+        }
+      }
+    },
+    "%@（不可用）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Unavailable)"
           }
         }
       }
@@ -229,6 +269,16 @@
     },
     "InputBetter": {
       "shouldTranslate": false
+    },
+    "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。需要留存时请保存成文件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter keeps no caption history. The transcript lives in memory only and is cleared when you start captions again or quit. Save it to a file to keep it."
+          }
+        }
+      }
     },
     "InputBetter 设置": {
       "localizations": {
@@ -549,6 +599,26 @@
         }
       }
     },
+    "不保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't Save"
+          }
+        }
+      }
+    },
+    "不再询问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't ask again"
+          }
+        }
+      }
+    },
     "不支持%@": {
       "localizations": {
         "en": {
@@ -679,6 +749,16 @@
         }
       }
     },
+    "从列表选择": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose from List"
+          }
+        }
+      }
+    },
     "使用": {
       "localizations": {
         "en": {
@@ -719,16 +799,6 @@
         }
       }
     },
-    "例如 gpt-4o-mini": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "e.g. gpt-4o-mini"
-          }
-        }
-      }
-    },
     "保存": {
       "localizations": {
         "en": {
@@ -739,32 +809,52 @@
         }
       }
     },
+    "保存…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save…"
+          }
+        }
+      }
+    },
+    "保存为文本文件，位置由你选择": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saves a text file wherever you choose"
+          }
+        }
+      }
+    },
+    "保存字幕": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Captions"
+          }
+        }
+      }
+    },
+    "保存这次的字幕吗？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save the captions from this session?"
+          }
+        }
+      }
+    },
     "停止": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Stop"
-          }
-        }
-      }
-    },
-    "停止字幕": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop Captions"
-          }
-        }
-      }
-    },
-    "停止字幕（%@）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stop Captions (%@)"
           }
         }
       }
@@ -795,6 +885,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "About"
+          }
+        }
+      }
+    },
+    "关闭": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
           }
         }
       }
@@ -885,6 +985,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't create the audio tap"
+          }
+        }
+      }
+    },
+    "删除本机保存的 API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete the API key saved on this Mac"
           }
         }
       }
@@ -1259,16 +1369,6 @@
         }
       }
     },
-    "字幕模型未下载": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The captions model isn't downloaded"
-          }
-        }
-      }
-    },
     "字幕翻译成%@": {
       "localizations": {
         "en": {
@@ -1285,6 +1385,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caption Translation Language"
+          }
+        }
+      }
+    },
+    "字幕记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript"
+          }
+        }
+      }
+    },
+    "字幕记录…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript…"
           }
         }
       }
@@ -1419,6 +1539,16 @@
         }
       }
     },
+    "已拷贝": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        }
+      }
+    },
     "已授权": {
       "localizations": {
         "en": {
@@ -1435,6 +1565,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Up to date with the firmware bundled in the app"
+          }
+        }
+      }
+    },
+    "已结束 · %lld 句": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ended · %lld lines"
           }
         }
       }
@@ -1509,6 +1649,16 @@
         }
       }
     },
+    "开始实时字幕后，这里会显示完整的转录内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start live captions to see the full transcript here."
+          }
+        }
+      }
+    },
     "开始设置": {
       "localizations": {
         "en": {
@@ -1559,6 +1709,16 @@
         }
       }
     },
+    "手动输入…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter Manually…"
+          }
+        }
+      }
+    },
     "打开隐私设置": {
       "localizations": {
         "en": {
@@ -1585,6 +1745,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Switches to Bluetooth when USB is unplugged. macOS asks for Bluetooth access the first time."
+          }
+        }
+      }
+    },
+    "拷贝全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy All"
           }
         }
       }
@@ -1729,6 +1899,26 @@
         }
       }
     },
+    "接口没有返回可用模型，可以手动输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The API returned no models. You can enter one manually."
+          }
+        }
+      }
+    },
+    "接口没有返回模型列表": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The API didn't return a model list"
+          }
+        }
+      }
+    },
     "推荐": {
       "localizations": {
         "en": {
@@ -1815,6 +2005,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't open %@: %@"
+          }
+        }
+      }
+    },
+    "无法获取模型列表：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load models: %@"
           }
         }
       }
@@ -1999,12 +2199,32 @@
         }
       }
     },
+    "本次字幕记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current Transcript"
+          }
+        }
+      }
+    },
     "权限": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Permissions"
+          }
+        }
+      }
+    },
+    "查看": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
           }
         }
       }
@@ -2115,6 +2335,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Looking for your device…"
+          }
+        }
+      }
+    },
+    "正在转录 · %lld 句": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcribing · %lld lines"
           }
         }
       }
@@ -2419,6 +2649,16 @@
         }
       }
     },
+    "移除配置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
     "稍后": {
       "localizations": {
         "en": {
@@ -2609,6 +2849,36 @@
         }
       }
     },
+    "结束字幕": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End Captions"
+          }
+        }
+      }
+    },
+    "结束字幕（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End Captions (%@)"
+          }
+        }
+      }
+    },
+    "结束时询问是否保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask to Save When Captions End"
+          }
+        }
+      }
+    },
     "给任意应用的声音配字幕": {
       "localizations": {
         "en": {
@@ -2769,6 +3039,16 @@
         }
       }
     },
+    "记录只保存在内存中，下次开始字幕或退出 app 后清除。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept in memory only. Cleared when you start captions again or quit the app."
+          }
+        }
+      }
+    },
     "设备": {
       "localizations": {
         "en": {
@@ -2845,6 +3125,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speech Models"
+          }
+        }
+      }
+    },
+    "识别模型不可用，请在设置里下载或配置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech model unavailable. Download or set it up in Settings."
           }
         }
       }
@@ -2929,22 +3219,22 @@
         }
       }
     },
-    "请先在设置里下载识别模型": {
+    "请先在设置里选择识别模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download a speech model in Settings first"
+            "value": "Choose a speech model in Settings first"
           }
         }
       }
     },
-    "请填写模型名称": {
+    "请先选择模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter a model name"
+            "value": "Choose a model first"
           }
         }
       }
@@ -2969,12 +3259,52 @@
         }
       }
     },
-    "资源 ID": {
+    "豆包流式识别 1.0 · 按并发计费": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Resource ID"
+            "value": "Doubao Streaming ASR 1.0 · Per concurrency"
+          }
+        }
+      }
+    },
+    "豆包流式识别 1.0 · 按时长计费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doubao Streaming ASR 1.0 · Per hour"
+          }
+        }
+      }
+    },
+    "豆包流式识别 2.0 · 按并发计费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doubao Streaming ASR 2.0 · Per concurrency"
+          }
+        }
+      }
+    },
+    "豆包流式识别 2.0 · 按时长计费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doubao Streaming ASR 2.0 · Per hour"
+          }
+        }
+      }
+    },
+    "跟随最新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow Latest"
           }
         }
       }
@@ -3025,6 +3355,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back"
+          }
+        }
+      }
+    },
+    "还没有字幕": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No captions yet"
           }
         }
       }
@@ -3119,6 +3459,16 @@
         }
       }
     },
+    "选择模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Model"
+          }
+        }
+      }
+    },
     "选择识别模型": {
       "localizations": {
         "en": {
@@ -3195,6 +3545,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reinstall"
+          }
+        }
+      }
+    },
+    "重新获取模型列表": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload Model List"
           }
         }
       }

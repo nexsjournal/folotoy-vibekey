@@ -40,6 +40,20 @@ struct SubtitlesPane: View {
                     }
                 }
             }
+            SettingsSection(title: "字幕记录", footer: "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。需要留存时请保存成文件。") {
+                Card {
+                    VStack(spacing: DS.Space.m) {
+                        SettingRow(title: "结束时询问是否保存", detail: "保存为文本文件，位置由你选择") {
+                            Toggle("", isOn: $settings.askToSaveCaptions).labelsHidden().toggleStyle(.switch)
+                        }
+                        Divider()
+                        SettingRow(title: "本次字幕记录") {
+                            Button("查看") { app.windows.showTranscript() }
+                                .buttonStyle(SecondaryButtonStyle())
+                        }
+                    }
+                }
+            }
         }
         .onAppear { apps = AudioProcesses.runningApps() }
     }
@@ -52,8 +66,8 @@ struct SubtitlesPane: View {
             Text(audioApp.name).font(.system(size: 13))
             if audioApp.isPlaying { Tag(text: "正在播放", color: DS.warning) }
             Spacer()
-            Button(running ? LocalizedStringKey("停止") : LocalizedStringKey("开始字幕")) {
-                running ? app.subtitles.stop() : app.startCaptions(audioApp)
+            Button(running ? LocalizedStringKey("结束字幕") : LocalizedStringKey("开始字幕")) {
+                running ? app.stopCaptions() : app.startCaptions(audioApp)
             }
             .buttonStyle(SecondaryButtonStyle())
         }
