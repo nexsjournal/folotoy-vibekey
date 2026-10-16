@@ -61,7 +61,7 @@ nonisolated final class CoreLogicTests: XCTestCase {
     }
 
     func testSubtitlePromptIncludesContext() {
-        let user = Prompts.subtitleUser(current: "c", context: ["a", "b"])
+        let user = Prompts.subtitleUser(current: "c", context: [(source: "a", translation: nil), (source: "b", translation: nil)])
         XCTAssertTrue(user.contains("PREVIOUS:\na\nb"))
         XCTAssertTrue(user.hasSuffix("CURRENT: c"))
     }

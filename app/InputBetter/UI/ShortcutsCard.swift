@@ -14,7 +14,7 @@ struct ShortcutsCard: View {
                     KeyboardShortcuts.Recorder(for: .dictate)
                 }
                 Divider()
-                SettingRow(title: "翻译听写", detail: "说完自动翻译成\(settings.translateTarget.title)再输入（需要配置 AI）") {
+                SettingRow(title: "翻译听写", detail: "说完自动翻译再输入，目标语言：\(settings.translateTarget.title)（需要配置 AI）") {
                     KeyboardShortcuts.Recorder(for: .translateDictate)
                 }
                 if includeSubtitles {

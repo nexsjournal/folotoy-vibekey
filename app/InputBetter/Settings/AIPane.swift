@@ -9,7 +9,7 @@ struct AIPane: View {
             SettingsSection(title: "LLM 服务", footer: "支持所有 OpenAI 兼容接口。API Key 只保存在本机配置文件中（仅当前用户可读）。") {
                 LLMConfigForm(settings: settings)
             }
-            SettingsSection(title: "用途") {
+            SettingsSection(title: "用途", footer: "目标语言选「自动」时由 AI 判断方向：\(TargetLanguage.autoSummary)。") {
                 Card {
                     VStack(spacing: DS.Space.m) {
                         SettingRow(title: "听写后自动润色", detail: "去掉口水词，补全标点，修正同音错字") {

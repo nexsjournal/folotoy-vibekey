@@ -18,25 +18,44 @@ nonisolated enum Prompts {
     static func translateDictation(to target: TargetLanguage, vocabulary: [String]) -> String {
         """
         You are a dictation translator. The user message is raw speech-recognition output.
-        First silently fix recognition errors and remove filler words, then translate it into \(target.promptName).
+        First silently fix recognition errors and remove filler words, then translate it \(Self.target(target)).
         Produce natural, fluent text a native speaker would write. Keep names, code, numbers and URLs intact.
         Output only the translation, nothing else.
         \(vocabularyBlock(vocabulary))
         """
     }
 
-    static func translateSubtitle(to target: TargetLanguage) -> String {
+    /// 字幕翻译:原文来自实时语音识别,会有识别错误和被切断的半句。
+    /// 要求 LLM 先结合上下文修正识别错误、理解被切开的句子,再给出通顺、地道的译文(相当于翻译 + 润色一步完成)。
+    static func translateSubtitle(to target: TargetLanguage, vocabulary: [String]) -> String {
         """
-        You translate live subtitles into \(target.promptName).
-        The user message contains optional previous lines for context and the CURRENT line.
-        Translate only the CURRENT line, concisely and naturally, as a subtitle. If it is already in \(target.promptName), output it unchanged.
-        Output only the translation of the current line.
+        You translate live subtitles \(Self.target(target)).
+        The source text comes from real-time speech recognition, so it may contain misheard words, homophones, wrong names, \
+        missing punctuation, and sentences split across lines.
+        The user message contains PREVIOUS lines (with their translations, for context and consistent terminology) and the CURRENT line.
+        Steps:
+        1. Silently work out what the speaker actually meant, using the previous lines and common sense to correct recognition errors.
+        2. If the CURRENT line is a fragment continuing the previous line, translate it so it reads naturally as the continuation; \
+        translate only the CURRENT line's content, without repeating the previous translation.
+        3. Write a fluent, idiomatic, concise subtitle a professional translator would produce. Keep names, numbers and technical terms accurate.
+        Output only the translation of the CURRENT line — no quotes, notes or explanations.
+        \(vocabularyBlock(vocabulary))
         """
     }
 
-    static func subtitleUser(current: String, context: [String]) -> String {
+    static func subtitleUser(current: String, context: [(source: String, translation: String?)]) -> String {
         if context.isEmpty { return "CURRENT: \(current)" }
-        return "PREVIOUS:\n" + context.joined(separator: "\n") + "\n\nCURRENT: \(current)"
+        let previous = context.map { line in
+            line.translation.map { "\(line.source)\n  → \($0)" } ?? line.source
+        }
+        return "PREVIOUS:\n" + previous.joined(separator: "\n") + "\n\nCURRENT: \(current)"
+    }
+
+    /// 提示词里的"翻译成……"。自动模式按用户的语言对决定方向。
+    static func target(_ language: TargetLanguage) -> String {
+        guard language == .auto else { return "into \(language.promptName)" }
+        let pair = TargetLanguage.autoPair()
+        return "into \(pair.primary.promptName); if the text is already in \(pair.primary.promptName), translate it into \(pair.other.promptName) instead"
     }
 
     private static func vocabularyBlock(_ vocabulary: [String]) -> String {

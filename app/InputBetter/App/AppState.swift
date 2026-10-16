@@ -229,6 +229,9 @@ final class AppState {
             engines.preload(settings.dictationModelID)
         }
         observeChanges({ [unowned self] in _ = settings.language }) { [unowned self] in models.languageChanged() }
+        observeChanges({ [unowned self] in _ = settings.subtitleTranslate }) { [unowned self] in
+            if settings.subtitleTranslate { subtitles.translationEnabled() }
+        }
         observeChanges({ [unowned self] in _ = subtitles.status }) { [unowned self] in
             // 字幕停止后复位"收起"状态。
             if !subtitles.isRunning { pill.ui.subtitleCollapsed = false }
@@ -259,6 +262,4 @@ final class AppState {
     func resetPillPosition() {
         pill.resetPosition()
     }
-
-    var pillHasCustomPosition: Bool { pill.hasCustomPosition }
 }

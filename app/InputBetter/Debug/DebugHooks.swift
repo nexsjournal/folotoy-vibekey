@@ -8,6 +8,7 @@ import AVFoundation
 /// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
 /// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
 /// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口;
+/// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 @MainActor
 enum DebugHooks {
@@ -35,7 +36,25 @@ enum DebugHooks {
             let name = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bid }?.localizedName ?? bid
             app.startCaptions(AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
         }
+        if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
         if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
+    }
+
+    private static func showDemoCaptions(app: AppState) {
+        let start = Date().addingTimeInterval(-170)
+        var sample = CaptionTranscript(appName: "Google Chrome", startedAt: start)
+        let lines: [(String, String?)] = [
+            ("How do you solve the data problem?", "如何解决数据问题？"),
+            ("The second is how do you solve the training problem?", "第二，如何解决训练问题？"),
+            ("The reason why human in the loop is fundamentally challenging is because we only have so much time.", "“人在环路”之所以从根本上充满挑战，是因为我们的时间有限。"),
+            ("And AI to be able to learn.", nil),
+        ]
+        for (i, line) in lines.enumerated() {
+            let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(Double(150 + i * 4)), text: line.0, translation: line.1)
+            sample.append(entry)
+        }
+        app.settings.subtitleTranslate = true
+        app.subtitles.debugShow(sample, partial: "At super human rates")
     }
 
     private static func transcribe(path: String, modelIDs: [String], app: AppState) async {

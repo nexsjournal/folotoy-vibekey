@@ -43,7 +43,7 @@ final class MenuBuilder {
         let polish = ActionItem(String(localized: "AI 润色", bundle: .l10n), checked: settings.polishEnabled) { [app] in app.settings.polishEnabled.toggle() }
         polish.isEnabled = settings.llmConfigured
         menu.addItem(polish)
-        let translate = ActionItem(String(localized: "字幕翻译成\(settings.subtitleTarget.title)", bundle: .l10n), checked: settings.subtitleTranslate) { [app] in
+        let translate = ActionItem(String(localized: "字幕翻译（\(settings.subtitleTarget.title)）", bundle: .l10n), checked: settings.subtitleTranslate) { [app] in
             app.settings.subtitleTranslate.toggle()
         }
         translate.isEnabled = settings.llmConfigured
@@ -51,9 +51,8 @@ final class MenuBuilder {
         if settings.subtitleLocked {
             menu.addItem(ActionItem(String(localized: "解锁字幕条", bundle: .l10n)) { [app] in app.settings.subtitleLocked = false })
         }
-        if app.pillHasCustomPosition {
-            menu.addItem(ActionItem(String(localized: "状态条回到底部中央", bundle: .l10n)) { [app] in app.resetPillPosition() })
-        }
+        // 常驻:状态条被拖到看不见的地方(或换了显示器)时总能找回来。
+        menu.addItem(ActionItem(String(localized: "状态条回到底部中央", bundle: .l10n)) { [app] in app.resetPillPosition() })
 
         menu.addItem(.separator())
         menu.addItem(.header(deviceStatus()))

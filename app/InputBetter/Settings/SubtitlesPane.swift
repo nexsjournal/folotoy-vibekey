@@ -29,7 +29,7 @@ struct SubtitlesPane: View {
                             }
                         }
                         Divider()
-                        SettingRow(title: "翻译成\(settings.subtitleTarget.title)", detail: settings.llmConfigured ? nil : "需要先配置 LLM") {
+                        SettingRow(title: "显示译文", detail: settings.llmConfigured ? "目标语言：\(settings.subtitleTarget.title)（在 AI 设置里修改）" : "需要先配置 AI") {
                             Toggle("", isOn: $settings.subtitleTranslate).labelsHidden().toggleStyle(.switch)
                                 .disabled(!settings.llmConfigured)
                         }

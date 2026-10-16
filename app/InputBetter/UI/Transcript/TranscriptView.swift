@@ -65,57 +65,11 @@ struct TranscriptView: View {
 
     // MARK: - 列表
 
+    /// 正文用 NSTextView 显示(见 TranscriptTextView:可跨行选择,避免 LazyVStack 的颠倒渲染问题)。
     private var list: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: DS.Space.m) {
-                    ForEach(transcript.entries) { entry in
-                        row(time: transcript.offset(of: entry), text: entry.text, translation: entry.translation, live: false)
-                            .id(entry.id)
-                    }
-                    if controller.isRunning, !controller.partial.isEmpty {
-                        row(time: "", text: controller.partial, translation: nil, live: true)
-                    }
-                    Color.clear.frame(height: 1).id(bottomID)
-                }
-                .padding(DS.Space.l)
-                .textSelection(.enabled)
-            }
-            .onChange(of: transcript.entries.count) { scrollToBottom(proxy) }
-            .onChange(of: controller.partial) { scrollToBottom(proxy) }
-            .onAppear { scrollToBottom(proxy, animated: false) }
-        }
-    }
-
-    private let bottomID = "transcript-bottom"
-
-    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
-        guard followLatest else { return }
-        if animated {
-            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomID, anchor: .bottom) }
-        } else {
-            proxy.scrollTo(bottomID, anchor: .bottom)
-        }
-    }
-
-    private func row(time: String, text: String, translation: String?, live: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: DS.Space.m) {
-            Text(verbatim: time)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .frame(width: 58, alignment: .leading)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: text)
-                    .font(.system(size: 14))
-                    .foregroundStyle(live ? .secondary : .primary)
-                if let translation, !translation.isEmpty {
-                    Text(verbatim: translation)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        TranscriptTextView(transcript: transcript,
+                           partial: controller.isRunning ? controller.partial : "",
+                           followLatest: followLatest)
     }
 
     private var empty: some View {

@@ -38,13 +38,16 @@ nonisolated enum SpeechLanguage: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// 翻译目标语言(听写翻译与字幕翻译共用)。
+/// `auto`(默认)由 LLM 按内容决定方向:说 / 听到的是用户的主语言就译成另一种语言,否则译成主语言
+/// (例如中文用户:中文 → English,其他语言 → 简体中文)。语言对见 `autoPair`。
 nonisolated enum TargetLanguage: String, CaseIterable, Identifiable, Sendable {
-    case en, zhHans = "zh-Hans", zhHant = "zh-Hant", ja, ko, fr, de, es, ru
+    case auto, en, zhHans = "zh-Hans", zhHant = "zh-Hant", ja, ko, fr, de, es, ru
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .auto: String(localized: "自动", bundle: .l10n)
         case .en: "English"
         case .zhHans: String(localized: "简体中文", bundle: .l10n)
         case .zhHant: String(localized: "繁體中文", bundle: .l10n)
@@ -57,9 +60,10 @@ nonisolated enum TargetLanguage: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 写进 LLM 提示词的语言名。
+    /// 写进 LLM 提示词的语言名(auto 不是具体语言,提示词用 `Prompts.target` 展开)。
     var promptName: String {
         switch self {
+        case .auto: "the appropriate language"
         case .en: "English"
         case .zhHans: "Simplified Chinese"
         case .zhHant: "Traditional Chinese"
@@ -69,6 +73,39 @@ nonisolated enum TargetLanguage: String, CaseIterable, Identifiable, Sendable {
         case .de: "German"
         case .es: "Spanish"
         case .ru: "Russian"
+        }
+    }
+
+    /// 自动模式的语言对:用户的主语言(系统首选语言)和另一种语言
+    /// (英语;主语言就是英语时取第二首选语言,没有则用简体中文)。
+    static func autoPair(preferred: [String] = Locale.preferredLanguages) -> (primary: TargetLanguage, other: TargetLanguage) {
+        let languages = preferred.compactMap(TargetLanguage.init(localeIdentifier:))
+        let primary = languages.first ?? .en
+        let other = primary == .en ? (languages.first { $0 != .en } ?? .zhHans) : .en
+        return (primary, other)
+    }
+
+    /// 自动模式的说明,如"简体中文 → English，其他语言 → 简体中文"。
+    static var autoSummary: String {
+        let pair = autoPair()
+        return String(localized: "\(pair.primary.title) → \(pair.other.title)，其他语言 → \(pair.primary.title)", bundle: .l10n)
+    }
+
+    /// 从系统语言标识(如 zh-Hans-CN、zh-TW、en-US)对应到支持的目标语言。
+    init?(localeIdentifier: String) {
+        let language = Locale.Language(identifier: localeIdentifier)
+        switch language.languageCode?.identifier {
+        case "en": self = .en
+        case "zh":
+            let traditional = language.script?.identifier == "Hant" || ["TW", "HK", "MO"].contains(language.region?.identifier ?? "")
+            self = traditional ? .zhHant : .zhHans
+        case "ja": self = .ja
+        case "ko": self = .ko
+        case "fr": self = .fr
+        case "de": self = .de
+        case "es": self = .es
+        case "ru": self = .ru
+        default: return nil
         }
     }
 }
@@ -117,9 +154,9 @@ final class AppSettings {
         language = SpeechLanguage(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
         micID = defaults.string(forKey: "micID") ?? ""
         polishEnabled = defaults.object(forKey: "polishEnabled") as? Bool ?? false
-        translateTarget = TargetLanguage(rawValue: defaults.string(forKey: "translateTarget") ?? "") ?? .en
+        translateTarget = TargetLanguage(rawValue: defaults.string(forKey: "translateTarget") ?? "") ?? .auto
         subtitleTranslate = defaults.object(forKey: "subtitleTranslate") as? Bool ?? false
-        subtitleTarget = TargetLanguage(rawValue: defaults.string(forKey: "subtitleTarget") ?? "") ?? .zhHans
+        subtitleTarget = TargetLanguage(rawValue: defaults.string(forKey: "subtitleTarget") ?? "") ?? .auto
         subtitleFontSize = defaults.object(forKey: "subtitleFontSize") as? Double ?? 22
         subtitleLocked = defaults.bool(forKey: "subtitleLocked")
         askToSaveCaptions = defaults.object(forKey: "askToSaveCaptions") as? Bool ?? true

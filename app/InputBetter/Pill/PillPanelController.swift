@@ -84,7 +84,6 @@ final class PillPanelController {
         reposition()
     }
 
-    var hasCustomPosition: Bool { UserDefaults.standard.string(forKey: Self.offsetKey) != nil }
 
     /// 在胶囊上方弹出菜单(快捷键触发、没有点击位置时使用)。
     func popUpAtPill(_ menu: NSMenu) {

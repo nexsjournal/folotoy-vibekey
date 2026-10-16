@@ -218,7 +218,12 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
           → TranscriptText.normalize → partial / CaptionTranscript.append(完整记录;lines = 最后 3 句)
-          → .final 且开启翻译 → TextProcessor.translateSubtitle → LLMClient.complete → CaptionTranscript.setTranslation
+          → .final 且开启翻译 → TextProcessor.translateSubtitle(前 3 句原文 + 译文作上下文)
+              → Prompts.translateSubtitle(先按上下文修正识别错误、理解被切开的半句,再给出通顺译文)
+              → LLMClient.complete → CaptionTranscript.setTranslation | setTranslationFailed
+          → 运行中打开翻译 → SubtitleController.translationEnabled(补译最新一句)
+ → SubtitleSurface:不翻译时显示上一句 + 当前句;翻译时用 CaptionTranscript.bilingual:
+     上方暗色 = 正在说的内容;下面 = 最近一句已有结果的原文 + 译文(同一句,译文最醒目;未返回显示"翻译中…")
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions
  → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
@@ -234,6 +239,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
  → TranscriptView(只读 SubtitleController.transcript / partial,跟随最新自动滚动)
      「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
      「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
+ 正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇)
 ```
 
 ## 6. 胶囊状态条与字幕交互
@@ -314,6 +320,10 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
 密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
 旧版本存在钥匙串里的 LLM Key 在启动时静默迁移一次(不弹授权框),之后删除钥匙串条目
 ```
+
+翻译目标语言(`TargetLanguage`,听写和字幕各一个,默认 `auto`):
+`auto` → `Prompts.target` → `TargetLanguage.autoPair`(系统首选语言 P + 另一种语言:英语,P 是英语时取第二首选语言或简体中文)
+→ 提示词"译成 P;原文已经是 P 就译成另一种语言"。
 
 ## 8b. LLM 配置
 
