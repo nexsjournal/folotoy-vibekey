@@ -7,3 +7,18 @@ firmware/sdkconfig
 firmware/sdkconfig.old
 app/DeviceAssets/
 app/Config/Signing.local.xcconfig
+
+# 敏感文件:仓库公开,以下内容一律不提交
+# 证书、公证 / API 密钥、SSH 密钥
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+.env
+.env.*
+# 安装包与 Passport 整片 Flash 备份(备份含设备身份凭证 cardid)
+*.dmg
+*-flash.bin
+passport-backups/

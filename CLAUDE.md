@@ -74,6 +74,14 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - 视图里的字面量会自动本地化;来自模型 / 枚举 / 错误的文字用 `String(localized:)`;组件的文字参数用 `LocalizedStringKey`。
 - 不要用文案做逻辑判断(用类型化枚举,如 `DictationResult`、`DictationFailure`)。
 
+### 敏感信息(必须遵守)
+
+GitHub 仓库是公开的,提交前确认不含敏感信息:
+
+- 不提交:服务器地址、SSH 密钥、Developer ID 证书、公证用的 App Store Connect 密钥(Key ID、Issuer ID、`.p8`)、各类 API Key、`Signing.local.xcconfig`。这些只在本机,运行脚本时用参数或环境变量传入,文档里只写占位符。
+- 不提交:DMG、Passport 整片 Flash 备份(含设备身份凭证)、设备 MAC 等真实设备标识(测试里用虚构值)、个人邮箱、本机绝对路径。
+- 提交前用 `git diff --cached` 检查;`.gitignore` 已屏蔽常见的密钥、安装包和备份文件。
+
 ### 其他
 
 - passport-keys(FoloToy AI Passport 的另一个开源项目)只是参考实现,本项目不依赖它,也不复制其中的业务逻辑。
