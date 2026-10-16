@@ -71,6 +71,29 @@ nonisolated enum Prompts {
         """
     }
 
+    /// 全文总结:概述 + 要点 + 结论 / 待办。输入是整篇转写,或(很长时)各部分的要点。
+    static func summarizeAll(language: TargetLanguage) -> String {
+        let name = (language.localeLanguage.map { _ in language.promptName }) ?? "the user's language"
+        return """
+        You summarize a complete talk / meeting / video. The input is its speech-recognition transcript \
+        (may contain misheard words; infer the intended meaning), or notes taken from each part of it.
+        Write in \(name):
+        1. One short paragraph (2–4 sentences) with the overall gist.
+        2. Then 4–8 bullet points starting with "- ", covering the key points in the order they came up.
+        3. If there are conclusions, decisions or action items, add them as final bullet points starting with "- ".
+        Keep names, numbers, products and technical terms accurate. No headings, no preamble, no closing remarks.
+        """
+    }
+
+    /// 全文很长时先分块整理要点(再交给 summarizeAll 汇总)。
+    static func summaryNotes(language: TargetLanguage) -> String {
+        let name = (language.localeLanguage.map { _ in language.promptName }) ?? "the user's language"
+        return """
+        The user message is one part of a speech-recognition transcript (may contain misheard words).
+        Write 3–8 concise bullet points in \(name) starting with "- " capturing its facts and key points. No preamble.
+        """
+    }
+
     static func summaryUser(transcript: String, previous: String?) -> String {
         var message = ""
         if let previous, !previous.isEmpty { message += "PREVIOUS SUMMARY:\n\(previous)\n\n" }

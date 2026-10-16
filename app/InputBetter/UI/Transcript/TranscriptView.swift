@@ -18,17 +18,8 @@ struct TranscriptView: View {
     /// 新内容到达时自动滚到最新(用户想往回看时可以关掉)。
     @State private var followLatest = true
     @State private var copied = false
-    @State private var tab: Tab = Self.initialTab
-
-    /// 调试用:IB_TRANSCRIPT_TAB=summary 直接打开「总结」页。
-    private static var initialTab: Tab {
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["IB_TRANSCRIPT_TAB"] == "summary" { return .summary }
-        #endif
-        return .captions
-    }
-
-    enum Tab: Hashable { case captions, summary }
+    /// 当前标签页(WindowManager 持有,外部可以直接切到「总结」页,如结束字幕时选了总结全文)。
+    @Bindable var navigation: TranscriptNavigation
 
     private var transcript: CaptionTranscript { controller.transcript }
 
@@ -36,7 +27,7 @@ struct TranscriptView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            switch tab {
+            switch navigation.tab {
             case .captions:
                 if transcript.isEmpty && controller.partial.isEmpty {
                     empty
@@ -79,9 +70,9 @@ struct TranscriptView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Picker("", selection: $tab) {
-                Text("字幕").tag(Tab.captions)
-                Text("总结").tag(Tab.summary)
+            Picker("", selection: $navigation.tab) {
+                Text("字幕").tag(TranscriptNavigation.Tab.captions)
+                Text("总结").tag(TranscriptNavigation.Tab.summary)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -94,7 +85,7 @@ struct TranscriptView: View {
             .buttonStyle(.plain)
             .help(pin.isPinned ? "取消固定" : "固定在屏幕右侧（始终在最前面，半透明）")
             .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕右侧")
-            if tab == .captions {
+            if navigation.tab == .captions {
                 Toggle("跟随最新", isOn: $followLatest)
                     .toggleStyle(.checkbox)
                     .font(.system(size: 12))
@@ -161,5 +152,21 @@ struct TranscriptView: View {
             try? await Task.sleep(for: .seconds(1.5))
             copied = false
         }
+    }
+}
+
+/// 字幕记录窗口当前的标签页。
+@MainActor @Observable
+final class TranscriptNavigation {
+    enum Tab: Hashable { case captions, summary }
+
+    var tab: Tab = TranscriptNavigation.initialTab
+
+    /// 调试用:IB_TRANSCRIPT_TAB=summary 直接打开「总结」页。
+    private static var initialTab: Tab {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["IB_TRANSCRIPT_TAB"] == "summary" { return .summary }
+        #endif
+        return .captions
     }
 }

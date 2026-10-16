@@ -24,7 +24,7 @@ struct SummaryView: View {
         VStack(spacing: 0) {
             controlBar(enabled: $summarizer.enabled)
             Divider()
-            if summarizer.sections.isEmpty {
+            if summarizer.sections.isEmpty && summarizer.fullSummary == nil {
                 emptyState
             } else {
                 timeline
@@ -134,6 +134,11 @@ struct SummaryView: View {
             ScrollView {
                 // 总结段数不多,用普通 VStack(可选择文字在 LazyVStack 里有渲染问题)。
                 VStack(alignment: .leading, spacing: 0) {
+                    if let full = summarizer.fullSummary {
+                        fullSummaryCard(full)
+                            .padding(.bottom, summarizer.sections.isEmpty ? 0 : DS.Space.l)
+                            .id("full")
+                    }
                     ForEach(summarizer.sections) { section in
                         sectionRow(section, isLast: section.id == summarizer.sections.last?.id)
                             .id(section.id)
@@ -146,12 +151,52 @@ struct SummaryView: View {
                 .padding(.vertical, DS.Space.l)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .onChange(of: summarizer.fullSummary?.generating) { _, generating in
+                if generating == true { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("full", anchor: .top) } }
+            }
             .onChange(of: summarizer.sections) {
                 if let last = summarizer.sections.last {
                     withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
             }
         }
+    }
+
+    /// 全文总结:放在最上面的醒目卡片(强调色浅底),标题 + 时间范围 + 概述和要点。
+    private func fullSummaryCard(_ section: TranscriptSummarizer.Section) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text.magnifyingglass").foregroundStyle(DS.accent)
+                Text("全文总结").font(.system(size: 13, weight: .semibold))
+                Text(verbatim: section.range)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                if section.generating { ProgressView().controlSize(.mini) }
+            }
+            points(section.text)
+        }
+        .padding(DS.Space.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DS.accent.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(DS.accent.opacity(0.18)))
+    }
+
+    /// 要点列表("- " 开头的行显示为项目符号,其他行为段落)。
+    private func points(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(Self.points(text).enumerated()), id: \.offset) { _, point in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if point.isBullet {
+                        Text(verbatim: "•").foregroundStyle(.secondary)
+                    }
+                    Text(verbatim: point.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .font(.system(size: 13.5))
+        .lineSpacing(3)
+        .textSelection(.enabled)
     }
 
     /// 一段总结:左侧时间线(圆点 + 连线),右侧时间范围和要点列表。
@@ -174,20 +219,7 @@ struct SummaryView: View {
                         .foregroundStyle(.secondary)
                     if section.generating { ProgressView().controlSize(.mini) }
                 }
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(Self.points(section.text).enumerated()), id: \.offset) { _, point in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            if point.isBullet {
-                                Text(verbatim: "•").foregroundStyle(.secondary)
-                            }
-                            Text(verbatim: point.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-                .font(.system(size: 13.5))
-                .lineSpacing(3)
-                .textSelection(.enabled)
+                points(section.text)
             }
             .padding(.bottom, isLast ? 0 : DS.Space.l)
         }
@@ -209,7 +241,7 @@ struct SummaryView: View {
 
     private var footer: some View {
         HStack(spacing: DS.Space.m) {
-            if summarizer.isGenerating { ProgressView().controlSize(.mini) }
+            if summarizer.isGenerating || summarizer.isSummarizingAll { ProgressView().controlSize(.mini) }
             Text(statusText)
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
@@ -226,7 +258,14 @@ struct SummaryView: View {
                 Label("立即总结", systemImage: "sparkles")
             }
             .buttonStyle(.borderless)
+            .help("总结还没总结过的新内容")
             .disabled(!summarizer.isConfigured || summarizer.isGenerating || summarizer.pendingCount == 0)
+            Button { summarizer.summarizeAll() } label: {
+                Label("总结全文", systemImage: "doc.text.magnifyingglass")
+            }
+            .buttonStyle(.borderless)
+            .help("用 AI 总结这场字幕的全部内容")
+            .disabled(!summarizer.isConfigured || summarizer.isSummarizingAll || summarizer.transcriptIsEmpty)
             Button { copy() } label: {
                 Label(copied ? LocalizedStringKey("已拷贝") : LocalizedStringKey("拷贝"), systemImage: copied ? "checkmark" : "doc.on.doc")
             }
@@ -251,6 +290,7 @@ struct SummaryView: View {
 
     private var statusText: String {
         if !summarizer.isConfigured { return String(localized: "未配置模型", bundle: .l10n) }
+        if summarizer.isSummarizingAll { return String(localized: "正在总结全文…", bundle: .l10n) }
         if summarizer.isGenerating { return String(localized: "正在总结…", bundle: .l10n) }
         if !summarizer.enabled { return String(localized: "自动总结已关闭", bundle: .l10n) }
         return String(localized: "待总结 \(summarizer.pendingCount) 句", bundle: .l10n)

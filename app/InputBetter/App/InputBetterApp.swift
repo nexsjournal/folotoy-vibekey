@@ -25,10 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         urls.forEach { state?.handle(url: $0) }
     }
 
-    /// 退出前给字幕记录一次保存机会(app 不保存历史,退出后记录就没了)。
+    /// 字幕还在进行时退出要确认一次(app 不保存历史,退出后记录就没了);用户取消则不退出。
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        state?.prepareToQuit()
-        return .terminateNow
+        state?.prepareToQuit() == false ? .terminateCancel : .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

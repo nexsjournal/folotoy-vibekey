@@ -6,6 +6,8 @@ import Foundation
 /// 正在进行的请求一并取消(这段内容留到下次再总结,不浪费额度)。
 /// 调用链:TranscriptView(总结页出现 / 消失)→ setTabVisible;WindowManager(窗口打开 / 关闭)→ setWindowVisible;
 ///   定时检查(每 5 秒)→ 满足间隔且新内容足够 → summarize → LLMClient.stream(边生成边显示)→ sections。
+/// 全文总结(`summarizeAll`):用户主动要求的一次性任务(结束字幕时勾选,或点「总结全文」),
+///   不受上面的暂停规则影响;很长时先分块整理要点再汇总(map-reduce),避免超出模型输入长度。
 /// 总结只存在内存里,跟着字幕会话走:开始新的字幕会话时清空。
 @MainActor @Observable
 final class TranscriptSummarizer {
@@ -19,6 +21,10 @@ final class TranscriptSummarizer {
     }
 
     private(set) var sections: [Section] = []
+    /// 全文总结(没有生成过为 nil)。
+    private(set) var fullSummary: Section?
+    /// 是否正在生成全文总结。
+    var isSummarizingAll: Bool { fullTask != nil }
     /// 最近一次失败的原因(下一次成功后清除)。
     private(set) var error: String?
     /// 是否正在生成。
@@ -35,6 +41,8 @@ final class TranscriptSummarizer {
     var isActive: Bool { windowVisible && tabVisible && enabled }
     /// 能否总结(配置了可用的 LLM)。
     var isConfigured: Bool { settings.summaryLLMConfig != nil }
+    /// 这场字幕还没有任何内容。
+    var transcriptIsEmpty: Bool { subtitles.transcript.isEmpty }
     /// 还没总结的句数。
     var pendingCount: Int { pendingEntries.count }
 
@@ -42,7 +50,8 @@ final class TranscriptSummarizer {
     @ObservationIgnored private let subtitles: SubtitleController
     private var windowVisible = false
     private var tabVisible = false
-    @ObservationIgnored private var task: Task<Void, Never>?
+    private var task: Task<Void, Never>?
+    private var fullTask: Task<Void, Never>?
     @ObservationIgnored private var ticker: Task<Void, Never>?
     /// 已总结到哪一句(记录里的句子 ID)和所属会话。
     @ObservationIgnored private var summarizedThrough: UUID?
@@ -104,8 +113,83 @@ final class TranscriptSummarizer {
     }
 
     /// 拷贝用的全部总结文字。
+    /// 拷贝 / 保存用的全部总结文字:全文总结在前,分段总结在后。
     var plainText: String {
-        sections.filter { !$0.generating }.map { "[\($0.range)]\n\($0.text)" }.joined(separator: "\n\n")
+        var parts: [String] = []
+        if let fullSummary, !fullSummary.generating {
+            parts.append(String(localized: "全文总结（\(fullSummary.range)）", bundle: .l10n) + "\n" + fullSummary.text)
+        }
+        parts += sections.filter { !$0.generating }.map { "[\($0.range)]\n\($0.text)" }
+        return parts.joined(separator: "\n\n")
+    }
+
+    /// 总结全文。已经在生成时忽略。
+    func summarizeAll() {
+        resetIfNewSession()
+        guard fullTask == nil else { return }
+        guard let config = settings.summaryLLMConfig else {
+            error = String(localized: "请先在 设置 › AI 润色与翻译 中配置服务", bundle: .l10n)
+            return
+        }
+        let transcript = subtitles.transcript
+        guard let first = transcript.entries.first, let last = transcript.entries.last else { return }
+        let range = "\(startOffset(before: first, in: transcript)) – \(transcript.offset(of: last))"
+        fullSummary = Section(range: range, text: "", generating: true)
+        error = nil
+        let text = transcript.entries.map(\.text).joined(separator: "\n")
+        let client = LLMClient(config: config)
+        let language = TargetLanguage.autoPair().primary
+        fullTask = Task { [weak self] in
+            await self?.runAll(client: client, language: language, text: text)
+        }
+    }
+
+    /// 一块最多送给 AI 的字符数;全文超过时分块整理要点再汇总。
+    static let fullChunk = 12_000
+
+    private func runAll(client: LLMClient, language: TargetLanguage, text: String) async {
+        do {
+            var input = text
+            let chunks = Self.chunks(text, size: Self.fullChunk)
+            if chunks.count > 1 {
+                var notes: [String] = []
+                for (index, chunk) in chunks.enumerated() {
+                    guard !Task.isCancelled else { return }
+                    fullSummary?.text = String(localized: "正在整理第 \(index + 1)/\(chunks.count) 部分…", bundle: .l10n)
+                    notes.append(try await client.complete(system: Prompts.summaryNotes(language: language), user: chunk))
+                }
+                input = notes.joined(separator: "\n\n")
+            }
+            var latest = ""
+            for try await partial in client.stream(system: Prompts.summarizeAll(language: language), user: input) {
+                guard !Task.isCancelled else { return }
+                latest = partial
+                fullSummary?.text = partial
+            }
+            guard !Task.isCancelled else { return }
+            fullSummary?.text = latest
+            fullSummary?.generating = false
+        } catch {
+            guard !Task.isCancelled else { return }
+            fullSummary = nil
+            self.error = error.localizedDescription
+        }
+        fullTask = nil
+    }
+
+    /// 按行把长文切成不超过 `size` 个字符的块(不切断句子)。
+    nonisolated static func chunks(_ text: String, size: Int) -> [String] {
+        var result: [String] = []
+        var current = ""
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            if !current.isEmpty, current.count + line.count + 1 > size {
+                result.append(current)
+                current = ""
+            }
+            current += current.isEmpty ? String(line) : "\n" + line
+        }
+        if !current.isEmpty { result.append(current) }
+        return result
     }
 
     // MARK: - 内部
@@ -138,7 +222,7 @@ final class TranscriptSummarizer {
         var text = pending.map(\.text).joined(separator: "\n")
         if text.count > Self.maxCharacters { text = String(text.suffix(Self.maxCharacters)) }
         let previous = sections.last { !$0.generating }?.text
-        let section = Section(range: "\(transcript.offset(of: first)) – \(transcript.offset(of: last))", text: "", generating: true)
+        let section = Section(range: "\(startOffset(before: first, in: transcript)) – \(transcript.offset(of: last))", text: "", generating: true)
         sections.append(section)
         error = nil
         let client = LLMClient(config: config)
@@ -173,6 +257,13 @@ final class TranscriptSummarizer {
         task = nil
     }
 
+    /// 一段的开始时间。句子记的是定稿时刻(这句说完的时候),所以开始时间取上一句的定稿时刻
+    /// (第一句从 00:00:00 开始),各段时间首尾相连,不会出现中间空了一截的错觉。
+    private func startOffset(before entry: CaptionTranscript.Entry, in transcript: CaptionTranscript) -> String {
+        guard let index = transcript.entries.firstIndex(where: { $0.id == entry.id }), index > 0 else { return "00:00:00" }
+        return transcript.offset(of: transcript.entries[index - 1])
+    }
+
     private func setText(_ text: String, for id: UUID, generating: Bool) {
         guard let index = sections.firstIndex(where: { $0.id == id }) else { return }
         sections[index].text = text
@@ -192,6 +283,9 @@ final class TranscriptSummarizer {
         guard sessionID != current else { return }
         sessionID = current
         cancelGeneration()
+        fullTask?.cancel()
+        fullTask = nil
+        fullSummary = nil
         enabled = false
         sections = []
         error = nil

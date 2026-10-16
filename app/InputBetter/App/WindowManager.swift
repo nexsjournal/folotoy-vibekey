@@ -12,6 +12,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private let settingsNavigation = SettingsNavigation()
     /// 字幕记录窗口的固定状态(固定在左侧、置顶)。
     private let transcriptPin = TranscriptPinController(autosaveName: WindowManager.transcriptAutosaveName)
+    /// 字幕记录窗口当前的标签页(可从外部切换)。
+    private let transcriptNavigation = TranscriptNavigation()
     private static let transcriptAutosaveName = "InputBetterTranscript"
 
     init(app: AppState) {
@@ -50,7 +52,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
 
     /// 字幕记录窗口(字幕条 / 菜单 / 设置里的"字幕记录")。显示本次或刚结束的字幕会话,可以拷贝或保存成文件。
-    func showTranscript() {
+    func showTranscript(tab: TranscriptNavigation.Tab? = nil) {
+        if let tab { transcriptNavigation.tab = tab }
         if transcriptWindow == nil {
             transcriptWindow = makeWindow(title: String(localized: "字幕记录", bundle: .l10n), size: NSSize(width: 560, height: 620),
                                           resizable: .init(minSize: NSSize(width: 360, height: 360), autosaveName: Self.transcriptAutosaveName),
@@ -58,9 +61,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
                                               TranscriptView(controller: self.app.subtitles, summarizer: self.app.summarizer,
                                                              settings: self.app.settings,
                                                              onOpenSettings: { [weak self] in self?.showSettings(.ai) },
-                                                             pin: self.transcriptPin) { [weak self] in
-                                                  self?.saveTranscriptFromWindow()
-                                              }
+                                                             pin: self.transcriptPin,
+                                                             onSave: { [weak self] in self?.saveTranscriptFromWindow() },
+                                                             navigation: self.transcriptNavigation)
                                           })
             transcriptPin.attach(transcriptWindow!)
         }
@@ -68,12 +71,17 @@ final class WindowManager: NSObject, NSWindowDelegate {
         app.summarizer.setWindowVisible(true)
     }
 
+    /// 字幕记录窗口是否正在显示(结束字幕时没显示才自动打开)。
+    var isTranscriptVisible: Bool { transcriptWindow?.isVisible == true }
+
     /// 记录窗口里的"保存…":在窗口上弹出保存面板(表单),保存的是点击那一刻的记录。
     private func saveTranscriptFromWindow() {
         guard let window = transcriptWindow else { return }
         let transcript = app.subtitles.transcript
         Task {
-            if await TranscriptSaver.save(transcript, in: window) { app.subtitles.markTranscriptSaved(transcript) }
+            if await TranscriptSaver.save(transcript, summary: app.summarizer.plainText, in: window) {
+                app.subtitles.markTranscriptSaved(transcript)
+            }
         }
     }
 

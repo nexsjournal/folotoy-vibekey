@@ -90,12 +90,15 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
     }
 
-    /// 导出为纯文本:标题行 + 每句 `[时间] 原文`,译文缩进在下一行。
-    func plainText(includeTranslation: Bool = true) -> String {
+    /// 导出为纯文本:标题行 +(有的话)AI 总结 + 每句 `[时间] 原文`,译文缩进在下一行。
+    func plainText(includeTranslation: Bool = true, summary: String? = nil) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         var lines = [appName, formatter.string(from: startedAt), ""]
+        if let summary, !summary.isEmpty {
+            lines += [String(localized: "【AI 总结】", bundle: .l10n), summary, "", String(localized: "【字幕】", bundle: .l10n)]
+        }
         for entry in entries {
             lines.append("[\(offset(of: entry))] \(entry.text)")
             if includeTranslation, let translation = entry.translation, !translation.isEmpty {

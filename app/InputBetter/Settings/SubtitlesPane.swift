@@ -40,11 +40,11 @@ struct SubtitlesPane: View {
                     }
                 }
             }
-            SettingsSection(title: "字幕记录", footer: "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。需要留存时请保存成文件。") {
+            SettingsSection(title: "字幕记录", footer: "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、总结和保存。") {
                 Card {
                     VStack(spacing: DS.Space.m) {
-                        SettingRow(title: "结束时询问是否保存", detail: "保存为文本文件，位置由你选择") {
-                            Toggle("", isOn: $settings.askToSaveCaptions).labelsHidden().toggleStyle(.switch)
+                        SettingRow(title: "结束字幕前确认") {
+                            Toggle("", isOn: $settings.confirmStopCaptions).labelsHidden().toggleStyle(.switch)
                         }
                         Divider()
                         SettingRow(title: "本次字幕记录") {

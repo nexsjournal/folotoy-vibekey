@@ -254,9 +254,12 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions
  → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
- → 有未保存内容且 askToSaveCaptions → 下一轮事件循环 TranscriptSaver.askToSave(NSAlert:保存… / 不保存 / 不再询问)
-     → 保存… → NSSavePanel(用户选位置)→ CaptionTranscript.plainText → 写 UTF-8 文本 → SubtitleController.markTranscriptSaved(id)
-退出 app:AppDelegate.applicationShouldTerminate → AppState.prepareToQuit(同样询问,同步)
+   之前:confirmStopCaptions 时下一轮事件循环 CaptionsConfirmation.confirmStop(结束 / 取消 / 不再询问);
+   Passport 上结束不确认(设备上没法回答 Mac 上的确认框)
+ → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions);保存、总结由用户在窗口里处理
+正在转录时选了别的应用:AppState.startCaptions → 同样先确认 → stop → start(新的一场)
+窗口「保存…」→ TranscriptSaver.save(in: window)→ NSSavePanel → CaptionTranscript.plainText(summary: 总结在前)→ 写 UTF-8 文本
+退出 app:AppDelegate.applicationShouldTerminate → AppState.prepareToQuit(字幕在进行时 CaptionsConfirmation.confirmQuit,取消则不退出)
 ```
 
 字幕记录(app 不保存任何历史,记录只在内存里,下次开始字幕或退出后清除):
@@ -275,6 +278,9 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
        → AppSettings.summaryLLMConfig(接口和 Key 只来自 设置 › AI 的服务;模型可在总结页从该接口的模型列表另选,默认跟随)
        → Prompts.summarize(用户主语言,2–5 条要点)+ summaryUser(新内容 + 上一段总结作上下文)
        → LLMClient.stream(边生成边显示)→ sections;「立即总结」→ summarizeNow
+     「总结全文」→ summarizeAll:全文 ≤ 12000 字直接总结;更长时 chunks → Prompts.summaryNotes 逐块整理要点
+       → Prompts.summarizeAll(概述 + 要点 + 结论 / 待办)→ LLMClient.stream → fullSummary(卡片置顶);不受暂停规则影响
+     每段时间范围:开始 = 上一句的定稿时刻(第一段从 00:00:00),结束 = 最后一句的定稿时刻,各段首尾相连
      新的字幕会话开始 → 清空总结(只在内存里)
  📌 → TranscriptPinController.toggle:固定 = 贴屏幕右边占满可用高度、floating 层级(始终最前)、所有桌面空间可见、不可拖动,
      窗口透明 + 深色外观,TranscriptView 画和字幕条一样的深色玻璃;

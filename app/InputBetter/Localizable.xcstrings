@@ -11,12 +11,12 @@
         }
       }
     },
-    "%@ · %lld 句。不保存的话，下次开始字幕或退出 InputBetter 后记录会被清除。": {
+    "%@ · %lld 句。结束后可以在字幕记录窗口里查看、总结和保存。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · %lld lines. If you don't save, the transcript is cleared the next time you start captions or quit InputBetter."
+            "value": "%@ · %lld lines. After ending, you can review, summarize and save them in the Transcript window."
           }
         }
       }
@@ -300,12 +300,12 @@
     "InputBetter": {
       "shouldTranslate": false
     },
-    "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。需要留存时请保存成文件。": {
+    "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、总结和保存。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "InputBetter keeps no caption history. The transcript lives in memory only and is cleared when you start captions again or quit. Save it to a file to keep it."
+            "value": "InputBetter keeps no caption history. The transcript lives in memory only and is cleared when you start captions again or quit. When captions end, the Transcript window opens so you can review, summarize and save."
           }
         }
       }
@@ -599,6 +599,26 @@
         }
       }
     },
+    "【AI 总结】": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[AI Summary]"
+          }
+        }
+      }
+    },
+    "【字幕】": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Captions]"
+          }
+        }
+      }
+    },
     "一键配置": {
       "localizations": {
         "en": {
@@ -675,16 +695,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Down"
-          }
-        }
-      }
-    },
-    "不保存": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Don't Save"
           }
         }
       }
@@ -919,32 +929,12 @@
         }
       }
     },
-    "保存为文本文件，位置由你选择": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saves a text file wherever you choose"
-          }
-        }
-      }
-    },
     "保存字幕": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Save Captions"
-          }
-        }
-      }
-    },
-    "保存这次的字幕吗？": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save the captions from this session?"
           }
         }
       }
@@ -975,6 +965,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Download"
+          }
+        }
+      }
+    },
+    "全文总结": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Summary"
+          }
+        }
+      }
+    },
+    "全文总结（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Summary (%@)"
           }
         }
       }
@@ -1529,6 +1539,16 @@
         }
       }
     },
+    "字幕正在进行，确定退出吗？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captions are running. Quit anyway?"
+          }
+        }
+      }
+    },
     "字幕翻译的目标语言": {
       "localizations": {
         "en": {
@@ -1905,6 +1925,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Summaries use the service in Settings › AI Polish & Translation. Set it up first."
+          }
+        }
+      }
+    },
+    "总结全文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarize All"
+          }
+        }
+      }
+    },
+    "总结还没总结过的新内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarize content not yet summarized"
           }
         }
       }
@@ -2619,12 +2659,32 @@
         }
       }
     },
+    "正在总结全文…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarizing everything…"
+          }
+        }
+      }
+    },
     "正在播放": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Playing"
+          }
+        }
+      }
+    },
+    "正在整理第 %lld/%lld 部分…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing part %lld of %lld…"
           }
         }
       }
@@ -2885,6 +2945,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Move Pill Back to Bottom Center"
+          }
+        }
+      }
+    },
+    "用 AI 总结这场字幕的全部内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use AI to summarize this whole caption session"
           }
         }
       }
@@ -3259,6 +3329,16 @@
         }
       }
     },
+    "结束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        }
+      }
+    },
     "结束听写": {
       "localizations": {
         "en": {
@@ -3279,6 +3359,16 @@
         }
       }
     },
+    "结束字幕前确认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm Before Ending Captions"
+          }
+        }
+      }
+    },
     "结束字幕（%@）": {
       "localizations": {
         "en": {
@@ -3289,12 +3379,12 @@
         }
       }
     },
-    "结束时询问是否保存": {
+    "结束字幕？": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ask to Save When Captions End"
+            "value": "End captions?"
           }
         }
       }
@@ -3989,12 +4079,32 @@
         }
       }
     },
+    "退出": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit"
+          }
+        }
+      }
+    },
     "退出 InputBetter": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Quit InputBetter"
+          }
+        }
+      }
+    },
+    "退出后 %@ 的这场字幕记录会被清除。需要的话，先在字幕记录窗口里保存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitting clears this %@ transcript. Save it from the Transcript window first if you need it."
           }
         }
       }

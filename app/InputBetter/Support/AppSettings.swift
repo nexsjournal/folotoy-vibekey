@@ -162,8 +162,8 @@ final class AppSettings {
     var translationEngine: TranslationEngine { didSet { defaults.set(translationEngine.rawValue, forKey: "translationEngine") } }
     var subtitleFontSize: Double { didSet { defaults.set(subtitleFontSize, forKey: "subtitleFontSize") } }
     var subtitleLocked: Bool { didSet { defaults.set(subtitleLocked, forKey: "subtitleLocked") } }
-    /// 结束字幕时询问是否保存字幕记录(提示框里勾选"不再询问"会关掉)。
-    var askToSaveCaptions: Bool { didSet { defaults.set(askToSaveCaptions, forKey: "askToSaveCaptions") } }
+    /// 结束字幕前确认(提示框里勾选"不再询问"会关掉)。
+    var confirmStopCaptions: Bool { didSet { defaults.set(confirmStopCaptions, forKey: "confirmStopCaptions") } }
     var llmBaseURL: String { didSet { defaults.set(llmBaseURL, forKey: "llmBaseURL") } }
     var llmModel: String { didSet { defaults.set(llmModel, forKey: "llmModel") } }
     var llmAPIKey: String { didSet { CredentialStore.shared.set(llmAPIKey, for: "llmAPIKey") } }
@@ -171,6 +171,7 @@ final class AppSettings {
     /// 接口只能用设置里配置的 LLM 服务(不单独填写地址和 Key);模型可以从该服务的模型列表里另选,空 = 跟随 AI 设置。
     var summaryInterval: Int { didSet { defaults.set(summaryInterval, forKey: "summaryInterval") } }
     var summaryModel: String { didSet { defaults.set(summaryModel, forKey: "summaryModel") } }
+
     var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     var useMirror: Bool { didSet { defaults.set(useMirror, forKey: "useMirror") } }
     var soundEffects: Bool { didSet { defaults.set(soundEffects, forKey: "soundEffects") } }
@@ -196,7 +197,9 @@ final class AppSettings {
         translationEngine = TranslationEngine(rawValue: defaults.string(forKey: "translationEngine") ?? "") ?? .hybrid
         subtitleFontSize = defaults.object(forKey: "subtitleFontSize") as? Double ?? 22
         subtitleLocked = defaults.bool(forKey: "subtitleLocked")
-        askToSaveCaptions = defaults.object(forKey: "askToSaveCaptions") as? Bool ?? true
+        confirmStopCaptions = defaults.object(forKey: "confirmStopCaptions") as? Bool ?? true
+        // 旧版本结束时询问保存 / 总结全文,现在只确认是否结束。
+        ["askToSaveCaptions", "summarizeOnEnd"].forEach(defaults.removeObject)
         llmBaseURL = defaults.string(forKey: "llmBaseURL") ?? "https://api.openai.com/v1"
         llmModel = defaults.string(forKey: "llmModel") ?? ""
         CredentialStore.shared.migrateFromKeychain(account: "llmAPIKey")

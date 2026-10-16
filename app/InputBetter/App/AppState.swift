@@ -80,7 +80,7 @@ final class AppState {
                               settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
                                   setCaptionsCollapsed(!captionsCollapsed)
                               }, startCaptions: { [unowned self] app in startCaptions(app) },
-                              stopCaptions: { [unowned self] in stopCaptions() },
+                              stopCaptions: { [unowned self] in stopCaptions(confirm: false) },
                               canTranslate: { [unowned self] in translation.isAvailable }))
         bridge.start()
         // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
@@ -131,13 +131,10 @@ final class AppState {
         agent.handle(url: url)
     }
 
-    /// 退出前:字幕还有没保存的记录时先询问(和结束字幕的询问相同),然后再退出。
-    func prepareToQuit() {
-        guard subtitles.isRunning else { return }
-        subtitles.stop()
-        let record = subtitles.transcript
-        guard settings.askToSaveCaptions, record.hasUnsavedEntries else { return }
-        if TranscriptSaver.askToSave(record, settings: settings) { subtitles.markTranscriptSaved(record) }
+    /// 退出前:字幕还在进行时确认一次(记录只在内存里,退出后就没了)。返回 false 表示用户取消退出。
+    func prepareToQuit() -> Bool {
+        guard subtitles.isRunning else { return true }
+        return CaptionsConfirmation.confirmQuit(appName: subtitles.appName)
     }
 
     func shutdown() {
@@ -171,27 +168,51 @@ final class AppState {
     }
 
     /// 开始为某个应用生成字幕(所有入口都走这里):字幕条默认展开。
-    /// 正在为别的应用生成字幕时,先按正常流程结束上一场(会询问是否保存它的记录)。
+    /// 正在为别的应用生成字幕时,先确认结束上一场(开始新的一场会清掉上一场的记录)。
     func startCaptions(_ app: AudioApp) {
         pill.ui.subtitleCollapsed = false
         // 已经在为这个应用生成字幕:只展开字幕条,不重新开始(否则会清掉当前记录)。
         if subtitles.isRunning, subtitles.appBundleID == app.bundleID { return }
-        if subtitles.isRunning { stopCaptions() }
-        subtitles.start(app: app)
+        guard subtitles.isRunning else {
+            subtitles.start(app: app)
+            return
+        }
+        confirmThen { [unowned self] in
+            subtitles.stop()
+            subtitles.start(app: app)
+        }
     }
 
     /// 结束字幕(所有入口都走这里:字幕条、菜单、快捷键、设置、Passport)。
-    /// 有未保存的记录且设置允许时,询问是否保存成文件。询问放到下一轮事件循环,
-    /// 避免在菜单 / 按钮的事件处理过程中弹出模态框;记录按值捕获,之后开始新字幕也不影响。
+    /// 只确认"是否结束"(设置里可关);结束后如果字幕记录窗口没在显示,就打开它——保存、总结由用户在窗口里处理。
+    /// - Parameter confirm: Passport 上结束时传 false(设备上没法回答 Mac 上的确认框)。
     /// 启动失败时(字幕条显示原因)调用则只是关闭字幕条。
-    func stopCaptions() {
+    func stopCaptions(confirm: Bool = true) {
         guard subtitles.needsSurface else { return }
-        let wasRunning = subtitles.isRunning
-        subtitles.stop()
-        let record = subtitles.transcript
-        guard wasRunning, settings.askToSaveCaptions, record.hasUnsavedEntries else { return }
+        guard subtitles.isRunning else {
+            subtitles.stop()
+            return
+        }
+        let finish: @MainActor @Sendable () -> Void = { [unowned self] in
+            subtitles.stop()
+            if !subtitles.transcript.isEmpty, !windows.isTranscriptVisible { windows.showTranscript(tab: .captions) }
+        }
+        confirm ? confirmThen(finish) : finish()
+    }
+
+    /// 需要时先确认结束当前字幕再执行。确认框放到下一轮事件循环,避免在菜单 / 按钮的事件处理过程中弹出模态框;
+    /// 确认后再检查一次字幕还在运行(期间可能已经被别的入口结束)。
+    private func confirmThen(_ action: @escaping @MainActor @Sendable () -> Void) {
+        guard settings.confirmStopCaptions else {
+            action()
+            return
+        }
+        let appName = subtitles.appName, sentences = subtitles.transcript.entries.count
         Task { @MainActor [unowned self] in
-            if TranscriptSaver.askToSave(record, settings: settings) { subtitles.markTranscriptSaved(record) }
+            guard subtitles.isRunning,
+                  CaptionsConfirmation.confirmStop(appName: appName, sentences: sentences, settings: settings),
+                  subtitles.isRunning else { return }
+            action()
         }
     }
 

@@ -495,3 +495,25 @@ nonisolated final class SummaryTests: XCTestCase {
         XCTAssertTrue(Prompts.summarize(language: .zhHans).contains("Simplified Chinese"))
     }
 }
+
+/// 链:AppState.stopCaptions → TranscriptSaver.askOnEnd → TranscriptSummarizer.summarizeAll(chunks → summaryNotes → summarizeAll)。
+nonisolated final class FullSummaryTests: XCTestCase {
+    func testChunksKeepLinesWhole() {
+        let text = (0..<10).map { "Line number \($0) with some words." }.joined(separator: "\n")
+        let chunks = TranscriptSummarizer.chunks(text, size: 80)
+        XCTAssertGreaterThan(chunks.count, 1)
+        XCTAssertTrue(chunks.allSatisfy { $0.count <= 80 })
+        XCTAssertEqual(chunks.joined(separator: "\n"), text, "分块不丢内容、不切断句子")
+        XCTAssertEqual(TranscriptSummarizer.chunks("short", size: 80), ["short"])
+    }
+
+    func testExportIncludesSummaryBeforeTranscript() {
+        var transcript = CaptionTranscript(appName: "Chrome", startedAt: Date())
+        transcript.append(.init(text: "Hello world."))
+        let text = transcript.plainText(summary: "全文总结\n- 要点")
+        let summaryIndex = text.range(of: "- 要点")!.lowerBound
+        let lineIndex = text.range(of: "Hello world.")!.lowerBound
+        XCTAssertLessThan(summaryIndex, lineIndex, "总结写在字幕前面")
+        XCTAssertFalse(transcript.plainText().contains("【"), "没有总结时不加总结标题")
+    }
+}

@@ -9,6 +9,7 @@ import AVFoundation
 /// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
 /// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口(IB_TRANSCRIPT_TAB=summary 打开「总结」页);
 /// - IB_SUMMARIZE_AFTER=秒      启动后过这么多秒触发一次「立即总结」;
+/// - IB_SUMMARIZE_ALL_AFTER=秒  启动后过这么多秒触发一次「总结全文」;
 /// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 @MainActor
@@ -39,6 +40,12 @@ enum DebugHooks {
         }
         if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
         if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
+        if let seconds = env["IB_SUMMARIZE_ALL_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.summarizer.summarizeAll()
+            }
+        }
         if let seconds = env["IB_SUMMARIZE_AFTER"].flatMap(Double.init) {
             Task {
                 try? await Task.sleep(for: .seconds(seconds))
