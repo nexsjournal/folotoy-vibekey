@@ -46,7 +46,7 @@ App(AppState 组合根)
 | 按键手势识别 | `KeyPressTracker` | DeviceBridge |
 | 应用前置聚焦 | `AppSwitcher.activate` | DeviceBridge(切换应用) |
 | 密钥存储(本机 0600 文件,不用钥匙串) | `CredentialStore` | AppSettings.llmAPIKey、CloudASRStore |
-| 云端流式会话(连接 / 缓冲 / 超时 / 重连) | `StreamingCloudSession` | 火山引擎、百炼、ElevenLabs(各自只实现 `RealtimeCodec`) |
+| 云端流式会话(连接 / 缓冲 / 超时 / 重连) | `StreamingCloudSession` | 火山引擎、百炼、ElevenLabs、Soniox(各自只实现 `RealtimeCodec`) |
 | Float → PCM16 / WAV | `AudioFormats.pcm16` / `AudioFormats.wav` | StreamingCloudSession、OpenAITranscriptionDecoder |
 | gzip | `Gzip` | VolcengineCodec |
 | 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
@@ -130,10 +130,13 @@ finish → finalizeAndFinishThroughEndOfInput → TranscriptText.join
 
 ```
 EngineRegistry.engine(for: "cloud-…") → CloudASREngine.makeSession → CloudASREngine.session(provider:config:options:)
- ├─ 流式(火山引擎 / 百炼 / ElevenLabs):StreamingCloudSession(makeCodec)
+ ├─ 流式(火山引擎 / 百炼 / ElevenLabs / Soniox):StreamingCloudSession(makeCodec)
  │    feed → inbox → run → AudioFormats.pcm16 → RealtimeCodec.audioMessage → CloudConnection.send
  │    CloudConnection.receive → RealtimeCodec.parse → .ready / .partial / .final / .completed / .failure
  │    finish → 补发尾包 + RealtimeCodec.finishMessages → 等 .completed(或结束后的定稿)→ 拼接定稿
+ │    Soniox(SonioxCodec):Bearer 头鉴权 → 配置消息(pcm_s16le 16 kHz;字幕开端点检测,听写不开;language_hints、context.terms)
+ │      → 二进制 PCM → tokens(最终 token 累加、非最终 token 整体替换;第一条响应即 .ready)
+ │      → <end> / <fin> 切出一句 .final → 结束:空文本帧 → finished:true → .completed;error_code → .failure
  └─ OpenAI 兼容:SegmentedSession(OpenAITranscriptionDecoder)
       → VAD 分段 → 松开后整段 AudioFormats.wav → MultipartForm → POST /audio/transcriptions
 出错:会话发出 TranscriptEvent.failure → DictationController.streamError(没有文字时 fail(.other))
@@ -366,6 +369,7 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
      → CloudASRStore.config(provider)(API Key 来自 CredentialStore,其余来自 UserDefaults)
      → 模型:ModelPickerField(选项 = CloudASREngine.fetchModels:
          OpenAI 兼容 → 地址和 Key 填好后停顿 0.6 秒 → OpenAICompatibleAPI.listModels → transcriptionModels 过滤;
+         Soniox → Key 填好后停顿 0.6 秒 → SonioxAPI.realtimeModels(GET /v1/models,只留 real_time、去掉别名);
          其他服务没有列表接口 → CloudProvider.knownModels(官方文档列出的实时识别模型 / 资源 ID))
      → 「测试连接」CloudASREngine.test → 1.5 秒近静音 → 有 .failure 则显示原因
      → 「保存」CloudASRStore.update → CredentialStore.set("cloud.<provider>.apiKey") + UserDefaults

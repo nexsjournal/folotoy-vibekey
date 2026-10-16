@@ -423,6 +423,16 @@
         }
       }
     },
+    "Soniox · 实时识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soniox · Real-time"
+          }
+        }
+      }
+    },
     "USB · 待刷固件": {
       "localizations": {
         "en": {
@@ -1445,6 +1455,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "International service with high accuracy for Mandarin, Cantonese and English, and low latency."
+          }
+        }
+      }
+    },
+    "国际服务，支持约 60 种语言和中英混说，延迟低。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "International service. About 60 languages and mixed Chinese–English speech, with low latency."
           }
         }
       }

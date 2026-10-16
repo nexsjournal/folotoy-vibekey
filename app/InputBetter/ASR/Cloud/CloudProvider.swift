@@ -7,7 +7,7 @@ import Foundation
 /// - OpenAI 兼容转写接口:按句上传,兼容 OpenAI、Groq 等任何 `/audio/transcriptions` 服务。
 /// 都采用"用户自带密钥"模式,密钥只存在本机(CredentialStore)。
 nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
-    case volcengine, bailian, elevenlabs, openAICompatible
+    case volcengine, bailian, elevenlabs, soniox, openAICompatible
 
     var id: String { rawValue }
 
@@ -19,6 +19,7 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .volcengine: String(localized: "火山引擎 · 豆包流式识别", bundle: .l10n)
         case .bailian: String(localized: "阿里云百炼 · Fun-ASR 实时识别", bundle: .l10n)
         case .elevenlabs: "ElevenLabs · Scribe v2 Realtime"
+        case .soniox: String(localized: "Soniox · 实时识别", bundle: .l10n)
         case .openAICompatible: String(localized: "OpenAI 兼容转写接口", bundle: .l10n)
         }
     }
@@ -28,6 +29,7 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .volcengine: String(localized: "普通话准确率很高，支持中英混说和多种方言；适合中国大陆。", bundle: .l10n)
         case .bailian: String(localized: "方言覆盖最广（粤语、吴语、闽南语等），中英文都好；有中国大陆和国际两个区域。", bundle: .l10n)
         case .elevenlabs: String(localized: "国际服务，中文、粤语、英文准确率高，延迟低。", bundle: .l10n)
+        case .soniox: String(localized: "国际服务，支持约 60 种语言和中英混说，延迟低。", bundle: .l10n)
         case .openAICompatible: String(localized: "按句上传识别，兼容 OpenAI、Groq 等接口；字幕延迟较高。", bundle: .l10n)
         }
     }
@@ -38,6 +40,7 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .volcengine: "Doubao ASR"
         case .bailian: "Fun-ASR"
         case .elevenlabs: "Scribe"
+        case .soniox: "Soniox"
         case .openAICompatible: "Cloud ASR"
         }
     }
@@ -51,6 +54,7 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .volcengine: URL(string: "https://console.volcengine.com/speech/app")!
         case .bailian: URL(string: "https://bailian.console.aliyun.com/?tab=model#/api-key")!
         case .elevenlabs: URL(string: "https://elevenlabs.io/app/settings/api-keys")!
+        case .soniox: URL(string: "https://console.soniox.com")!
         case .openAICompatible: URL(string: "https://platform.openai.com/api-keys")!
         }
     }
@@ -66,13 +70,13 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .volcengine: "volc.seedasr.sauc.duration"
         case .bailian: "fun-asr-realtime"
         case .elevenlabs: "scribe_v2_realtime"
+        case .soniox: "stt-rt-v5"
         case .openAICompatible: "gpt-4o-mini-transcribe"
         }
     }
 
-    /// 可选的模型。只有 OpenAI 兼容服务提供模型列表接口(`GET /models`,见 CloudASREngine.fetchModels);
-    /// 其他三家没有公开的列表接口,这里是各家文档列出的实时识别模型 / 资源 ID。
-    /// 对 OpenAI 兼容服务,这是拉取列表之前(或拉取失败时)的常用选项。
+    /// 可选的模型。OpenAI 兼容服务和 Soniox 提供模型列表接口(见 CloudASREngine.fetchModels),
+    /// 这里是拉取之前(或拉取失败时)的常用选项;其他三家没有公开的列表接口,这里是各家文档列出的实时识别模型 / 资源 ID。
     var knownModels: [ModelOption] {
         switch self {
         case .volcengine: [
@@ -88,12 +92,15 @@ nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {
         case .elevenlabs: [
             ModelOption(id: "scribe_v2_realtime", title: "Scribe v2 Realtime"),
         ]
+        case .soniox: [
+            ModelOption(id: "stt-rt-v5", title: "Soniox v5 Real-time · stt-rt-v5"),
+        ]
         case .openAICompatible: ModelOption.ids(["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1", "whisper-large-v3-turbo", "whisper-large-v3"])
         }
     }
 
     /// 能否从接口拉取模型列表。
-    var canFetchModels: Bool { self == .openAICompatible }
+    var canFetchModels: Bool { self == .openAICompatible || self == .soniox }
 
     /// 是否需要填写接口地址(OpenAI 兼容服务)。
     var needsBaseURL: Bool { self == .openAICompatible }

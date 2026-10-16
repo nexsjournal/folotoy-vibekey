@@ -151,6 +151,78 @@ nonisolated final class CloudASRTests: XCTestCase {
         XCTAssertEqual(codec.parse(.string(#"{"message_type":"auth_error","error":"invalid key"}"#)), [.failure("auth_error: invalid key")])
     }
 
+    // MARK: - Soniox
+
+    func testSonioxRequestAndConfig() throws {
+        let codec = SonioxCodec(apiKey: "k", model: "stt-rt-v5", options: dictation)
+        let request = try codec.makeRequest()
+        XCTAssertEqual(request.url?.absoluteString, "wss://stt-rt.soniox.com/transcribe-websocket")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer k", "鉴权放在连接头里,不放在配置消息里")
+
+        guard case .string(let start) = try codec.startMessages().first,
+              let config = CloudJSON.object(Data(start.utf8)) else { return XCTFail() }
+        XCTAssertEqual(config["model"] as? String, "stt-rt-v5")
+        XCTAssertEqual(config["audio_format"] as? String, "pcm_s16le")
+        XCTAssertEqual(CloudJSON.integer(config["sample_rate"]), 16_000)
+        XCTAssertEqual(CloudJSON.integer(config["num_channels"]), 1)
+        XCTAssertNil(config["api_key"])
+        XCTAssertEqual(config["enable_endpoint_detection"] as? Bool, false, "听写由松开按键结束,不按停顿切句")
+        XCTAssertEqual(config["language_hints"] as? [String], ["zh"])
+        XCTAssertEqual((config["context"] as? [String: Any])?["terms"] as? [String], ["InputBetter"])
+
+        let subtitles = SonioxCodec(apiKey: "k", model: "stt-rt-v5",
+                                    options: ASROptions(purpose: .subtitles, language: .yue, vocabulary: []))
+        guard case .string(let subStart) = try subtitles.startMessages().first,
+              let subConfig = CloudJSON.object(Data(subStart.utf8)) else { return XCTFail() }
+        XCTAssertEqual(subConfig["enable_endpoint_detection"] as? Bool, true)
+        XCTAssertNil(subConfig["language_hints"], "粤语没有单独的语言代码,交给自动识别")
+        XCTAssertNil(subConfig["context"])
+
+        // 结束:先补最后的音频(二进制),再发空文本帧;空的二进制帧不算结束。
+        XCTAssertEqual(try codec.finishMessages(lastChunk: Data([1, 0])).map(describe), ["data:0100", "string:"])
+        XCTAssertEqual(try codec.finishMessages(lastChunk: Data()).map(describe), ["string:"])
+        XCTAssertEqual(describe(try codec.audioMessage(Data([2, 0]))), "data:0200")
+    }
+
+    /// WebSocket 消息不是 Equatable,转成「类型:内容」便于比较。
+    private func describe(_ message: URLSessionWebSocketTask.Message) -> String {
+        switch message {
+        case .data(let data): "data:" + data.map { String(format: "%02x", $0) }.joined()
+        case .string(let text): "string:" + text
+        @unknown default: "unknown"
+        }
+    }
+
+    /// token 流:最终 token 只来一次要累加,非最终 token 每次整体替换;<end> 切句,finished 收尾。
+    func testSonioxTokenParsing() {
+        var codec = SonioxCodec(apiKey: "k", model: "stt-rt-v5", options: dictation)
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[{"text":"Hel","is_final":false}]}"#)), [.ready, .partial("Hel")])
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[{"text":"Hello","is_final":true},{"text":" wor","is_final":false}]}"#)),
+                       [.ready, .partial("Hello wor")])
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[{"text":" world","is_final":true},{"text":"<end>","is_final":true}]}"#)),
+                       [.ready, .final("Hello world"), .partial(""), .partial("")])
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[{"text":"你好","is_final":true}]}"#)), [.ready, .partial("你好")])
+        // 没有新 token 的进度响应不改动实时文本。
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[],"final_audio_proc_ms":1200}"#)), [.ready])
+        XCTAssertEqual(codec.parse(.string(#"{"tokens":[],"finished":true}"#)), [.ready, .final("你好"), .partial(""), .completed])
+        XCTAssertEqual(codec.parse(.string(#"{"error_code":401,"error_type":"unauthenticated","error_message":"Invalid API key"}"#)),
+                       [.failure("unauthenticated: Invalid API key")])
+    }
+
+    func testSonioxModelListKeepsRealtimeNonAliases() throws {
+        let json = #"""
+        {"models":[
+          {"id":"stt-rt-v5","name":"Soniox v5 Real-time","transcription_mode":"real_time","aliased_model_id":null},
+          {"id":"stt-rt-v4","name":"","transcription_mode":"real_time","aliased_model_id":"stt-rt-v5"},
+          {"id":"stt-async-v5","name":"Async","transcription_mode":"async","aliased_model_id":null}
+        ]}
+        """#
+        let models = try SonioxAPI.parseRealtimeModels(Data(json.utf8))
+        XCTAssertEqual(models.map(\.id), ["stt-rt-v5"])
+        XCTAssertEqual(models.first?.title, "Soniox v5 Real-time · stt-rt-v5")
+        XCTAssertThrowsError(try SonioxAPI.parseRealtimeModels(Data("[]".utf8)))
+    }
+
     // MARK: - 配置
 
     func testCloudConfigCompleteness() {

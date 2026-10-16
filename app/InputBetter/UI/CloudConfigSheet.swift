@@ -108,14 +108,14 @@ struct CloudConfigSheet: View {
             config = store.config(provider)
             models = provider.knownModels
         }
-        .task(id: provider.canFetchModels ? "\(config.baseURL)|\(config.apiKey)|\(refreshToken)" : "") { await fetchModels() }
+        .task(id: provider.canFetchModels ? "\(provider.needsBaseURL ? config.baseURL : "")|\(config.apiKey)|\(refreshToken)" : "") { await fetchModels() }
     }
 
-    /// OpenAI 兼容服务:地址和 Key 填好、输入停顿后拉取模型列表;失败时保留常用选项并显示原因。
+    /// 能拉取模型列表的服务(OpenAI 兼容、Soniox):地址(需要时)和 Key 填好、输入停顿后拉取;失败时保留常用选项并显示原因。
     private func fetchModels() async {
         guard provider.canFetchModels else { return }
         modelsError = nil
-        guard OpenAICompatibleAPI.endpoint(config.baseURL, "models") != nil,
+        guard !provider.needsBaseURL || OpenAICompatibleAPI.endpoint(config.baseURL, "models") != nil,
               !config.apiKey.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         try? await Task.sleep(for: .milliseconds(600))
         guard !Task.isCancelled else { return }

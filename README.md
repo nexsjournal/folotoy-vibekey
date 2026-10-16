@@ -43,6 +43,7 @@
 | 火山引擎 · 豆包流式识别 2.0 | WebSocket 流式 | 普通话准确率高,中英混说、方言;中国大陆 |
 | 阿里云百炼 · Fun-ASR 实时识别 | WebSocket 流式 | 方言覆盖广;中国大陆 / 国际两个区域 |
 | ElevenLabs Scribe v2 Realtime | WebSocket 流式 | 国际服务,中英粤准确率高、延迟低 |
+| [Soniox](https://soniox.com) 实时识别(stt-rt-v5) | WebSocket 流式 | 国际服务,约 60 种语言、中英混说,延迟低;模型列表从接口获取 |
 | OpenAI 兼容转写接口 | 按句上传 | OpenAI、Groq 等 `/audio/transcriptions` |
 
 - API Key(包括 AI 后处理的 Key)只保存在本机文件 `~/Library/Application Support/InputBetter/credentials.json`,权限 0600,不使用钥匙串。

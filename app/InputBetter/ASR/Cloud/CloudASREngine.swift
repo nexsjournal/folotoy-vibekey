@@ -1,7 +1,7 @@
 import Foundation
 
 /// 云端识别引擎:按服务类型创建会话。每次创建会话时读取最新配置,修改配置后无需重启。
-/// - 流式服务(火山 / 百炼 / ElevenLabs):StreamingCloudSession + 对应编解码器;
+/// - 流式服务(火山 / 百炼 / ElevenLabs / Soniox):StreamingCloudSession + 对应编解码器;
 /// - OpenAI 兼容接口:SegmentedSession + OpenAITranscriptionDecoder(本地 VAD 分段)。
 @MainActor
 final class CloudASREngine: ASREngine {
@@ -42,16 +42,24 @@ final class CloudASREngine: ASREngine {
             return StreamingCloudSession(purpose: options.purpose) {
                 ElevenLabsCodec(apiKey: key, model: config.model, options: options)
             }
+        case .soniox:
+            return StreamingCloudSession(purpose: options.purpose) {
+                SonioxCodec(apiKey: key, model: config.model, options: options)
+            }
         case .openAICompatible:
             return SegmentedSession(decoder: OpenAITranscriptionDecoder(baseURL: config.baseURL, apiKey: key, model: config.model),
                                     options: options)
         }
     }
 
-    /// 可选模型:OpenAI 兼容服务从 `GET /models` 拉取,只保留转写类模型(名字里带 whisper / transcribe 等);
-    /// 一个都匹配不上时(服务的命名不同)返回全部,让用户自己选。其他服务返回已知模型列表。
+    /// 可选模型:
+    /// - OpenAI 兼容服务从 `GET /models` 拉取,只保留转写类模型(名字里带 whisper / transcribe 等);
+    ///   一个都匹配不上时(服务的命名不同)返回全部,让用户自己选;
+    /// - Soniox 从 `GET /v1/models` 拉取实时模型;
+    /// - 其他服务返回已知模型列表。
     static func fetchModels(provider: CloudProvider, config: CloudConfig) async throws -> [ModelOption] {
         guard provider.canFetchModels else { return provider.knownModels }
+        if provider == .soniox { return try await SonioxAPI.realtimeModels(apiKey: config.apiKey) }
         let all = try await OpenAICompatibleAPI.listModels(baseURL: config.baseURL, apiKey: config.apiKey)
         return ModelOption.ids(transcriptionModels(all))
     }
