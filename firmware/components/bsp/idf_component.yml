@@ -1,0 +1,7 @@
+dependencies:
+  idf: ">=5.5.3,<5.6.0"
+  # 固定为在本板上验证过的版本(9.6 起废弃 lv_obj_add_flag 等接口并改了 LV_MEM_SIZE 配置项)。
+  lvgl/lvgl: "9.5.0"
+  espressif/esp_lvgl_port: "2.9.0"
+  espressif/button: "4.2.0"
+  espressif/esp_codec_dev: "1.6.2"

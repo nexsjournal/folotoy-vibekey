@@ -1,0 +1,8 @@
+# InputBetter Passport 分区表(8 MB Flash)。
+# cardid 是设备出厂身份数据,位置与大小必须保持 0x356000 / 0x4000 不变,固件从不写它。
+# 0x310000..0x356000 与 0x35A000 之后的区域不使用(原 music 分区已去掉,内容保持原样)。
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x300000,
+cardid,   data, nvs,     0x356000, 0x4000,

@@ -1,0 +1,10 @@
+// 代码签名配置。
+// 默认用 ad-hoc 签名,任何人克隆后都能直接编译。
+// 想让辅助功能授权在重新编译后不失效,需要固定签名身份:新建同目录的 Signing.local.xcconfig(已在 .gitignore 中),写入
+//   CODE_SIGN_IDENTITY = Apple Development: Your Name (XXXXXXXXXX)
+//   DEVELOPMENT_TEAM = YOURTEAMID
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

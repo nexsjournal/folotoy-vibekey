@@ -1,0 +1,70 @@
+{
+  "sourceLanguage": "zh-Hans",
+  "strings": {
+    "NSAudioCaptureUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter records audio from the app you choose to generate live captions."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter 需要录制所选应用播放的声音，用于生成实时字幕。"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter connects to Passport over Bluetooth to receive key presses and show status."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter 通过蓝牙连接 Passport，接收按键并显示状态。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter uses the microphone to turn what you say into text."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter 需要使用麦克风，把你说的话转成文字输入。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses Apple's speech recognition to transcribe speech on this Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Apple 语音识别引擎在本机转录语音。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

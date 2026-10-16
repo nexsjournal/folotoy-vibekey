@@ -1,0 +1,228 @@
+import AppKit
+import SwiftUI
+
+/// 组合根:创建所有模块、注入依赖、把它们连起来。其他类型都不直接创建彼此。
+@MainActor @Observable
+final class AppState {
+    let settings: AppSettings
+    let language = LanguageState()
+    let permissions: Permissions
+    let inputDevices: InputDevices
+    let models: ModelManager
+    /// 云端识别配置(API Key 存本机凭据文件)。
+    let cloudASR: CloudASRStore
+    let engines: EngineRegistry
+    let processor: TextProcessor
+    let deviceLink: DeviceLink
+    let dictation: DictationController
+    let subtitles: SubtitleController
+    let agent: AgentNotifier
+    let firmware: FirmwareFlasher
+    let passportSetup: PassportSetupModel
+    @ObservationIgnored let hotkeys: HotkeyManager
+    @ObservationIgnored private(set) var windows: WindowManager!
+    @ObservationIgnored private var pill: PillPanelController!
+    @ObservationIgnored private var bridge: DeviceBridge!
+    @ObservationIgnored private var menus: MenuBuilder!
+    @ObservationIgnored private var statusItem: NSStatusItem?
+
+    init() {
+        let settings = AppSettings()
+        self.settings = settings
+        permissions = Permissions()
+        inputDevices = InputDevices()
+        cloudASR = CloudASRStore()
+        models = ModelManager(settings: settings, cloud: cloudASR)
+        engines = EngineRegistry(cloud: cloudASR)
+        processor = TextProcessor(settings: settings)
+        deviceLink = DeviceLink()
+        agent = AgentNotifier()
+        firmware = FirmwareFlasher(link: deviceLink)
+        passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
+        hotkeys = HotkeyManager()
+        subtitles = SubtitleController(settings: settings, models: models, engines: engines, processor: processor)
+
+        // 音源工厂:选了 Passport 且已连接时用设备麦克风,否则用系统输入设备。
+        let link = deviceLink
+        let inputDevices = inputDevices
+        dictation = DictationController(
+            settings: settings, models: models, engines: engines, processor: processor,
+            inserter: TextInserter(), sounds: SoundEffects(settings: settings),
+            makeSource: {
+                if settings.micID == AppSettings.passportMicID, link.connection != .disconnected {
+                    return PassportMicSource(link: link)
+                }
+                let uid = settings.micID
+                let exists = !uid.isEmpty && uid != AppSettings.passportMicID && inputDevices.device(uid: uid) != nil
+                return MicSource(deviceUID: exists ? uid : nil)
+            })
+    }
+
+    /// 启动:创建窗口与菜单、挂快捷键、连接设备、预加载模型。
+    func launch() {
+        windows = WindowManager(app: self)
+        menus = MenuBuilder(app: self)
+        pill = PillPanelController(content: { [unowned self] ui, window in
+            AnyView(LocalizedRoot(language: language) { PillView(
+                dictation: dictation, subtitles: subtitles, agent: agent, ui: ui,
+                settings: settings, permissions: permissions,
+                hotkeyHint: { [unowned self] in hotkeys.dictateDescription },
+                actions: pillActions, window: window) })
+        }, settings: settings)
+
+        bridge = DeviceBridge(link: deviceLink, dictation: dictation, subtitles: subtitles, agent: agent,
+                              settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
+                                  setCaptionsCollapsed(!captionsCollapsed)
+                              }, startCaptions: { [unowned self] app in startCaptions(app) }))
+        bridge.start()
+        // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
+        updateBluetooth()
+        deviceLink.start()
+
+        hotkeys.start(.init(
+            dictateDown: { [unowned self] in dictation.pressDown(mode: .dictate) },
+            dictateUp: { [unowned self] in dictation.pressUp() },
+            translateDown: { [unowned self] in dictation.pressDown(mode: .translate) },
+            translateUp: { [unowned self] in dictation.pressUp() },
+            toggleSubtitles: { [unowned self] in toggleCaptionsFromShortcut() }))
+
+        installStatusItem()
+        observeSettings()
+
+        #if DEBUG
+        // 调试用:IB_SETTINGS_PANE 打开设置窗口,IB_ONBOARDING_STEP 打开引导。
+        let env = ProcessInfo.processInfo.environment
+        if env["IB_SETTINGS_PANE"] != nil { windows.showSettings() }
+        if env["IB_ONBOARDING_STEP"] != nil { windows.showOnboarding(); return }
+        DebugHooks.run(app: self)
+        if env["IB_SHOW_PILL"] != nil || env["IB_TRANSCRIBE_FILE"] != nil { return }
+        #endif
+        if settings.onboardingDone {
+            pill.show()
+            engines.preload(settings.dictationModelID)
+        } else {
+            windows.showOnboarding()
+        }
+    }
+
+    /// onboarding 完成后调用。
+    func finishOnboarding() {
+        settings.onboardingDone = true
+        updateBluetooth()
+        pill.show()
+        engines.preload(settings.dictationModelID)
+    }
+
+    /// 显示底部状态条(引导的"试一试"一步也会调用)。
+    func showPill() {
+        pill.show()
+    }
+
+    func handle(url: URL) {
+        agent.handle(url: url)
+    }
+
+    func shutdown() {
+        subtitles.stop()
+        dictation.cancel()
+        deviceLink.stop()
+    }
+
+    // MARK: - 动作
+
+    private var pillActions: PillActions {
+        PillActions(
+            toggleDictation: { [unowned self] in dictation.toggle() },
+            startCaptions: { [unowned self] point in pill.popUp(menus.captionAppsMenu(), at: point) },
+            expandCaptions: { [unowned self] in setCaptionsCollapsed(false) },
+            collapseCaptions: { [unowned self] in setCaptionsCollapsed(true) },
+            stopCaptions: { [unowned self] in subtitles.stop() },
+            showMenu: { [unowned self] point in pill.popUp(menus.build(), at: point) },
+            cancel: { [unowned self] in dictation.cancel() },
+            confirm: { [unowned self] in dictation.stop() },
+            dismissAgent: { [unowned self] in agent.dismiss() })
+    }
+
+    /// 字幕条是否收起(菜单、Passport、字幕条按钮共用)。
+    var captionsCollapsed: Bool { pill.ui.subtitleCollapsed }
+
+    func setCaptionsCollapsed(_ collapsed: Bool) {
+        pill.ui.subtitleCollapsed = collapsed
+    }
+
+    /// 开始为某个应用生成字幕(所有入口都走这里):字幕条默认展开。
+    func startCaptions(_ app: AudioApp) {
+        pill.ui.subtitleCollapsed = false
+        subtitles.start(app: app)
+    }
+
+    /// 开关字幕快捷键:运行中则停止;否则在状态条上方弹出应用列表让用户选择(不沿用上一次的应用)。
+    func toggleCaptionsFromShortcut() {
+        if subtitles.isRunning {
+            subtitles.stop()
+        } else {
+            pill.show()
+            pill.popUpAtPill(menus.captionAppsMenu())
+        }
+    }
+
+    // MARK: - 菜单栏
+
+    private func installStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "InputBetter")
+        item.button?.target = self
+        item.button?.action = #selector(statusItemClicked)
+        statusItem = item
+    }
+
+    @objc private func statusItemClicked() {
+        guard let item = statusItem else { return }
+        item.menu = menus.build()
+        item.button?.performClick(nil)
+        item.menu = nil
+    }
+
+    // MARK: - 设置联动
+
+    private func observeSettings() {
+        observeChanges({ [unowned self] in _ = settings.showPill }) { [unowned self] in
+            settings.showPill ? pill.show() : pill.hide()
+        }
+        observeChanges({ [unowned self] in _ = settings.deviceBluetooth }) { [unowned self] in
+            updateBluetooth()
+        }
+        observeChanges({ [unowned self] in _ = settings.dictationModelID }) { [unowned self] in
+            engines.unloadAll(except: [settings.dictationModelID, settings.effectiveSubtitleModelID])
+            engines.preload(settings.dictationModelID)
+        }
+        observeChanges({ [unowned self] in _ = settings.language }) { [unowned self] in models.languageChanged() }
+        observeChanges({ [unowned self] in _ = subtitles.status }) { [unowned self] in
+            // 字幕停止后复位"收起"状态;字幕开启时确保状态条可见(字幕条就是状态条)。
+            if !subtitles.isRunning { pill.ui.subtitleCollapsed = false } else { pill.show() }
+        }
+        // 听写优先:听写进行中暂停字幕解码(音频照常缓存),结束后字幕自动补上。
+        observeChanges({ [unowned self] in _ = dictation.phase }) { [unowned self] in
+            subtitles.setDecodingPaused(dictation.phase.isBusy)
+        }
+    }
+
+    /// 引导进入 Passport 一步后允许蓝牙(用户在这里第一次看到蓝牙相关说明)。
+    func unlockBluetooth() {
+        bluetoothUnlocked = true
+        updateBluetooth()
+    }
+
+    @ObservationIgnored private var bluetoothUnlocked = false
+
+    private func updateBluetooth() {
+        deviceLink.bluetoothEnabled = settings.deviceBluetooth && (settings.onboardingDone || bluetoothUnlocked)
+    }
+
+    /// 状态条回到屏幕底部中央。
+    func resetPillPosition() {
+        pill.resetPosition()
+    }
+
+    var pillHasCustomPosition: Bool { pill.hasCustomPosition }
+}

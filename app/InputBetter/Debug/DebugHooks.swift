@@ -1,0 +1,79 @@
+#if DEBUG
+import AppKit
+import AVFoundation
+
+/// 仅调试构建可用的启动钩子(环境变量),用于自动化检查,不进入正式版本:
+/// - IB_DOWNLOAD=id1,id2       启动后下载这些模型;
+/// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
+/// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
+/// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
+/// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
+@MainActor
+enum DebugHooks {
+    static var env: [String: String] { ProcessInfo.processInfo.environment }
+
+    static func run(app: AppState) {
+        if let ids = env["IB_DOWNLOAD"] {
+            for id in ids.split(separator: ",") { app.models.download(String(id)) }
+        }
+        if let path = env["IB_TRANSCRIBE_FILE"] {
+            let ids = (env["IB_TRANSCRIBE_MODELS"] ?? app.settings.dictationModelID).split(separator: ",").map(String.init)
+            Task { await transcribe(path: path, modelIDs: ids, app: app) }
+        }
+        if env["IB_SHOW_PILL"] != nil { app.showPill() }
+        if let code = env["IB_SWITCH_LANGUAGE"], let target = AppLanguage(rawValue: code) {
+            let previous = AppLanguage.saved
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                app.language.set(target)
+                // 只用于检查,不改变用户保存的选择。
+                AppLanguage.save(previous)
+            }
+        }
+        if let bid = env["IB_SUBTITLE_APP"] {
+            let name = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bid }?.localizedName ?? bid
+            app.subtitles.start(app: AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
+        }
+    }
+
+    private static func transcribe(path: String, modelIDs: [String], app: AppState) async {
+        guard let samples = loadSamples(path) else {
+            print("IBBENCH load failed: \(path)")
+            exit(1)
+        }
+        print("IBBENCH audio \(String(format: "%.1f", Double(samples.count) / 16_000))s")
+        for id in modelIDs {
+            guard let engine = app.engines.engine(for: id) else { continue }
+            do {
+                let loadStart = Date()
+                try await engine.prepare()
+                let loadTime = Date().timeIntervalSince(loadStart)
+                let options = ASROptions(purpose: .dictation, language: app.settings.language, vocabulary: app.settings.vocabularyTerms)
+                let session = try await engine.makeSession(options)
+                // 模拟实时输入:按 100 ms 一块送入,最后计时 finish(即松开快捷键后的等待时间)。
+                var i = 0
+                while i < samples.count {
+                    let end = min(i + 1_600, samples.count)
+                    session.feed(Array(samples[i..<end]))
+                    i = end
+                }
+                // 等处理队列消化完已送入的音频,只计松开后的识别时间。
+                try? await Task.sleep(for: .seconds(Double(samples.count) / 16_000 * 0.5 + 2))
+                let finishStart = Date()
+                let text = await session.finish()
+                print("IBBENCH \(id) load=\(String(format: "%.2f", loadTime))s finish=\(String(format: "%.2f", Date().timeIntervalSince(finishStart)))s text=\(text)")
+            } catch {
+                print("IBBENCH \(id) error=\(error.localizedDescription)")
+            }
+        }
+        exit(0)
+    }
+
+    private static func loadSamples(_ path: String) -> [Float]? {
+        guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: path)),
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
+              (try? file.read(into: buffer)) != nil else { return nil }
+        return AudioConverter().convert(buffer)
+    }
+}
+#endif

@@ -1,0 +1,306 @@
+import Foundation
+
+/// 把 Passport 设备接到听写、字幕和 vibe coding 动作上:
+/// - 设备按键 → 手势(KeyPressTracker)→ 听写 / 字幕 / 快捷键 / 列表动作;
+/// - app 状态 → 设备界面(state / level / keys / config / list),Agent 通知 → 设备通知层。
+/// 用 16 Hz 定时器比较差异后下发,不需要各控制器主动通知,保持解耦。
+///
+/// 交互规则(docs/architecture.md「Passport 按键」):
+/// - OK 键的含义由设备当前模式决定:听写 / 翻译模式下始终是听写(字幕可以在后台运行,
+///   设备显示 LIVE 标记);字幕模式下没有字幕时打开"选择应用"列表,有字幕时停止字幕。
+/// - 列表页(切换应用 / 选择字幕应用)打开时,按键只用于列表。
+@MainActor
+final class DeviceBridge {
+    /// 需要 AppState 提供的动作。
+    struct Hooks {
+        /// 收起 / 展开 Mac 上的字幕条。
+        var toggleSubtitleBar: () -> Void
+        /// 开始为某个应用生成字幕(与 Mac 上的入口走同一个函数)。
+        var startCaptions: (AudioApp) -> Void
+    }
+
+    /// 设备上的列表页:切换应用,或为字幕选择应用。
+    private struct ListSession {
+        enum Purpose {
+            case switchApp([SwitchableApp])
+            case pickCaptionApp([AudioApp])
+        }
+
+        let purpose: Purpose
+        var selected: Int
+        var touched = Date()
+
+        var title: String {
+            switch purpose {
+            case .switchApp: "SWITCH APP"
+            case .pickCaptionApp: "CAPTIONS"
+            }
+        }
+
+        var names: [String] {
+            switch purpose {
+            case .switchApp(let apps): apps.map(\.name)
+            case .pickCaptionApp(let apps): apps.map { $0.isPlaying ? "\($0.name) *" : $0.name }
+            }
+        }
+
+        var count: Int { names.count }
+    }
+
+    /// 设备上当前选择的模式(长按上键切换)。
+    private(set) var mode: DeviceMode = .dict
+
+    private let link: DeviceLink
+    private let dictation: DictationController
+    private let subtitles: SubtitleController
+    private let agent: AgentNotifier
+    private let settings: AppSettings
+    private let hooks: Hooks
+    private var timer: Timer?
+    private var lastState: DeviceStateMapper.State?
+    private var lastConfig: DeviceConfig?
+    /// 正在显示的列表(nil 表示没打开)。
+    private var list: ListSession?
+    /// 列表无操作多久自动关闭。
+    private let listTimeout: TimeInterval = 15
+    /// 按键手势状态(按压归属、长按、防抖)。
+    private var presses = KeyPressTracker()
+    /// 列表关闭后忽略 OK 新按下的时长(防抖,避免误触听写)。
+    private let okLockoutAfterList: TimeInterval = 0.25
+
+    init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
+         agent: AgentNotifier, settings: AppSettings, hooks: Hooks) {
+        self.link = link
+        self.dictation = dictation
+        self.subtitles = subtitles
+        self.agent = agent
+        self.settings = settings
+        self.hooks = hooks
+    }
+
+    func start() {
+        link.onKey = { [weak self] key, event, ack in self?.handle(key, event, ack: ack) }
+        link.onConnectionChange = { [weak self] _ in
+            // 重连后强制重发全部状态,清掉断线前未完成的按压和列表。
+            self?.presses.reset()
+            self?.list = nil
+            self?.lastState = nil
+            self?.lastConfig = nil
+            self?.sync()
+        }
+        agent.onNotice = { [weak self] notice in
+            guard let self else { return }
+            let event: DeviceAgentEvent = switch notice.event {
+            case .done: .done
+            case .input: .input
+            case .clear: .clear
+            }
+            link.sendAgent(event, msg: notice.source)
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 16, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sync() }
+        }
+    }
+
+    // MARK: - 按键
+
+    /// 原始按键 → 手势 → 动作。手势规则见 `KeyPressTracker`(按压归属、松开判定短按、防抖锁定)。
+    private func handle(_ key: DeviceKey, _ event: DeviceKeyEvent, ack: Bool) {
+        switch event {
+        case .down:
+            let owner: KeyPressTracker.Owner = ack ? .agentAck : (list != nil ? .switcher : .normal)
+            guard let owner = presses.began(key, owner: owner) else { return }
+            if owner == .agentAck { agent.dismiss(); return }
+            owner == .switcher ? listPressBegan(key) : pressBegan(key)
+        case .long:
+            guard let owner = presses.longPressed(key) else { return }
+            switch owner {
+            case .normal: longPressed(key)
+            case .switcher: if key == .down { closeList() }
+            case .agentAck, .ignored: break
+            }
+        case .up:
+            guard let (owner, isTap) = presses.ended(key) else { return }
+            switch owner {
+            case .normal: pressEnded(key, isTap: isTap)
+            case .switcher: if key == .down, isTap { moveList(by: 1) }
+            case .agentAck, .ignored: break
+            }
+        }
+    }
+
+    /// 当前是否处于"字幕模式"(设备模式为字幕)。
+    private var inCaptionsMode: Bool { mode == .sub }
+
+    /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
+    private func pressBegan(_ key: DeviceKey) {
+        guard key == .ok else { return }
+        if inCaptionsMode {
+            guard !dictation.phase.isBusy else { return }
+            subtitles.isRunning ? subtitles.stop() : openCaptionAppPicker()
+        } else {
+            dictation.pressDown(mode: mode == .tr ? .translate : .dictate)
+        }
+    }
+
+    private func longPressed(_ key: DeviceKey) {
+        switch key {
+        case .up:
+            guard !dictation.phase.isBusy else { return }
+            cycleMode()
+        case .down:
+            if dictation.phase.isBusy {
+                dictation.cancel()
+            } else if !inCaptionsMode {
+                perform(settings.deviceDownLongAction)
+            }
+        case .ok:
+            break  // OK 长按就是按住说话,松开时结束
+        }
+    }
+
+    /// 松开:OK 结束按住说话(仅听写 / 翻译模式);上下键只有短按(没触发长按)才执行短按动作。
+    private func pressEnded(_ key: DeviceKey, isTap: Bool) {
+        switch key {
+        case .ok:
+            if !inCaptionsMode { dictation.pressUp() }
+        case .up:
+            guard isTap, !dictation.phase.isBusy else { return }
+            if inCaptionsMode {
+                if subtitles.isRunning { settings.subtitleTranslate.toggle() }
+            } else {
+                perform(settings.deviceUpAction)
+            }
+        case .down:
+            guard isTap, !dictation.phase.isBusy else { return }
+            if inCaptionsMode {
+                if subtitles.isRunning { hooks.toggleSubtitleBar() }
+            } else {
+                perform(settings.deviceDownAction)
+            }
+        }
+    }
+
+    private func perform(_ action: KeyAction) {
+        switch action {
+        case .pasteLast: dictation.reinsertLast()
+        case .nextMode: cycleMode()
+        case .appSwitcher: openAppSwitcher()
+        default: KeySender.perform(action)
+        }
+        // 用户开始回应 Agent,顺手清掉"等待输入"提醒。
+        if agent.current != nil { agent.dismiss() }
+    }
+
+    private func cycleMode() {
+        let all: [DeviceMode] = [.dict, .tr, .sub]
+        let index = all.firstIndex(of: mode) ?? 0
+        mode = all[(index + 1) % all.count]
+        sync()
+    }
+
+    // MARK: - 列表页
+
+    /// 切换应用:默认选中第二个应用(最前面的是当前应用,和 ⌘Tab 一样)。
+    private func openAppSwitcher() {
+        let apps = AppSwitcher.list()
+        guard !apps.isEmpty else { return }
+        openList(ListSession(purpose: .switchApp(apps), selected: apps.count > 1 ? 1 : 0))
+    }
+
+    /// 选择字幕应用:正在出声的应用排在前面并默认选中第一个。
+    private func openCaptionAppPicker() {
+        let apps = AudioProcesses.runningApps()
+        guard !apps.isEmpty else {
+            link.sendState(.err, mode: mode, msg: "NO APPS")
+            return
+        }
+        openList(ListSession(purpose: .pickCaptionApp(apps), selected: 0))
+    }
+
+    private func openList(_ session: ListSession) {
+        list = session
+        lastState = nil
+        sync()
+    }
+
+    /// 列表里按下:上键没有长按动作,按下即移动;OK 按下即确认;下键等松开(短按移动)或长按(关闭)。
+    private func listPressBegan(_ key: DeviceKey) {
+        guard let current = list else { return }
+        switch key {
+        case .up:
+            moveList(by: -1)
+        case .ok:
+            closeList()
+            switch current.purpose {
+            case .switchApp(let apps): AppSwitcher.activate(apps[current.selected])
+            case .pickCaptionApp(let apps): hooks.startCaptions(apps[current.selected])
+            }
+        case .down:
+            break
+        }
+    }
+
+    private func moveList(by delta: Int) {
+        guard var current = list, current.count > 0 else { return }
+        current.selected = (current.selected + delta + current.count) % current.count
+        current.touched = Date()
+        list = current
+        sendList()
+    }
+
+    private func closeList() {
+        list = nil
+        presses.lockOut(.ok, for: okLockoutAfterList)
+        lastState = nil
+        sync()
+    }
+
+    private func sendList() {
+        guard let list else { return }
+        link.sendList(title: list.title, items: list.names, selected: list.selected)
+    }
+
+    // MARK: - 状态同步
+
+    private func sync() {
+        guard link.connection != .disconnected else { return }
+
+        let config = DeviceConfig(
+            passportMic: settings.micID == AppSettings.passportMicID,
+            engine: ModelCatalog.model(settings.dictationModelID)?.shortName ?? "",
+            screenOff: settings.deviceScreenOff,
+            sound: settings.soundEffects)
+        if config != lastConfig {
+            lastConfig = config
+            link.sendConfig(config)
+        }
+
+        if let current = list, Date().timeIntervalSince(current.touched) > listTimeout {
+            closeList()
+            return
+        }
+        let state = currentState()
+        if lastState != state {
+            lastState = state
+            link.sendState(state.ui, mode: state.mode, msg: state.msg)
+            if state.ui == .list { sendList() }
+        }
+        let hints = DeviceStateMapper.keyHints(
+            state: state.ui, deviceMode: mode, handsFree: dictation.isHandsFree,
+            translating: settings.subtitleTranslate, up: settings.deviceUpAction, down: settings.deviceDownAction)
+        link.sendKeyHints(ok: hints.ok, up: hints.up, down: hints.down)
+        switch state.ui {
+        case .rec: link.sendLevel(Int(dictation.level * 100))
+        case .sub: link.sendLevel(Int(subtitles.level * 100))
+        default: break
+        }
+    }
+
+    private func currentState() -> DeviceStateMapper.State {
+        if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
+        return DeviceStateMapper.state(
+            phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,
+            subtitlesRunning: subtitles.isRunning, subtitleApp: subtitles.appName)
+    }
+}

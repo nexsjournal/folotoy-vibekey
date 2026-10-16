@@ -1,0 +1,103 @@
+name: InputBetter
+options:
+  bundleIdPrefix: com.inputbetter
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+packages:
+  ArgmaxOSS:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    exactVersion: 1.1.1
+  SherpaOnnx:
+    url: https://github.com/k2-fsa/sherpa-onnx
+    exactVersion: 1.13.8
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 3.1.0
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    ARCHS: arm64
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+targets:
+  InputBetter:
+    type: application
+    platform: macOS
+    sources:
+      - path: InputBetter
+        excludes:
+          - "*.entitlements"
+          - "Info.plist"
+      # Passport 固件与 esptool(scripts/bundle-device-assets.sh 生成),整个目录拷进 Resources/DeviceAssets。
+      - path: DeviceAssets
+        type: folder
+        optional: true
+    dependencies:
+      - package: ArgmaxOSS
+        product: WhisperKit
+      - package: SherpaOnnx
+        product: sherpa-onnx
+      - package: KeyboardShortcuts
+    entitlements:
+      path: InputBetter/InputBetter.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+        com.apple.security.device.bluetooth: true
+    info:
+      path: InputBetter/Info.plist
+      properties:
+        CFBundleName: InputBetter
+        CFBundleDisplayName: InputBetter
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        CFBundleLocalizations: [zh-Hans, en]
+        NSMicrophoneUsageDescription: InputBetter 需要使用麦克风，把你说的话转成文字输入。
+        NSAudioCaptureUsageDescription: InputBetter 需要录制所选应用播放的声音，用于生成实时字幕。
+        NSBluetoothAlwaysUsageDescription: InputBetter 通过蓝牙连接 Passport，接收按键并显示状态。
+        NSSpeechRecognitionUsageDescription: 使用 Apple 语音识别引擎在本机转录语音。
+        CFBundleURLTypes:
+          - CFBundleURLName: com.inputbetter.agent
+            CFBundleURLSchemes: [inputbetter]
+    settings:
+      base:
+        PRODUCT_NAME: InputBetter
+        PRODUCT_BUNDLE_IDENTIFIER: com.inputbetter.InputBetter
+        INFOPLIST_FILE: InputBetter/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  InputBetterTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: InputBetterTests
+    dependencies:
+      - target: InputBetter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inputbetter.InputBetterTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/InputBetter.app/Contents/MacOS/InputBetter
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  InputBetter:
+    build:
+      targets:
+        InputBetter: all
+        InputBetterTests: [test]
+    test:
+      targets:
+        - InputBetterTests

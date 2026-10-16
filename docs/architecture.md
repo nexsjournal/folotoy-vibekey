@@ -1,0 +1,326 @@
+# InputBetter 架构与功能调用链
+
+本文按功能列出调用链。改动功能时,同步更新对应的链。测试和排查问题时,也从链出发,逐个验证每一环的输入和输出。
+
+## 模块与依赖方向
+
+```
+App(AppState 组合根)
+ ├─ Hotkey ─┐
+ ├─ Pill ───┤ 只读状态、发意图
+ ├─ Settings / Onboarding / UI
+ ├─ Dictation ──→ Audio ──→ ASR ──→ LLM ──→ Support/KeySender
+ ├─ Subtitles ──→ Audio(AppAudioTap)──→ ASR ──→ LLM
+ ├─ Bridge(DeviceBridge / DeviceStateMapper)──→ Device(DeviceLink)
+ ├─ Vibe(KeyAction / AgentNotifier / AgentHookInstaller)
+ ├─ Models(ModelManager / ModelCatalog)
+ └─ ASR/Cloud(CloudASRStore / CloudASREngine / StreamingCloudSession + RealtimeCodec)──→ Support/CredentialStore
+```
+
+依赖规则:
+
+- 下层不依赖上层。
+- 跨模块只通过协议或小接口:`AudioSource`、`ASREngine`、`ASRSession`、`SegmentDecoder`、`DeviceLink` 公开方法、`PillActions`、`HotkeyManager.Actions`、`DeviceBridge.Hooks`。
+
+## 只有一份实现的公共能力
+
+| 能力 | 唯一实现 | 使用者 |
+| --- | --- | --- |
+| 音频格式转换(重采样 / 混音) | `AudioConverter`(Audio/AudioSource.swift) | MicSource、AppAudioTap、AppleSpeechSession、DebugHooks |
+| 采样 → PCM 缓冲 | `AudioFormats.buffer(from:)` | AppleSpeechSession |
+| 电平计算 / 平滑 | `AudioFormats.level(of:)`、`AudioFormats.smoothLevel` | DictationController、SubtitleController、PassportSetupModel |
+| 模拟按键 / 组合键 / 短文本 | `KeySender`(Support/KeySender.swift) | TextInserter(⌘V)、DeviceBridge(Passport 按键动作) |
+| 键盘布局键码 | `KeyLayout.keyCode(for:)` | TextInserter、KeySender |
+| 识别文本处理 | `TranscriptText`(join / normalize / toSimplified / isHallucination) | SegmentedSession、AppleSpeechSession、DictationController、SubtitleController |
+| 非流式模型分段识别 | `SegmentedSession` + `VoiceActivityDetector` | SenseVoiceEngine、WhisperEngine |
+| LLM 请求 | `LLMClient.complete` | TextProcessor、LLMConfigForm(测试连接) |
+| 设备 ASCII 文本 | `DeviceText.ascii` | DeviceLink 发出的所有命令 |
+| 设备状态映射 | `DeviceStateMapper` | DeviceBridge |
+| esptool 调用与输出解析 | `EsptoolRunner` | FirmwareFlasher |
+| Agent hook 合并写入 | `AgentHookInstaller.install` | VibePane(Claude Code、Codex) |
+| 快捷键卡片 | `ShortcutsCard` | 引导快捷键页、设置 › 快捷键 |
+| 界面语言选择 | `LanguagePicker` / `LanguageState` / `L10n` | 设置 › 通用、欢迎页,所有根视图 |
+| 设备按键提示(图标) | `DeviceStateMapper.keyHints` → `DeviceIcon`、`KeyAction.deviceIcon`、`DeviceIcon.sfSymbol` | DeviceBridge、Passport 示意图 |
+| 按键手势识别 | `KeyPressTracker` | DeviceBridge |
+| 应用前置聚焦 | `AppSwitcher.activate` | DeviceBridge(切换应用) |
+| 密钥存储(本机 0600 文件,不用钥匙串) | `CredentialStore` | AppSettings.llmAPIKey、CloudASRStore |
+| 云端流式会话(连接 / 缓冲 / 超时 / 重连) | `StreamingCloudSession` | 火山引擎、百炼、ElevenLabs(各自只实现 `RealtimeCodec`) |
+| Float → PCM16 / WAV | `AudioFormats.pcm16` / `AudioFormats.wav` | StreamingCloudSession、OpenAITranscriptionDecoder |
+| gzip | `Gzip` | VolcengineCodec |
+| 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
+
+## 1. 听写(快捷键按住说话)
+
+```
+KeyboardShortcuts.onKeyDown(.dictate,默认 ⌥空格)
+ → HotkeyManager.Actions.dictateDown
+ → DictationController.pressDown(mode:)
+ → PressInterpreter.down → .start
+ → DictationController.start(mode:)
+     ├─ ModelManager.isInstalled / EngineRegistry.engine(for:)
+     ├─ makeSource() → MicSource | PassportMicSource ── AudioSource.start
+     │     MicSource: AVAudioEngine tap → AudioConverter.convert → onSamples
+     │     onSamples → SampleBuffer.append(会话就绪前先缓存)
+     │                → AudioFormats.level → DictationController.updateLevel → AudioFormats.smoothLevel
+     └─ sessionTask: ASREngine.makeSession(ASROptions(.dictation))
+           → SampleBuffer.attach(session) → ASRSession.feed
+           → session.events → DictationController.handle(.partial/.final) → liveText → PillView 气泡
+
+松开:
+KeyboardShortcuts.onKeyUp(.dictate) → HotkeyManager.Actions.dictateUp
+ → DictationController.pressUp → PressInterpreter.up → .stop
+ → DictationController.stop
+     → (150 ms 尾音)AudioSource.stop
+     → await sessionTask → ASRSession.finish → 文本
+     → TranscriptText.normalize
+     → postProcess:TextProcessor.polish | translate → LLMClient.complete(失败退回原文)
+     → TextInserter.insert
+          → snapshot 剪贴板 → copy → KeySender.press(⌘V, KeyLayout) → 700 ms 后 restore
+     → succeed(DictationResult) / fail(DictationFailure)(类型化结果,界面用 .title 显示)→ 1.2 s 后回到 idle
+```
+
+识别会话内部分两种。
+
+非流式模型(SenseVoice / Whisper):
+
+```
+SegmentedSession.feed → input stream → SegmentedSession.run
+ → VoiceActivityDetector.accept / popSegments
+ → commit(逐句解码,SenseVoice)| 只记录语音区间(Whisper 整段模式)
+ → 定期 partial:SegmentDecoder.decode(未定稿或整段音频)
+ → finish:VoiceActivityDetector.flush → 预览已覆盖全部语音则直接返回,否则整段 decode,再不行就 TranscriptText.join(逐句结果)
+```
+
+`WhisperDecoder.decode` 内部:
+
+```
+WhisperRunner.detectLanguage(自动模式,3 秒内复用缓存)
+ → WhisperRunner.promptTokens(中文提示词 + 词汇表)
+ → WhisperRunner.transcribe
+ → TranscriptText.toSimplified
+```
+
+流式模型(Apple Speech):
+
+```
+AppleSpeechSession.feed
+ → AudioFormats.buffer → AudioConverter.convertBuffer(转成分析器格式)
+ → AnalyzerInput → SpeechAnalyzer
+ → transcriber.results → .partial / .final
+finish → finalizeAndFinishThroughEndOfInput → TranscriptText.join
+```
+
+云端模型(听写和字幕都可用,见「8a. 云端识别」):
+
+```
+EngineRegistry.engine(for: "cloud-…") → CloudASREngine.makeSession → CloudASREngine.session(provider:config:options:)
+ ├─ 流式(火山引擎 / 百炼 / ElevenLabs):StreamingCloudSession(makeCodec)
+ │    feed → inbox → run → AudioFormats.pcm16 → RealtimeCodec.audioMessage → CloudConnection.send
+ │    CloudConnection.receive → RealtimeCodec.parse → .ready / .partial / .final / .completed / .failure
+ │    finish → 补发尾包 + RealtimeCodec.finishMessages → 等 .completed(或结束后的定稿)→ 拼接定稿
+ └─ OpenAI 兼容:SegmentedSession(OpenAITranscriptionDecoder)
+      → VAD 分段 → 松开后整段 AudioFormats.wav → MultipartForm → POST /audio/transcriptions
+出错:会话发出 TranscriptEvent.failure → DictationController.streamError(没有文字时 fail(.other))
+ / SubtitleController.streamError(字幕条红字);字幕模式断线后指数退避自动重连,断线时的中间结果先定稿
+```
+
+## 2. 听写(Passport OK 键)
+
+```
+DeviceLink(USB/BLE)→ DeviceMessage.parse → RecentEventFilter → DeviceLink.lastKey / onKey
+ → DeviceBridge.handle(.ok, .down)
+ → DictationController.pressDown(mode: 设备模式 dict/tr)        // 之后与第 1 节相同
+音源为 Passport 时:PassportMicSource.start → DeviceLink.setMic(true)
+ → 设备 ADPCM 帧 → StreamDecoder → MicStream → IMAADPCMDecoder → onMicSamples → SampleBuffer
+```
+
+## 3. Passport 状态同步
+
+```
+DeviceBridge.sync(16 Hz 定时器,或连接变化时)
+ → DeviceStateMapper.state(phase, mode, 字幕状态)  → DeviceLink.sendState(变化时)
+ → DeviceStateMapper.keyHints(...)               → DeviceLink.sendKeyHints(内部去重)
+ → DeviceLink.sendLevel(录音 / 字幕时,内部限流 50 ms)
+ → DeviceLink.sendConfig(变化时;5 分钟校时)
+所有命令:HostCommand.encode → DeviceText.ascii → USB SerialPort.write | BLEClient.send
+```
+
+## 3a. Passport 模式与 OK 键
+
+```
+设备模式(长按上键循环 dict → tr → sub,听写进行中不切换)
+ dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在后台运行也不影响;空闲页 msg "LIVE" 显示 LIVE 标记
+ sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时停止字幕
+       上 / 下短按 = 字幕翻译开关 / 收起展开字幕条(仅字幕运行时)
+DeviceStateMapper.state:听写阶段优先 → 列表 → 字幕页(仅 sub 模式且字幕运行)→ 空闲页(+LIVE)
+列表页 ListSession:切换应用(长按下键)/ 选择字幕应用(sub 模式 OK),按键规则相同
+```
+
+## 3b. Passport 按键手势(所有按键动作的入口)
+
+```
+DeviceLink.onKey(key, down|long|up, ack) → DeviceBridge.handle
+ → KeyPressTracker(纯值类型,通行的按键手势规则)
+     began:按下时决定这次按压的归属(normal / switcher / agentAck);防抖锁定期内整次忽略
+     longPressed:标记已触发长按
+     ended:返回归属 + 是否短按(松开前没触发长按)
+ → 普通模式:pressBegan(OK 立即开始听写)/ longPressed(上:切换模式;下:取消录音或长按动作)
+             / pressEnded(OK 结束;上下键仅在短按时执行短按动作)
+ → 列表模式:switcherPressBegan(上:移动;OK:前置应用并关闭)/ 长按下:关闭 / 下键短按松开:移动
+ → 列表关闭后 OK 锁定 250 ms(防抖,避免误触听写)
+固件侧:ADC 按键 20 ms 去抖 + 同键松开后 60 ms 内的再次按下忽略(ib_keys)
+```
+
+## 4. Passport 按键 → vibe coding 动作
+
+```
+DeviceBridge(见 3b 的手势结果)
+ ├─ agentAck 归属 → AgentNotifier.dismiss(这次按压只用来关闭通知)
+ ├─ 字幕模式:设置.subtitleTranslate.toggle | Hooks.toggleSubtitleBar → PillUIState.subtitleCollapsed
+ └─ perform(KeyAction)
+       → .pasteLast → DictationController.reinsertLast → TextInserter.insert
+       → .nextMode  → DeviceBridge.cycleMode → sync
+       → 其他       → KeySender.perform → KeySender.press / type
+```
+
+## 4b. Passport 切换应用(vibe coding)
+
+```
+长按 ▼(默认动作 KeyAction.appSwitcher,可在设置里改)
+ → DeviceBridge.perform → openSwitcher
+     → AppSwitcher.list(普通应用,按窗口前后顺序 = 最近使用;默认选中第二个,同 ⌘Tab)
+     → sync:DeviceStateMapper.state → .list → DeviceLink.sendState(list) + sendSwitcher
+     → DeviceLink.sendList → HostCommand.listTop(选中项居中的可见窗口)→ HostCommand.list
+列表打开时按键:DeviceBridge.handleSwitcher
+ ▲ / ▼ → 移动选中并重发 list;OK → AppSwitcher.activate → 关闭;长按 ▼ 或 15 秒无操作 → 关闭
+AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最前(失败退回 activate)
+ → 抬起可见窗口 / 恢复最小化窗口 / 没有窗口时发送重新打开事件
+```
+
+## 5. 实时字幕
+
+```
+用户:胶囊 ◉ / 菜单选应用 / 快捷键 ⌥⇧S / Passport(sub 模式 OK)
+ → AppState.startCaptions(app)(所有入口都先让用户选应用,不沿用上一次)
+ → SubtitleController.start(app:)
+     → EngineRegistry.engine(for: effectiveSubtitleModelID) → makeSession(ASROptions(.subtitles))
+     → AppAudioTap.start
+          → AudioProcesses.entries(for: bundleID)(bundle 前缀 + Responsibility.responsiblePID)
+          → CATapDescription → AudioHardwareCreateProcessTap → 私有聚合设备 → IOProc
+          → AudioConverter.convert → onSamples → ASRSession.feed + AudioFormats.level → updateLevel
+          → 进程列表变化 → rebuild(force:false)
+     → session.events → SubtitleController.handle
+          → TranscriptText.normalize → lines / partial
+          → .final 且开启翻译 → TextProcessor.translateSubtitle → LLMClient.complete → line.translation
+ → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
+停止:SubtitleController.stop → AppAudioTap.stop → ASRSession.cancel
+```
+
+## 6. 胶囊状态条与字幕交互
+
+形态由纯函数 `PillPresentation.surface` 决定(有单元测试覆盖每条规则):
+
+| 条件 | 形态 | 可做的事 |
+| --- | --- | --- |
+| 听写录音 / 处理 / 结果 | 听写形态(优先级最高) | 听写进行时字幕在后台继续采集,解码暂停(`SubtitleController.setDecodingPaused`),结束后补上 |
+| 字幕运行且展开 | 字幕条 | 悬停:字号、翻译、锁定、🎤 听写、⌄ 收起、✕ 停止 |
+| 悬停,没有字幕 | 工具条 | 🎤 听写;◉ 弹出应用列表(`MenuBuilder.captionAppsMenu`)选择后开始;⌃ 菜单 |
+| 悬停,字幕已收起 | 工具条 | ◉ 展开字幕条;停止在 ⌃ 菜单 |
+| 不悬停 | Agent 通知 / 细胶囊 | 字幕在后台运行时细胶囊带红点 |
+
+开始字幕的所有入口(胶囊 ◉、开关字幕快捷键、菜单栏、设置页、Passport 字幕模式)都先选择应用,然后调用 `AppState.startCaptions`(展开字幕条 → `SubtitleController.start`);不沿用上次的应用。
+字幕条锁定(穿透)后,收起 / 展开 / 停止都可以在菜单栏和 ⌃ 菜单里操作。
+
+空闲胶囊:`IdleCapsule` 呼吸(Core Animation 循环,尊重"减少动态效果");`PillView.task(id: activityKey)` 计时,
+30 秒无活动 → dimmed(内芯降低亮度、玻璃换 clear 样式),任何状态 / 悬停变化立即恢复。
+
+
+```
+PillPanelController.startMouseTracking → updateHover(热区来自 PillView.reportHotRect)
+ → PillUIState.isHovering → PillView.updateExpanded(延迟收起)
+ → PillView.pill:按 DictationController.phase 加字幕和 Agent 状态选择形态
+点击 → PillActions(AppState 注入)→ DictationController.toggle / SubtitleController / MenuBuilder.build → popUp
+拖动 → DragGesture → PillWindowActions.dragChanged/dragEnded → PillPanelController 移动窗口并保存偏移
+```
+
+## 7. Agent 通知(vibe coding)
+
+```
+Claude Code hook:open -g 'inputbetter://agent?event=…'
+ → AppDelegate.application(_:open:) → AppState.handle(url:)
+ → AgentNotifier.handle(url:) → post
+     ├─ current → PillView.agentPill(胶囊或字幕条上方)
+     └─ onNotice → DeviceBridge → DeviceLink.sendAgent → 设备通知层与提示音
+一键配置:VibePane.AgentHookRow → AgentHookInstaller.install(.claudeCode | .codex)
+ → 读取并备份 ~/.claude/settings.json | ~/.codex/hooks.json → 合并同一格式的 hooks(去重)→ 写回
+   Claude Code:Stop / Notification / UserPromptSubmit;Codex:Stop / PermissionRequest / UserPromptSubmit
+   (Codex 需在 CLI 里 /hooks 信任一次;不改动 Codex 的 notify 设置)
+```
+
+## 8. 模型下载
+
+```
+ModelCard「下载」→ ModelList → ModelManager.download(id)
+ ├─ Whisper:withHostFallback(官方源 / 镜像)→ WhisperKit.download → 写 .installed 标记
+ ├─ SenseVoice:withHostFallback → FileDownloader.download(model.int8.onnx, tokens.txt)→ 写标记
+ └─ Apple Speech:AssetInventory.assetInstallationRequest → downloadAndInstall
+ → states[id](进度)→ ModelCard 进度环
+切换模型 → AppSettings.dictationModelID → AppState.observeSettings → EngineRegistry.unloadAll / preload
+```
+
+## 8a. 云端识别配置
+
+```
+设置 › 模型「云端识别」/ 引导模型页 → ModelCard「配置」(未配置)或 ⚙(已配置)
+ → ModelList.editing → CloudConfigSheet(provider)
+     → CloudASRStore.config(provider)(API Key 来自 CredentialStore,其余来自 UserDefaults)
+     → 「测试连接」CloudASREngine.test → 1.5 秒近静音 → 有 .failure 则显示原因
+     → 「保存」CloudASRStore.update → CredentialStore.set("cloud.<provider>.apiKey") + UserDefaults
+ → ModelManager.state(cloud-…) == .installed(配置齐全即"可用")→ 可选为听写模型 / 字幕模型
+听写和字幕各自选模型:AppSettings.dictationModelID / subtitleModelID(字幕选项里列出所有可用模型,含云端)
+密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
+旧版本存在钥匙串里的 LLM Key 在启动时静默迁移一次(不弹授权框),之后删除钥匙串条目
+```
+
+## 9. 一键刷固件 / 更新固件
+
+```
+PassportSetupView「刷入固件」→ PassportSetupModel.flashFirmware
+ → FirmwareFlasher.flash(port:) → run
+     → DeviceLink.suspendUSB(让出串口)
+     → FirmwareBundle.load / validate(镜像都在 cardid 0x356000 之前)
+     → EsptoolRunner.run(read-mac)→ EsptoolRunner.mac
+     → ensureBackup:已有备份则跳过,否则 EsptoolRunner.run(read-flash 8 MB)→ 校验大小
+     → EsptoolRunner.run(write-flash 三个镜像)→ EsptoolRunner.progress → phase
+     → DeviceLink.resumeUSB → 重新握手 → PassportSetupModel.stage == .connected
+设备识别:DeviceLink.handleHello(固件名不符)/ 握手超时 → handshakeFailed → foreignDevice → stage .needsFirmware
+是否需要更新:DeviceLink.firmwareBuild(hello 的 build)≠ FirmwareBundle.build(manifest,取自 app.bin 0xB0)
+ → PassportSetupModel.firmwareUpdateAvailable → 「更新固件」;相同则显示「重新刷入」(都用 DeviceLink.usbPortPath)
+刷写期间 PassportSetupModel.stage == .flashing(USB 暂停,不按连接状态判断)
+```
+
+## 10. 界面语言
+
+```
+LanguagePicker(设置 › 通用 / 欢迎页)→ LanguageState.set(即时生效,不重启)
+ ├─ AppLanguage.save → 本 app 的 AppleLanguages 偏好(下次启动沿用)
+ ├─ L10n.use → 切换当前语言的 .lproj 资源包(Bundle.l10n)
+ └─ locale 变化 → LocalizedRoot 注入 \.locale 并按 locale 重建视图树(设置 / 引导 / 状态条)
+     → WindowManager 同步窗口标题;菜单每次打开时重新生成
+文字来源:SwiftUI 字面量(按 \.locale 查找)/ String(localized: …, bundle: .l10n)(模型、枚举、错误)
+ / ModelCatalog.all 每次访问时生成
+ → Localizable.xcstrings(源语言简体中文,英文来自 app/Localization/en.json,由 scripts/update-strings.sh 生成)
+系统权限弹窗文字:InfoPlist.xcstrings
+```
+
+## 11. 设置联动
+
+```
+AppSettings(didSet 写 UserDefaults;API Key 写 CredentialStore)
+ → AppState.observeSettings(observeChanges)
+     showPill → PillPanelController.show/hide
+     deviceBluetooth → AppState.updateBluetooth → DeviceLink.bluetoothEnabled
+     dictationModelID → EngineRegistry.unloadAll / preload
+     language → ModelManager.languageChanged
+     subtitles.status → PillUIState.subtitleCollapsed 复位 / PillPanelController.show
+```

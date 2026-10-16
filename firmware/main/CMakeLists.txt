@@ -1,0 +1,32 @@
+# 模块划分见 README.md「目录结构」。纯逻辑模块(ib_protocol / ib_icons / ib_adpcm / ib_clock / ib_keys / ib_links)
+# 不依赖 ESP-IDF,由 tests/ 下的主机测试覆盖。
+idf_component_register(
+    SRCS "main.c"
+         "ib_app.c"
+         "ib_keys.c"
+         "ib_links.c"
+         "ib_protocol.c"
+         "ib_icons.c"
+         "ib_clock.c"
+         "ib_usb.c"
+         "ib_ble.c"
+         "ib_audio.c"
+         "ib_adpcm.c"
+         "ib_ui.c"
+         "ib_ui_gfx.c"
+         "ib_ui_statusbar.c"
+         "ib_ui_hints.c"
+         "ib_ui_agent.c"
+         "ib_ui_offline.c"
+         "ib_ui_idle.c"
+         "ib_ui_rec.c"
+         "ib_ui_proc.c"
+         "ib_ui_done.c"
+         "ib_ui_err.c"
+         "ib_ui_sub.c"
+         "ib_ui_list.c"
+         "icons/ib_icon_font_22.c"
+         "icons/ib_icon_font_56.c"
+    INCLUDE_DIRS "."
+    REQUIRES bsp bt esp_app_format esp_driver_usb_serial_jtag esp_hw_support esp_timer nvs_flash vfs
+)

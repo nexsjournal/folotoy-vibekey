@@ -1,0 +1,9 @@
+.DS_Store
+app/build/
+app/InputBetter.xcodeproj/
+firmware/build/
+firmware/managed_components/
+firmware/sdkconfig
+firmware/sdkconfig.old
+app/DeviceAssets/
+app/Config/Signing.local.xcconfig
