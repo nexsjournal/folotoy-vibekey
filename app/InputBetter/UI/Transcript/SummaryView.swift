@@ -6,8 +6,13 @@ import SwiftUI
 struct SummaryView: View {
     let summarizer: TranscriptSummarizer
     @Bindable var settings: AppSettings
+    /// 打开 设置 › AI 润色与翻译(接口只能在设置里配置)。
+    let onOpenSettings: () -> Void
     @State private var showsModel = false
     @State private var copied = false
+    /// 设置里那个接口提供的模型(GET /models)。
+    @State private var models: [String] = []
+    @State private var loadingModels = false
 
     private static let intervals = [1, 2, 5, 10]
 
@@ -48,22 +53,7 @@ struct SummaryView: View {
                     .disabled(!summarizer.isConfigured || summarizer.isGenerating || summarizer.pendingCount == 0)
             }
             DisclosureGroup(isExpanded: $showsModel) {
-                VStack(alignment: .leading, spacing: DS.Space.s) {
-                    Picker("", selection: $settings.summaryUsesCustomLLM) {
-                        Text("使用 AI 设置里的服务").tag(false)
-                        Text("单独指定").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    if settings.summaryUsesCustomLLM {
-                        LLMConfigForm(baseURL: $settings.summaryBaseURL, apiKey: $settings.summaryAPIKey,
-                                      model: $settings.summaryModel, showsPresets: false)
-                    } else if !settings.llmConfigured {
-                        Hint("AI 设置里还没有配置服务，请先在 设置 › AI 润色与翻译 中配置，或选择「单独指定」。")
-                    }
-                }
-                .padding(.top, DS.Space.s)
+                modelSettings.padding(.top, DS.Space.s)
             } label: {
                 Text(verbatim: modelLabel)
                     .font(.system(size: 11.5))
@@ -74,11 +64,59 @@ struct SummaryView: View {
         .padding(.vertical, DS.Space.m)
     }
 
+    /// 接口:只能用设置里配置的服务(这里只显示,去设置里改);模型:从该接口的模型列表里选。
+    @ViewBuilder
+    private var modelSettings: some View {
+        if settings.llmConfigured {
+            VStack(alignment: .leading, spacing: DS.Space.s) {
+                HStack(spacing: DS.Space.s) {
+                    Text("接口").font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 36, alignment: .leading)
+                    Text(verbatim: host(settings.llmBaseURL)).font(.system(size: 12))
+                    Spacer()
+                    Button("在设置中修改…", action: onOpenSettings)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 12))
+                }
+                HStack(spacing: DS.Space.s) {
+                    Text("模型").font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 36, alignment: .leading)
+                    Picker("", selection: $settings.summaryModel) {
+                        Text("跟随 AI 设置（\(settings.llmModel)）").tag("")
+                        if !settings.summaryModel.isEmpty, !models.contains(settings.summaryModel) {
+                            Text(verbatim: settings.summaryModel).tag(settings.summaryModel)
+                        }
+                        ForEach(models, id: \.self) { Text(verbatim: $0).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    .controlSize(.small)
+                    if loadingModels { ProgressView().controlSize(.small) }
+                }
+            }
+            .task(id: "\(settings.llmBaseURL)|\(settings.llmAPIKey)") { await loadModels() }
+        } else {
+            HStack(spacing: DS.Space.s) {
+                Hint("总结使用 设置 › AI 润色与翻译 里配置的服务，请先在那里配置。")
+                Spacer()
+                Button("打开 AI 设置…", action: onOpenSettings).buttonStyle(SecondaryButtonStyle())
+            }
+        }
+    }
+
+    /// 拉取设置里那个接口的模型列表(失败时只保留"跟随 AI 设置")。
+    private func loadModels() async {
+        loadingModels = true
+        defer { loadingModels = false }
+        models = (try? await OpenAICompatibleAPI.listModels(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey)) ?? []
+    }
+
+    private func host(_ baseURL: String) -> String {
+        URL(string: baseURL)?.host ?? baseURL
+    }
+
     /// 折叠时显示当前用的模型。
     private var modelLabel: String {
         guard let config = settings.summaryLLMConfig else { return String(localized: "模型：未配置", bundle: .l10n) }
-        let host = URL(string: config.baseURL)?.host ?? config.baseURL
-        return String(localized: "模型：\(config.model) · \(host)", bundle: .l10n)
+        return String(localized: "模型：\(config.model) · \(host(config.baseURL))", bundle: .l10n)
     }
 
     private var statusText: String {

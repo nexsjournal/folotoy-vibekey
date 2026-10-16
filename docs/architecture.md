@@ -55,7 +55,7 @@ App(AppState 组合根)
 | 流式识别结果稳定化(LocalAgreement) | `CaptionSegmenter` | CaptionFeed |
 | 断句 | `SentenceSplitter` | SubtitleController(记录按句)、CaptionSegmenter |
 | 字幕显示调度 | `CaptionScheduler` | CaptionFeed |
-| LLM 配置表单(预设 / 地址 / Key / 模型拉取 / 测试) | `LLMConfigForm`(绑定三项配置) | 设置 › AI、引导、字幕记录「总结」单独指定 |
+| LLM 配置表单(预设 / 地址 / Key / 模型拉取 / 测试) | `LLMConfigForm`(绑定三项配置) | 设置 › AI、引导 |
 | 字幕记录分段总结 | `TranscriptSummarizer` | SummaryView |
 | 系统离线翻译 | `SystemTranslator`(Translation 框架,会话缓存) | TranslationService |
 | 语言识别 / 同语言判断 | `LanguageDetector` | TranslationService、TargetLanguage.resolved |
@@ -269,7 +269,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
      WindowManager.showTranscript / windowWillClose / 最小化 → setWindowVisible
      isActive = 窗口开着 && 停在总结页 && AppSettings.summaryEnabled;不满足 → 暂停定时检查并取消进行中的请求
      定时检查(5 秒)→ 距上次 ≥ summaryInterval 分钟且新内容 ≥ 4 句(字幕结束后剩余内容也总结)→ summarize
-       → AppSettings.summaryLLMConfig(AI 设置里的服务 / 单独指定的接口和模型)
+       → AppSettings.summaryLLMConfig(接口和 Key 只来自 设置 › AI 的服务;模型可在总结页从该接口的模型列表另选,默认跟随)
        → Prompts.summarize(用户主语言,2–5 条要点)+ summaryUser(新内容 + 上一段总结作上下文)
        → LLMClient.stream(边生成边显示)→ sections;「立即总结」→ summarizeNow
      新的字幕会话开始 → 清空总结(只在内存里)

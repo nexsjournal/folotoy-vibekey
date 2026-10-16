@@ -56,7 +56,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
                                           resizable: .init(minSize: NSSize(width: 360, height: 360), autosaveName: Self.transcriptAutosaveName),
                                           content: LocalizedRoot(language: app.language) {
                                               TranscriptView(controller: self.app.subtitles, summarizer: self.app.summarizer,
-                                                             settings: self.app.settings, pin: self.transcriptPin) { [weak self] in
+                                                             settings: self.app.settings,
+                                                             onOpenSettings: { [weak self] in self?.showSettings(.ai) },
+                                                             pin: self.transcriptPin) { [weak self] in
                                                   self?.saveTranscriptFromWindow()
                                               }
                                           })

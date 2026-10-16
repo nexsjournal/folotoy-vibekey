@@ -171,16 +171,6 @@
         }
       }
     },
-    "AI 设置里还没有配置服务，请先在 设置 › AI 润色与翻译 中配置，或选择「单独指定」。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No AI service is set up yet. Set one up in Settings › AI Polish & Translation, or choose Custom."
-          }
-        }
-      }
-    },
     "AI（OpenAI 兼容接口）": {
       "localizations": {
         "en": {
@@ -839,16 +829,6 @@
         }
       }
     },
-    "使用 AI 设置里的服务": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use AI Settings"
-          }
-        }
-      }
-    },
     "使用上次选择的应用": {
       "localizations": {
         "en": {
@@ -1125,16 +1105,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Region"
-          }
-        }
-      }
-    },
-    "单独指定": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Custom"
           }
         }
       }
@@ -1425,6 +1395,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Manage in System Settings"
+          }
+        }
+      }
+    },
+    "在设置中修改…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change in Settings…"
           }
         }
       }
@@ -1889,6 +1869,16 @@
         }
       }
     },
+    "总结使用 设置 › AI 润色与翻译 里配置的服务，请先在那里配置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summaries use the service set up in Settings › AI Polish & Translation. Set it up there first."
+          }
+        }
+      }
+    },
     "所有识别都在本机完成，声音不会离开你的 Mac。可以随时在设置里切换。": {
       "localizations": {
         "en": {
@@ -1905,6 +1895,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter Manually…"
+          }
+        }
+      }
+    },
+    "打开 AI 设置…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open AI Settings…"
           }
         }
       }
@@ -2095,6 +2095,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Allow"
+          }
+        }
+      }
+    },
+    "接口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API"
           }
         }
       }
@@ -3709,6 +3719,16 @@
         }
       }
     },
+    "请先在 设置 › AI 润色与翻译 中配置服务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up a service in Settings › AI Polish & Translation first"
+          }
+        }
+      }
+    },
     "请先在设置里选择识别模型": {
       "localizations": {
         "en": {
@@ -3725,16 +3745,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a model first"
-          }
-        }
-      }
-    },
-    "请先配置 AI，或在下方单独指定总结用的接口和模型": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set up AI first, or choose a custom API and model for summaries below"
           }
         }
       }
@@ -3795,6 +3805,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Doubao Streaming ASR 2.0 · Per hour"
+          }
+        }
+      }
+    },
+    "跟随 AI 设置（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same as AI Settings (%@)"
           }
         }
       }

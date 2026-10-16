@@ -167,13 +167,11 @@ final class AppSettings {
     var llmBaseURL: String { didSet { defaults.set(llmBaseURL, forKey: "llmBaseURL") } }
     var llmModel: String { didSet { defaults.set(llmModel, forKey: "llmModel") } }
     var llmAPIKey: String { didSet { CredentialStore.shared.set(llmAPIKey, for: "llmAPIKey") } }
-    /// 字幕记录"总结":开关、间隔(分钟)、是否单独指定接口。
+    /// 字幕记录"总结":开关、间隔(分钟)、模型。
+    /// 接口只能用设置里配置的 LLM 服务(不单独填写地址和 Key);模型可以从该服务的模型列表里另选,空 = 跟随 AI 设置。
     var summaryEnabled: Bool { didSet { defaults.set(summaryEnabled, forKey: "summaryEnabled") } }
     var summaryInterval: Int { didSet { defaults.set(summaryInterval, forKey: "summaryInterval") } }
-    var summaryUsesCustomLLM: Bool { didSet { defaults.set(summaryUsesCustomLLM, forKey: "summaryUsesCustomLLM") } }
-    var summaryBaseURL: String { didSet { defaults.set(summaryBaseURL, forKey: "summaryBaseURL") } }
     var summaryModel: String { didSet { defaults.set(summaryModel, forKey: "summaryModel") } }
-    var summaryAPIKey: String { didSet { CredentialStore.shared.set(summaryAPIKey, for: "summaryAPIKey") } }
     var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     var useMirror: Bool { didSet { defaults.set(useMirror, forKey: "useMirror") } }
     var soundEffects: Bool { didSet { defaults.set(soundEffects, forKey: "soundEffects") } }
@@ -206,10 +204,14 @@ final class AppSettings {
         llmAPIKey = CredentialStore.shared.value(for: "llmAPIKey") ?? ""
         summaryEnabled = defaults.bool(forKey: "summaryEnabled")
         summaryInterval = defaults.object(forKey: "summaryInterval") as? Int ?? 2
-        summaryUsesCustomLLM = defaults.bool(forKey: "summaryUsesCustomLLM")
-        summaryBaseURL = defaults.string(forKey: "summaryBaseURL") ?? "https://api.openai.com/v1"
         summaryModel = defaults.string(forKey: "summaryModel") ?? ""
-        summaryAPIKey = CredentialStore.shared.value(for: "summaryAPIKey") ?? ""
+        // 旧版本允许总结单独填写接口和 Key,现在只用设置里的服务:清掉遗留的配置。
+        if defaults.object(forKey: "summaryUsesCustomLLM") != nil {
+            ["summaryUsesCustomLLM", "summaryBaseURL"].forEach(defaults.removeObject)
+            defaults.removeObject(forKey: "summaryModel")
+            summaryModel = ""
+        }
+        CredentialStore.shared.set(nil, for: "summaryAPIKey")
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         useMirror = defaults.bool(forKey: "useMirror")
         soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
@@ -223,14 +225,10 @@ final class AppSettings {
 
     var effectiveSubtitleModelID: String { subtitleModelID.isEmpty ? dictationModelID : subtitleModelID }
 
-    /// 总结使用的 LLM:单独指定时用总结自己的接口,否则用 AI 设置里的服务;没配置好返回 nil。
+    /// 总结使用的 LLM:设置里的服务(接口和 Key),模型用总结选的(没选则跟随 AI 设置);没配置好返回 nil。
     var summaryLLMConfig: LLMClient.Config? {
-        if summaryUsesCustomLLM {
-            guard OpenAICompatibleAPI.endpoint(summaryBaseURL, "chat/completions") != nil, !summaryModel.isEmpty else { return nil }
-            return .init(baseURL: summaryBaseURL, apiKey: summaryAPIKey, model: summaryModel)
-        }
         guard llmConfigured else { return nil }
-        return .init(baseURL: llmBaseURL, apiKey: llmAPIKey, model: llmModel)
+        return .init(baseURL: llmBaseURL, apiKey: llmAPIKey, model: summaryModel.isEmpty ? llmModel : summaryModel)
     }
 
     var llmConfigured: Bool {

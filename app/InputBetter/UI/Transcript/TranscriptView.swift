@@ -8,6 +8,8 @@ struct TranscriptView: View {
     let controller: SubtitleController
     let summarizer: TranscriptSummarizer
     let settings: AppSettings
+    /// 打开 设置 › AI 润色与翻译。
+    let onOpenSettings: () -> Void
     /// 固定在屏幕右侧(置顶、半透明)。
     let pin: TranscriptPinController
     /// 保存成文件(由 WindowManager 在本窗口上弹出保存面板)。
@@ -44,7 +46,7 @@ struct TranscriptView: View {
                 Divider()
                 footer
             case .summary:
-                SummaryView(summarizer: summarizer, settings: settings)
+                SummaryView(summarizer: summarizer, settings: settings, onOpenSettings: onOpenSettings)
             }
         }
         .frame(minWidth: 360, minHeight: 360)

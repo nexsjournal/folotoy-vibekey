@@ -465,19 +465,17 @@ nonisolated final class CaptionPipelineTests: XCTestCase {
 /// 链:SummaryView → TranscriptSummarizer.summarize → AppSettings.summaryLLMConfig → Prompts.summarize / summaryUser → LLMClient.stream。
 nonisolated final class SummaryTests: XCTestCase {
     @MainActor
-    func testSummaryUsesMainOrCustomLLM() {
+    func testSummaryUsesServiceFromSettings() {
         let defaults = UserDefaults(suiteName: "ib-summary-\(UUID().uuidString)")!
         let settings = AppSettings(defaults: defaults)
+        settings.llmBaseURL = ""
+        XCTAssertNil(settings.summaryLLMConfig, "设置里没有服务时不能总结")
         settings.llmBaseURL = "https://main.example.com/v1"
         settings.llmModel = "main-model"
-        XCTAssertEqual(settings.summaryLLMConfig?.model, "main-model", "默认用 AI 设置里的服务")
-        settings.summaryUsesCustomLLM = true
-        settings.summaryBaseURL = "https://other.example.com/v1"
-        settings.summaryModel = ""
-        XCTAssertNil(settings.summaryLLMConfig, "单独指定但没选模型时不可用")
-        settings.summaryModel = "summary-model"
-        XCTAssertEqual(settings.summaryLLMConfig?.baseURL, "https://other.example.com/v1")
-        XCTAssertEqual(settings.summaryLLMConfig?.model, "summary-model")
+        XCTAssertEqual(settings.summaryLLMConfig?.model, "main-model", "默认跟随 AI 设置的模型")
+        settings.summaryModel = "bigger-model"
+        XCTAssertEqual(settings.summaryLLMConfig?.model, "bigger-model", "可以另选同一接口的模型")
+        XCTAssertEqual(settings.summaryLLMConfig?.baseURL, "https://main.example.com/v1", "接口始终来自设置")
     }
 
     func testSummaryPromptIncludesPreviousForContinuity() {

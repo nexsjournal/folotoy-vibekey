@@ -114,7 +114,7 @@ final class TranscriptSummarizer {
 
     private func summarize() {
         guard let config = settings.summaryLLMConfig else {
-            error = String(localized: "请先配置 AI，或在下方单独指定总结用的接口和模型", bundle: .l10n)
+            error = String(localized: "请先在 设置 › AI 润色与翻译 中配置服务", bundle: .l10n)
             return
         }
         let transcript = subtitles.transcript

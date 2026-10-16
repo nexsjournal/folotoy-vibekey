@@ -2,13 +2,11 @@ import SwiftUI
 
 /// LLM 配置表单:服务商预设 + 地址 + Key + 模型 + 连接测试。
 /// 地址或 Key 改动后自动从接口拉取模型列表(GET /models,输入停顿 0.6 秒后请求),在下拉菜单里选择。
-/// 通用组件:AI 设置(主 LLM)和字幕记录的"总结"(可单独指定接口)共用,只绑定三项配置。
+/// 只绑定三项配置(地址 / Key / 模型),设置 › AI 和引导共用。
 struct LLMConfigForm: View {
     @Binding var baseURL: String
     @Binding var apiKey: String
     @Binding var model: String
-    /// 是否显示服务商预设按钮(窄窗口里可以不显示)。
-    var showsPresets = true
 
     private struct Preset: Identifiable {
         let name: String
@@ -38,7 +36,6 @@ struct LLMConfigForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.m) {
-            if showsPresets {
             HStack(spacing: 6) {
                 ForEach(presets) { preset in
                     Button(preset.name) {
@@ -49,7 +46,6 @@ struct LLMConfigForm: View {
                     .buttonStyle(SecondaryButtonStyle())
                     .overlay(Capsule().strokeBorder(baseURL == preset.url ? DS.accent : .clear, lineWidth: 1.2))
                 }
-            }
             }
 
             Card {
