@@ -138,7 +138,15 @@ struct ModelList: View {
     /// 要列出的模型(默认全部:本地模型在前,云端在后)。
     var items: [ModelInfo] = ModelCatalog.all
     /// 正在编辑配置的云端服务(弹出配置表单)。
-    @State private var editing: CloudProvider?
+    @State private var editing: CloudProvider? = ModelList.initialEditing
+
+    /// 调试用:环境变量 IB_CLOUD_CONFIG=<CloudProvider.rawValue> 时,列表出现后直接弹出该服务的配置表单。
+    private static var initialEditing: CloudProvider? {
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["IB_CLOUD_CONFIG"] { return CloudProvider(rawValue: raw) }
+        #endif
+        return nil
+    }
 
     var body: some View {
         VStack(spacing: DS.Space.s) {

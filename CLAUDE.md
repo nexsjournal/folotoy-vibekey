@@ -28,6 +28,7 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 调试构建支持的环境变量见 `app/InputBetter/Debug/DebugHooks.swift`:
 
 - `IB_ONBOARDING_STEP` / `IB_SETTINGS_PANE`:直接打开某一页;
+- `IB_CLOUD_CONFIG=volcengine`(`CloudProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=models` 直接弹出该云端服务的配置表单;
 - `IB_TRANSCRIBE_FILE`:识别音频文件并打印耗时;
 - `IB_DOWNLOAD`:下载模型;
 - `IB_SUBTITLE_APP`:直接开字幕;

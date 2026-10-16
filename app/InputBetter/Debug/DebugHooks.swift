@@ -14,6 +14,7 @@ import AVFoundation
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 /// - IB_FIRMWARE_MANIFEST=url  从这个地址获取 Passport 固件清单(代替官网,测试新固件用)。
 /// - IB_FLASH_FIRMWARE=1       Passport 通过 USB 连上后自动刷一次固件(验证「下载 → 写入」整条链路)。
+/// - IB_CLOUD_CONFIG=provider  (在 ModelList 里读取)模型列表出现时直接弹出该云端服务的配置表单,如 volcengine,配合 IB_SETTINGS_PANE=models。
 @MainActor
 enum DebugHooks {
     static var env: [String: String] { ProcessInfo.processInfo.environment }

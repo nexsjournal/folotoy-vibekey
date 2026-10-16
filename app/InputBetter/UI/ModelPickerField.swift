@@ -31,8 +31,15 @@ struct ModelPickerField: View {
                             .help("从列表选择")
                     }
                 } else {
-                    picker
-                    Spacer(minLength: 0)
+                    // 模型名较长(如"豆包流式识别 2.0 · 按时长计费 · volc.seedasr.sauc.duration")时,
+                    // 按理想宽度显示会把整个表单撑出窗口;放不下就改为占满剩余宽度,标题由弹出按钮自动截断。
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 0) {
+                            picker.fixedSize()
+                            Spacer(minLength: 0)
+                        }
+                        picker.frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 if loading {
                     ProgressView().controlSize(.small)
@@ -72,6 +79,7 @@ struct ModelPickerField: View {
             Text("手动输入…").tag(Self.customTag)
         }
         .labelsHidden()
-        .fixedSize()
+        // 标题被截断时,悬停可看到完整模型名。
+        .help(Text(verbatim: options.first(where: { $0.id == selection })?.displayName ?? selection))
     }
 }
