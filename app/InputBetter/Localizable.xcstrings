@@ -2269,12 +2269,12 @@
         }
       }
     },
-    "未下载（%@）。下载后字幕翻译几乎实时，不需要 AI": {
+    "未下载（%@）。翻译需要这两种语言的语言包，系统会一起下载；下载后字幕翻译几乎实时，不需要 AI": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not downloaded (%@). Once downloaded, captions translate almost in real time without AI."
+            "value": "Not downloaded (%@). Translation needs language packs for both languages, so the system downloads them together. Once downloaded, captions translate almost in real time without AI."
           }
         }
       }
@@ -3205,16 +3205,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Translating"
-          }
-        }
-      }
-    },
-    "翻译中…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Translating…"
           }
         }
       }

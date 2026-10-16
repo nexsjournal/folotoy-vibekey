@@ -154,7 +154,7 @@ struct PillView: View {
                                 onTranscript: actions.showTranscript,
                                 onTranslationSettings: actions.openTranslationSettings,
                                 onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions)
-                    .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 22))
+                    .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 18))
                     .glassEffectID("main", in: glass)
             case .toolbar(let captions):
                 toolbar(captions: captions)

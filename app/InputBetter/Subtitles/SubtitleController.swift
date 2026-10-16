@@ -1,7 +1,7 @@
 import AppKit
 
-/// 实时字幕:采集所选应用的声音 → 识别 → (可选)LLM 翻译 → 交给字幕条显示。
-/// 本类只维护字幕数据,显示由状态条(PillView 的字幕条形态)和字幕记录窗口负责。
+/// 实时字幕:采集所选应用的声音 → 识别 → 按句记入字幕记录并翻译(系统翻译 + 可选 AI)。
+/// 字幕条的逐句显示由 `feed`(CaptionFeed)负责;本类只维护会话和记录,显示由状态条和字幕记录窗口负责。
 @MainActor @Observable
 final class SubtitleController {
     /// 一行字幕:原文 + 译文(译文异步到达)。
@@ -19,16 +19,10 @@ final class SubtitleController {
     private(set) var appBundleID = ""
     /// 本次(或上一次)字幕会话的完整记录。停止后保留,直到下一次开始,供记录窗口查看和保存。
     private(set) var transcript = CaptionTranscript()
-    /// 字幕条显示的最近几行定稿。
-    var lines: [Line] { Array(transcript.entries.suffix(maxLines)) }
     /// 正在说的那句(未定稿,会不断变化)。
     private(set) var partial = ""
-    /// 正在说的半句的系统翻译(开启翻译且系统翻译可用时,节流后实时更新)。
-    private(set) var partialTranslation: String?
-    @ObservationIgnored private var partialTask: Task<Void, Never>?
-    @ObservationIgnored private var partialPending = false
-    /// 最近一次翻译的半句和它的译文:定稿文字与之相同时直接用作初稿,不用再等。
-    @ObservationIgnored private var lastPartialTranslation: (source: String, translation: String)?
+    /// 字幕条的逐句数据源。
+    let feed: CaptionFeed
     private(set) var level: Float = 0
     /// 识别出错(如云端鉴权失败、网络中断)时的原因,收到新文字后清除。
     private(set) var streamError: String?
@@ -58,13 +52,12 @@ final class SubtitleController {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var lastSoundAt = Date()
 
-    private let maxLines = 3
-
     init(settings: AppSettings, models: ModelManager, engines: EngineRegistry, translation: TranslationService) {
         self.settings = settings
         self.models = models
         self.engines = engines
         self.translation = translation
+        feed = CaptionFeed(settings: settings, translation: translation)
     }
 
     /// 开始转录某个应用的声音。
@@ -103,6 +96,7 @@ final class SubtitleController {
                 self.tap = tap
                 self.session = session
                 status = .running
+                feed.start()
                 lastSoundAt = Date()
                 eventsTask = Task { [weak self] in
                     for await event in session.events { self?.handle(event) }
@@ -137,7 +131,7 @@ final class SubtitleController {
         session = nil
         eventsTask?.cancel()
         silenceTask?.cancel()
-        resetPartialTranslation()
+        feed.reset()
         level = 0
         partial = ""
         if status != .stopped { status = .stopped }
@@ -165,6 +159,9 @@ final class SubtitleController {
         appName = sample.appName
         self.partial = partial
         status = .running
+        if let last = sample.entries.last {
+            feed.debugShow(source: last.text, translation: last.translation, live: partial)
+        }
     }
     #endif
 
@@ -177,24 +174,22 @@ final class SubtitleController {
         case .partial(let text):
             partial = TranscriptText.normalize(text)
             if !text.isEmpty { streamError = nil }
-            schedulePartialTranslation()
+            feed.partial(partial)
         case .final(let raw):
             streamError = nil
             let text = TranscriptText.normalize(raw)
             partial = ""
-            let cached = lastPartialTranslation
-            resetPartialTranslation()
-            guard !text.isEmpty else { return }
-            if settings.subtitleTranslate, let cached, cached.source == text {
-                let line = Line(text: text)
-                transcript.append(line)
-                transcript.setTranslation(cached.translation, for: line.id, draft: true)
-                translate(line)
+            guard !text.isEmpty else {
+                feed.final(text: "", entries: [])
                 return
             }
-            let line = Line(text: text)
-            transcript.append(line)
-            if settings.subtitleTranslate { translate(line) }
+            // 按句记入记录(一次定稿常常有好几句):每句单独翻译,字幕条也按句显示。
+            let sentences = SentenceSplitter.split(text, final: true).complete
+            Log.subtitles.debug("final \(text.count) chars, \(sentences.count) sentences")
+            let lines = sentences.map { Line(text: $0) }
+            lines.forEach { transcript.append($0) }
+            feed.final(text: text, entries: lines.map { (text: $0.text, entryID: $0.id) })
+            if settings.subtitleTranslate { lines.forEach(translate) }
         }
     }
 
@@ -208,9 +203,16 @@ final class SubtitleController {
         Task {
             for await update in translation.translateLine(line.text, context: Array(context)) {
                 guard transcript.id == sessionID else { return }
+                feed.entryTranslation(line.id, update)
                 switch update {
-                case .draft(let text): transcript.setTranslation(text, for: line.id, draft: true)
-                case .streaming(let text), .final(let text): transcript.setTranslation(text, for: line.id)
+                case .draft(let text):
+                    transcript.setTranslation(text, for: line.id, draft: true)
+                    Log.subtitles.debug("translation draft after \(Date().timeIntervalSince(line.time), format: .fixed(precision: 2))s")
+                case .streaming(let text):
+                    transcript.setTranslation(text, for: line.id)
+                case .final(let text):
+                    transcript.setTranslation(text, for: line.id)
+                    Log.subtitles.debug("translation final after \(Date().timeIntervalSince(line.time), format: .fixed(precision: 2))s")
                 case .sameLanguage: transcript.setTranslation("", for: line.id)
                 case .failed(let reason):
                     let hasText = transcript.entries.last(where: { $0.id == line.id })?.translation != nil
@@ -219,39 +221,6 @@ final class SubtitleController {
                 }
             }
         }
-    }
-
-    /// 半句实时翻译(节流):同一时间只有一个请求,期间有新内容就在结束后再翻一次,两次之间至少间隔 250 毫秒。
-    private func schedulePartialTranslation() {
-        guard settings.subtitleTranslate, !partial.isEmpty else {
-            partialTranslation = nil
-            return
-        }
-        if partialTask != nil {
-            partialPending = true
-            return
-        }
-        partialTask = Task { [weak self] in
-            guard let self else { return }
-            repeat {
-                partialPending = false
-                let text = partial
-                guard !text.isEmpty, let result = await translation.translatePartial(text) else { break }
-                guard !Task.isCancelled else { return }
-                partialTranslation = result
-                lastPartialTranslation = (text, result)
-                try? await Task.sleep(for: .milliseconds(250))
-            } while partialPending && !Task.isCancelled
-            partialTask = nil
-        }
-    }
-
-    private func resetPartialTranslation() {
-        partialTask?.cancel()
-        partialTask = nil
-        partialPending = false
-        partialTranslation = nil
-        lastPartialTranslation = nil
     }
 
     private func updateLevel(_ value: Float) {

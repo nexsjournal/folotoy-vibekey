@@ -59,7 +59,7 @@ struct SystemTranslationRow: View {
         switch translation.systemStatus {
         case .checking: String(localized: "正在检查语言包…", bundle: .l10n)
         case .installed: String(localized: "已下载（\(pairName)），翻译立即出结果，免费且不联网", bundle: .l10n)
-        case .needsDownload: String(localized: "未下载（\(pairName)）。下载后字幕翻译几乎实时，不需要 AI", bundle: .l10n)
+        case .needsDownload: String(localized: "未下载（\(pairName)）。翻译需要这两种语言的语言包，系统会一起下载；下载后字幕翻译几乎实时，不需要 AI", bundle: .l10n)
         case .unsupported: String(localized: "系统翻译不支持 \(pairName)，将只用 AI 翻译", bundle: .l10n)
         }
     }

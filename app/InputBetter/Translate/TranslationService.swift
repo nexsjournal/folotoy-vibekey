@@ -6,7 +6,7 @@ import AppKit
 ///   系统翻译(几百毫秒)→ `.draft` 先显示 → LLM 结合上下文和初稿润色 → 完整生成后 `.final` 一次性替换
 ///   (有初稿时不逐字替换,避免闪烁);没有初稿时 LLM 逐字流式 `.streaming`。
 ///   只有系统翻译 → 初稿即定稿;都不可用 → `.failed`。
-/// 字幕正在说的半句:`translatePartial`(只用系统翻译,够快才能跟上)。
+/// 字幕条上刚说完的句子:`quickTranslate`(只用系统翻译,够快才能跟上)。
 /// 听写翻译:`translateDictation`(有 LLM 用 LLM,顺带去口水词;否则用系统翻译)。
 ///
 /// 系统翻译需要源语言:用 LanguageDetector 识别,识别不出时沿用上一次识别到的语言。
@@ -126,8 +126,8 @@ final class TranslationService {
         }
     }
 
-    /// 正在说的半句:只用系统翻译(LLM 太慢跟不上);不可用时返回 nil。
-    func translatePartial(_ text: String) async -> String? {
+    /// 快速翻译(字幕条上刚说完的句子):只用系统翻译(LLM 太慢跟不上);不可用时返回 nil。
+    func quickTranslate(_ text: String) async -> String? {
         guard settings.translationEngine.usesSystem, systemReady else { return nil }
         guard let source = detectSource(text) ?? lastSource else { return nil }
         let target = settings.subtitleTarget.resolved(source: source)

@@ -51,7 +51,10 @@ App(AppState 组合根)
 | 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
 | OpenAI 兼容接口地址 / 鉴权 / 错误信息 / 模型列表 | `OpenAICompatibleAPI` | LLMClient、OpenAITranscriptionDecoder、LLMConfigForm、CloudASREngine.fetchModels |
 | 模型下拉选择(列表 + 手动输入 + 重新获取) | `ModelPickerField` | LLMConfigForm、CloudConfigSheet |
-| 翻译(系统翻译 + LLM 组合) | `TranslationService`(translateLine / translatePartial / translateDictation) | SubtitleController、DictationController |
+| 翻译(系统翻译 + LLM 组合) | `TranslationService`(translateLine / quickTranslate / translateDictation) | SubtitleController、CaptionFeed、DictationController |
+| 流式识别结果稳定化(LocalAgreement) | `CaptionSegmenter` | CaptionFeed |
+| 断句 | `SentenceSplitter` | SubtitleController(记录按句)、CaptionSegmenter |
+| 字幕显示调度 | `CaptionScheduler` | CaptionFeed |
 | 系统离线翻译 | `SystemTranslator`(Translation 框架,会话缓存) | TranslationService |
 | 语言识别 / 同语言判断 | `LanguageDetector` | TranslationService、TargetLanguage.resolved |
 | 系统翻译语言包状态与下载 | `SystemTranslationRow`(`.translationTask` → prepareTranslation) | 设置 › AI 润色与翻译、引导「翻译与 AI」 |
@@ -223,20 +226,26 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → AudioConverter.convert → onSamples → ASRSession.feed + AudioFormats.level → updateLevel
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
-          → TranscriptText.normalize → partial / CaptionTranscript.append(完整记录;lines = 最后 3 句)
-          → .partial 且开启翻译 → schedulePartialTranslation(节流,同时只有一个请求)
-              → TranslationService.translatePartial → SystemTranslator → partialTranslation(半句实时译文)
-          → .final 且开启翻译 → TranslationService.translateLine(前 3 句原文 + 译文作上下文):
-              ① LanguageDetector 识别源语言 → TargetLanguage.resolved → SystemTranslator.translate
-                 → .draft 初稿立即显示(定稿与最近翻译过的半句相同时直接复用,零等待)
-              ② LLM:TextProcessor.translateSubtitle(带初稿)→ Prompts.translateSubtitle → LLMClient.stream(SSE)
-                 → 有初稿时完整生成后 .final 一次性替换;没有初稿时 .streaming 逐字显示
-              ③ 只有系统翻译 → 初稿即定稿;都失败 → .failed(已有初稿则保留)
-              → CaptionTranscript.setTranslation(draft:)| setTranslationFailed
+          → TranscriptText.normalize
+          → .partial → CaptionFeed.partial(快速路径:有系统翻译或不翻译)
+              → CaptionSegmenter.hypothesis(LocalAgreement-2:连续两次结果一致的词才确认,已确认文字只追加不改写)
+              → SentenceSplitter.split(已确认文字,对增长稳定)→ 新确认的整句 → CaptionUnit
+              → TranslationService.quickTranslate(系统翻译,几十毫秒)→ unit.translation
+          → .final → SentenceSplitter.split(final: true)→ 每句一条 CaptionTranscript.Entry(完整记录)
+              → CaptionFeed.final:快速路径 → CaptionSegmenter.final(用已给出部分的末尾词定位,只补没给出的句子;
+                 多段分次定稿时超出部分留给下一段抵扣);只有 AI 时 → 按记录句子生成 unit 并关联
+              → 开启翻译 → 每句 TranslationService.translateLine(前 3 句原文 + 译文作上下文):
+                 ① LanguageDetector → TargetLanguage.resolved → SystemTranslator.translate → .draft
+                 ② LLM:TextProcessor.translateSubtitle(带初稿)→ LLMClient.stream(SSE)→ 完整后 .final
+                 ③ 只有系统翻译 → 初稿即定稿;都失败 → .failed
+                 → CaptionTranscript.setTranslation(draft:)(记录窗口 / 保存文件用 AI 版)
+                 → CaptionFeed.entryTranslation(同步到关联的 unit,还没显示的句子用上更好的译文)
           → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
- → SubtitleSurface 滚动字幕(roll-up,直播字幕的通行做法):RollingCaption.make(最近 8 句定稿 + 正在说的半句连成一段,
-     译文按句序拼接 + 半句的实时译文)→ 原文 / 译文各一个固定 2 行的框,底部对齐,旧行整行滚出顶部;
-     翻译时原文小而暗在上、译文大而亮在下;未定稿部分略暗
+ → CaptionFeed 定时器(150 ms)→ CaptionScheduler.advance(影视字幕规范:一次一条、按阅读速度停留 1.5–5 秒、
+     显示后不改;落后时每条只停 0.8 秒并按顺序合并更多句子,从不跳句)→ CaptionFeed.event
+ → SubtitleSurface:背景紧贴文字(宽度随字幕长短、高度按行数);翻译时原文小而暗在上、译文大而亮在下,居中;
+     不翻译时上一句(暗)+ 正在说的这句;标题栏只在悬停时出现(先加宽再淡入、先淡出再收窄,按钮不漂移);
+     字幕文字 allowsHitTesting(false),不挡标题栏按钮
  → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions

@@ -352,29 +352,108 @@ nonisolated final class SystemTranslationTests: XCTestCase {
     }
 }
 
-/// 链:SubtitleSurface.transcript → RollingCaption.make(滚动字幕:连续拼接 + 从前面裁剪)。
-nonisolated final class RollingCaptionTests: XCTestCase {
-    func testJoinsFinalsAndLivePart() {
-        var entries = [CaptionTranscript.Entry(text: "We know."), CaptionTranscript.Entry(text: "How to solve that.")]
-        entries[0].translation = "我们知道。"
-        let caption = RollingCaption.make(entries: entries, partial: "Constraint", partialTranslation: "约束")
-        XCTAssertEqual(caption.sourceFinal, "We know. How to solve that.")
-        XCTAssertEqual(caption.sourceLive, " Constraint", "未定稿部分带分隔空格,界面直接接在后面")
-        XCTAssertEqual(caption.translationFinal, "我们知道。", "还没有译文的句子暂不出现,到了再接上")
-        XCTAssertEqual(caption.translationLive, "约束", "中文之间不加空格")
+/// 链:SubtitleController.handle → CaptionFeed → CaptionSegmenter(LocalAgreement 确认)→ SentenceSplitter → CaptionScheduler。
+nonisolated final class CaptionPipelineTests: XCTestCase {
+    func testSplitterBasics() {
+        XCTAssertEqual(SentenceSplitter.split("Pi is 3.14 today. Next one", final: false).complete, ["Pi is 3.14 today."])
+        XCTAssertEqual(SentenceSplitter.split("你好世界今天。明天见", final: false).complete, ["你好世界今天。"])
+        XCTAssertEqual(SentenceSplitter.split("We know. How to solve that. And", final: false).complete, ["We know. How to solve that."], "短句并入下一句")
+        XCTAssertEqual(SentenceSplitter.split("We know.", final: true).complete, ["We know."], "定稿时最后的短句保留")
     }
 
-    func testNoPartialTranslationWithoutPartial() {
-        let caption = RollingCaption.make(entries: [CaptionTranscript.Entry(text: "Hi.")], partial: "", partialTranslation: "旧的")
-        XCTAssertEqual(caption.translationLive, "", "没有正在说的内容时不显示过期的实时译文")
-        XCTAssertFalse(caption.hasTranslation)
+    func testSplitterIsPrefixStable() {
+        let text = "The rules of a right triangle, we know many, many rules of math and geometry and logic and science. We have puzzle games. Constraint"
+        var previous: [String] = []
+        for end in stride(from: 10, through: text.count, by: 7) {
+            let complete = SentenceSplitter.split(String(text.prefix(end)), final: false).complete
+            XCTAssertEqual(Array(complete.prefix(previous.count)), previous, "文字增长时已切出的句子不能变")
+            previous = complete
+        }
     }
 
-    func testTrimsFromFrontAtWordBoundary() {
-        let long = (0..<80).map { "word\($0)" }.joined(separator: " ")
-        let parts = RollingCaption.split(final: [long], live: "")
-        XCTAssertLessThanOrEqual(parts.final.count, RollingCaption.maxCharacters)
-        XCTAssertTrue(parts.final.hasPrefix("word"), "裁剪后从完整单词开始")
-        XCTAssertTrue(parts.final.hasSuffix("word79"), "保留最新的内容")
+    func testLocalAgreementConfirmsOnlyStableText() {
+        var segmenter = CaptionSegmenter()
+        XCTAssertEqual(segmenter.hypothesis("So AI infrastructure. For GM").sentences, [], "第一次结果还没确认")
+        // 第二次结果修正了断句:之前的 "So AI infrastructure." 只确认到 "infrastructure",还不成句。
+        XCTAssertEqual(segmenter.hypothesis("So AI infrastructure for GM partnering with GM.").sentences, [])
+        let third = segmenter.hypothesis("So AI infrastructure for GM partnering with GM. And then also")
+        XCTAssertEqual(third.sentences, ["So AI infrastructure for GM partnering with GM."], "确认后整句给出,没有被错误的早期断句截断")
+        XCTAssertEqual(third.live, "And then also")
+        XCTAssertEqual(segmenter.hypothesis("So AI infrastructure for GM partnering with GM. And then also AI").sentences, [], "已给出的句子不会再给一次")
+    }
+
+    func testConfirmedTextIsAppendOnly() {
+        var segmenter = CaptionSegmenter()
+        _ = segmenter.hypothesis("It understands friction and inertia. Cause")
+        let shown = segmenter.hypothesis("It understands friction and inertia. Cause and")
+        XCTAssertEqual(shown.sentences, ["It understands friction and inertia."])
+        // 引擎后来把句号改成了逗号:已给出的句子不再重复给出,后面的内容接着成句。
+        _ = segmenter.hypothesis("It understands friction and inertia, cause and effect. Object")
+        let next = segmenter.hypothesis("It understands friction and inertia, cause and effect. Object permanence")
+        XCTAssertEqual(next.sentences, ["Cause and effect."], "不重复已显示的部分")
+    }
+
+    func testFinalAddsOnlyWhatWasNotShown() {
+        var segmenter = CaptionSegmenter()
+        _ = segmenter.hypothesis("One of the areas I love. That I'm deeply proud of")
+        _ = segmenter.hypothesis("One of the areas I love. That I'm deeply proud of and")
+        XCTAssertEqual(segmenter.emittedTokens, 6)
+        let rest = segmenter.final("One of the areas I love. That I'm deeply proud of, and it rarely gets any attention.")
+        XCTAssertEqual(rest, ["That I'm deeply proud of, and it rarely gets any attention."], "定稿只补上没显示的部分")
+    }
+
+    func testFinalAlignsWhenWordingDiffers() {
+        var segmenter = CaptionSegmenter()
+        _ = segmenter.hypothesis("Well we know the equation of it. How to")
+        _ = segmenter.hypothesis("Well we know the equation of it. How to solve")
+        // 定稿去掉了开头的 "Well":按最后几个词定位,不会重复也不会漏。
+        XCTAssertEqual(segmenter.final("We know the equation of it. How to solve that."), ["How to solve that."])
+    }
+
+    func testMultiSegmentFinalCarriesShownWords() {
+        var segmenter = CaptionSegmenter()
+        _ = segmenter.hypothesis("First segment is here. Second segment goes on. More")
+        _ = segmenter.hypothesis("First segment is here. Second segment goes on. More words")
+        // 引擎分两次定稿:第一段只含第一句,第二句已经显示过,留给下一次抵扣。
+        XCTAssertEqual(segmenter.final("First segment is here."), [])
+        XCTAssertEqual(segmenter.final("Second segment goes on. More words follow now."), ["More words follow now."])
+    }
+
+    private func unit(_ text: String, _ translation: String? = nil, age: TimeInterval = 0, now: Date) -> CaptionUnit {
+        var unit = CaptionUnit(source: text, createdAt: now.addingTimeInterval(-age))
+        unit.translation = translation
+        return unit
+    }
+
+    func testSchedulerHoldsForReadingTimeAndNeverSkips() {
+        let now = Date()
+        var scheduler = CaptionScheduler()
+        var units = [unit("Hello there friend.", "你好朋友。", now: now)]
+        XCTAssertTrue(scheduler.advance(units, translating: true, timeout: 4, now: now))
+        XCTAssertEqual(scheduler.current?.translation, "你好朋友。")
+        units.append(unit("Next sentence here.", "下一句。", now: now))
+        XCTAssertFalse(scheduler.advance(units, translating: true, timeout: 4, now: now.addingTimeInterval(0.5)), "没读完不换")
+        XCTAssertTrue(scheduler.advance(units, translating: true, timeout: 4, now: now.addingTimeInterval(2)))
+        XCTAssertEqual(scheduler.current?.translation, "下一句。")
+
+        // 落后时:合并显示,所有句子都出现,一句不跳。
+        var behind = CaptionScheduler()
+        let many = (0..<6).map { unit("Sentence number \($0).", "第\($0)句。", age: 5, now: now) }
+        var shown: [String] = []
+        var t = now
+        for _ in 0..<10 {
+            if behind.advance(many, translating: true, timeout: 4, now: t), let text = behind.current?.translation { shown.append(text) }
+            t = t.addingTimeInterval(1)
+        }
+        XCTAssertEqual(shown.joined(), (0..<6).map { "第\($0)句。" }.joined(), "落后时按顺序合并,不丢句")
+    }
+
+    func testSchedulerWaitsForTranslationThenTimesOut() {
+        let now = Date()
+        var scheduler = CaptionScheduler()
+        let pending = [unit("No translation yet here.", nil, now: now)]
+        XCTAssertFalse(scheduler.advance(pending, translating: true, timeout: 4, now: now))
+        XCTAssertTrue(scheduler.advance(pending, translating: true, timeout: 4, now: now.addingTimeInterval(4.5)))
+        XCTAssertNil(scheduler.current?.translation, "超时只显示原文")
     }
 }
