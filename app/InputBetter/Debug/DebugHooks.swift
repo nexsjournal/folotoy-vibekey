@@ -44,17 +44,18 @@ enum DebugHooks {
         let start = Date().addingTimeInterval(-170)
         var sample = CaptionTranscript(appName: "Google Chrome", startedAt: start)
         let lines: [(String, String?)] = [
-            ("How do you solve the data problem?", "如何解决数据问题？"),
-            ("The second is how do you solve the training problem?", "第二，如何解决训练问题？"),
-            ("The reason why human in the loop is fundamentally challenging is because we only have so much time.", "“人在环路”之所以从根本上充满挑战，是因为我们的时间有限。"),
-            ("And AI to be able to learn.", nil),
+            ("We know the equation of a quadratic equation.", "我们知道二次方程的解。"),
+            ("How to solve that.", "如何解这个方程。"),
+            ("We know.", "我们知道。"),
+            ("The rules of a right triangle, we know many, many rules of math and geometry and logic and science.", "直角三角形的性质，我们知道很多很多数学、几何、逻辑和科学方面的规律。"),
+            ("We have puzzle games that we could give it.", nil),
         ]
         for (i, line) in lines.enumerated() {
             let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(Double(150 + i * 4)), text: line.0, translation: line.1)
             sample.append(entry)
         }
         app.settings.subtitleTranslate = true
-        app.subtitles.debugShow(sample, partial: "At super human rates")
+        app.subtitles.debugShow(sample, partial: "Constraint, constraint")
     }
 
     private static func transcribe(path: String, modelIDs: [String], app: AppState) async {

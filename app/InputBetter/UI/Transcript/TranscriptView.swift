@@ -5,7 +5,7 @@ import SwiftUI
 /// 只读 SubtitleController 的状态;保存 / 拷贝通过闭包交给外部(WindowManager)。
 struct TranscriptView: View {
     let controller: SubtitleController
-    /// 固定在屏幕左侧(置顶)。
+    /// 固定在屏幕右侧(置顶、半透明)。
     let pin: TranscriptPinController
     /// 保存成文件(由 WindowManager 在本窗口上弹出保存面板)。
     let onSave: () -> Void
@@ -28,8 +28,19 @@ struct TranscriptView: View {
             Divider()
             footer
         }
-        .frame(minWidth: 420, minHeight: 360)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 360, minHeight: 360)
+        .background { background.ignoresSafeArea() }
+    }
+
+    /// 固定时和字幕条一样的深色半透明玻璃;平时是普通窗口背景。
+    @ViewBuilder
+    private var background: some View {
+        if pin.isPinned {
+            Rectangle().fill(.clear)
+                .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 16))
+        } else {
+            Color(nsColor: .windowBackgroundColor)
+        }
     }
 
     // MARK: - 顶部
@@ -52,8 +63,8 @@ struct TranscriptView: View {
                     .foregroundStyle(pin.isPinned ? AnyShapeStyle(DS.accent) : AnyShapeStyle(.secondary))
             }
             .buttonStyle(.plain)
-            .help(pin.isPinned ? "取消固定" : "固定在屏幕左侧（始终在最前面）")
-            .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕左侧")
+            .help(pin.isPinned ? "取消固定" : "固定在屏幕右侧（始终在最前面，半透明）")
+            .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕右侧")
             Toggle("跟随最新", isOn: $followLatest)
                 .toggleStyle(.checkbox)
                 .font(.system(size: 12))

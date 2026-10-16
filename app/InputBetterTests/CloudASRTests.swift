@@ -351,3 +351,30 @@ nonisolated final class SystemTranslationTests: XCTestCase {
         XCTAssertEqual(user, "CURRENT: Hello\nMACHINE DRAFT: 你好")
     }
 }
+
+/// 链:SubtitleSurface.transcript → RollingCaption.make(滚动字幕:连续拼接 + 从前面裁剪)。
+nonisolated final class RollingCaptionTests: XCTestCase {
+    func testJoinsFinalsAndLivePart() {
+        var entries = [CaptionTranscript.Entry(text: "We know."), CaptionTranscript.Entry(text: "How to solve that.")]
+        entries[0].translation = "我们知道。"
+        let caption = RollingCaption.make(entries: entries, partial: "Constraint", partialTranslation: "约束")
+        XCTAssertEqual(caption.sourceFinal, "We know. How to solve that.")
+        XCTAssertEqual(caption.sourceLive, " Constraint", "未定稿部分带分隔空格,界面直接接在后面")
+        XCTAssertEqual(caption.translationFinal, "我们知道。", "还没有译文的句子暂不出现,到了再接上")
+        XCTAssertEqual(caption.translationLive, "约束", "中文之间不加空格")
+    }
+
+    func testNoPartialTranslationWithoutPartial() {
+        let caption = RollingCaption.make(entries: [CaptionTranscript.Entry(text: "Hi.")], partial: "", partialTranslation: "旧的")
+        XCTAssertEqual(caption.translationLive, "", "没有正在说的内容时不显示过期的实时译文")
+        XCTAssertFalse(caption.hasTranslation)
+    }
+
+    func testTrimsFromFrontAtWordBoundary() {
+        let long = (0..<80).map { "word\($0)" }.joined(separator: " ")
+        let parts = RollingCaption.split(final: [long], live: "")
+        XCTAssertLessThanOrEqual(parts.final.count, RollingCaption.maxCharacters)
+        XCTAssertTrue(parts.final.hasPrefix("word"), "裁剪后从完整单词开始")
+        XCTAssertTrue(parts.final.hasSuffix("word79"), "保留最新的内容")
+    }
+}

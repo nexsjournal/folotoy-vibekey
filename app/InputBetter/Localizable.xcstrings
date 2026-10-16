@@ -1319,22 +1319,22 @@
         }
       }
     },
-    "固定在屏幕左侧": {
+    "固定在屏幕右侧": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pin to Left Edge"
+            "value": "Pin to Right Edge"
           }
         }
       }
     },
-    "固定在屏幕左侧（始终在最前面）": {
+    "固定在屏幕右侧（始终在最前面，半透明）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pin to the left edge (always on top)"
+            "value": "Pin to the right edge (always on top, translucent)"
           }
         }
       }
@@ -3235,16 +3235,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dictation Translation Language"
-          }
-        }
-      }
-    },
-    "翻译失败": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Translation failed"
           }
         }
       }

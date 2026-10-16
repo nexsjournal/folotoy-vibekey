@@ -234,8 +234,9 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
               ③ 只有系统翻译 → 初稿即定稿;都失败 → .failed(已有初稿则保留)
               → CaptionTranscript.setTranslation(draft:)| setTranslationFailed
           → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
- → SubtitleSurface 迷你字幕记录:按时间从上到下,最新在最下面,越旧越暗,固定高度、顶部渐隐;
-     翻译时每句原文下紧跟它的译文(未返回显示"翻译中…");最后一行是正在说的半句
+ → SubtitleSurface 滚动字幕(roll-up,直播字幕的通行做法):RollingCaption.make(最近 8 句定稿 + 正在说的半句连成一段,
+     译文按句序拼接 + 半句的实时译文)→ 原文 / 译文各一个固定 2 行的框,底部对齐,旧行整行滚出顶部;
+     翻译时原文小而暗在上、译文大而亮在下;未定稿部分略暗
  → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions
@@ -253,8 +254,9 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
      「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
      「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
  正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇)
- 📌 → TranscriptPinController.toggle:固定 = 贴屏幕左边占满可用高度、floating 层级(始终最前)、所有桌面空间可见、不可拖动;
-     取消 = 恢复普通层级和之前保存的位置;状态存 UserDefaults,屏幕参数变化时重新贴边
+ 📌 → TranscriptPinController.toggle:固定 = 贴屏幕右边占满可用高度、floating 层级(始终最前)、所有桌面空间可见、不可拖动,
+     窗口透明 + 深色外观,TranscriptView 画和字幕条一样的深色玻璃;
+     取消 = 恢复普通层级、不透明背景和之前保存的位置;状态存 UserDefaults,屏幕参数变化时重新贴边
 ```
 
 ## 6. 胶囊状态条与字幕交互

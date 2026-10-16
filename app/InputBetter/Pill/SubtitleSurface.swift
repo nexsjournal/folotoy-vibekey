@@ -1,8 +1,9 @@
+import AppKit
 import SwiftUI
 
 /// 字幕条:胶囊展开后的形态。顶部是直播标记 + 应用名 + 翻译菜单(悬停时显示工具按钮);
-/// 下面是迷你字幕记录:按时间从上到下排列,最新的在最下面,越旧越暗,超出高度的从顶部淡出——
-/// 和字幕记录窗口的阅读方向一致,一眼能看出哪句是最新的。开启翻译时每句原文下面紧跟它的译文。
+/// 下面是滚动字幕(业内通行的 roll-up 形式,见 RollingCaption):原文、译文各固定 2 行,
+/// 新内容接在末尾,旧行整行滚出顶部,最新的永远在右下角。
 /// 背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
 struct SubtitleSurface: View {
     let controller: SubtitleController
@@ -135,81 +136,58 @@ struct SubtitleSurface: View {
         }
     }
 
-    /// 迷你字幕记录:最近几句 + 正在说的半句,底部对齐,高度固定(不随内容跳动),顶部渐隐。
+    /// 滚动字幕(见 RollingCaption):原文和译文各一个固定 2 行的框,底部对齐,超出的旧行从顶部整行滚出。
+    /// 翻译时原文小而暗、译文大而亮(译文在下,离视线最近);不翻译时只显示原文。
+    /// 定稿部分正常颜色,正在说 / 实时译文部分略暗,表示还会变。
     private var transcript: some View {
         let translating = settings.subtitleTranslate
-        // 翻译时每句占两行(原文 + 译文),显示最近 2 句;不翻译时显示最近 3 句。再加正在说的半句。
-        let entries = Array(controller.transcript.entries.suffix(translating ? 2 : 3))
-        let partial = controller.partial
-        return VStack(alignment: .leading, spacing: translating ? 10 : 6) {
-            if entries.isEmpty && partial.isEmpty {
-                Text("等待声音…")
-                    .font(.system(size: fontSize, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.4))
-            }
-            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                row(entry, age: entries.count - 1 - index + (partial.isEmpty ? 0 : 1), translating: translating)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            if !partial.isEmpty {
-                // 正在说(未定稿):略暗,表示还会变;翻译时下面是系统翻译的实时译文。
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(partial)
-                        .font(.system(size: translating ? fontSize * 0.72 : fontSize, weight: translating ? .medium : .semibold))
-                        .foregroundStyle(.white.opacity(translating ? 0.5 : 0.7))
-                        .lineLimit(2)
-                        .truncationMode(.head)
-                    if translating, let live = controller.partialTranslation {
-                        Text(live)
-                            .font(.system(size: fontSize * 0.92, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(2)
-                            .truncationMode(.head)
-                    }
-                }
-                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                .id("partial")
+        let caption = RollingCaption.make(entries: controller.transcript.entries,
+                                          partial: controller.partial,
+                                          partialTranslation: translating ? controller.partialTranslation : nil)
+        return VStack(alignment: .leading, spacing: translating ? 6 : 0) {
+            if !caption.hasSource {
+                rollingBox(Text("等待声音…").foregroundStyle(.white.opacity(0.4)),
+                           size: fontSize, weight: .semibold, lines: translating ? 1 : 2)
+            } else if translating {
+                rollingBox(styled(caption.sourceFinal, caption.sourceLive, opacity: 0.62),
+                           size: fontSize * 0.72, weight: .medium, lines: 2)
+                rollingBox(caption.hasTranslation
+                           ? styled(caption.translationFinal, caption.translationLive, opacity: 1)
+                           : Text("翻译中…").foregroundStyle(.white.opacity(0.35)),
+                           size: fontSize, weight: .semibold, lines: 2)
+            } else {
+                rollingBox(styled(caption.sourceFinal, caption.sourceLive, opacity: 1),
+                           size: fontSize, weight: .semibold, lines: 2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // 高度固定(不随内容跳动),大约容纳上面的句数;个别句子折行超出时,最旧的从顶部渐隐。
-        .frame(height: fontSize * (translating ? 6.4 : 4.6), alignment: .bottom)
-        .clipped()
-        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12)],
-                             startPoint: .top, endPoint: .bottom))
-        .animation(.spring(duration: 0.35, bounce: 0.1), value: entries.map(\.id))
-        .animation(.easeOut(duration: 0.25), value: entries.map(\.translation))
     }
 
-    /// 一句定稿字幕。`age` 0 = 最新,越旧越暗;翻译时原文较小,译文在下面且更醒目。
-    private func row(_ entry: SubtitleController.Line, age: Int, translating: Bool) -> some View {
-        let fade = max(0.35, 1 - Double(age) * 0.3)
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(entry.text)
-                .font(.system(size: translating ? fontSize * 0.72 : fontSize, weight: translating ? .medium : .semibold))
-                .foregroundStyle(.white.opacity((translating ? 0.6 : 1) * fade))
-                .lineLimit(2)
-                .truncationMode(.head)
-            if translating {
-                Group {
-                    if let translation = entry.translation {
-                        // 空字符串:原文已是目标语言,不显示译文。初稿(系统翻译)略暗,AI 润色版替换后变亮。
-                        if !translation.isEmpty {
-                            Text(translation)
-                                .foregroundStyle(.white.opacity((entry.translationIsDraft ? 0.8 : 1) * fade))
-                                .contentTransition(.interpolate)
-                        }
-                    } else if entry.translationFailed {
-                        Text("翻译失败").foregroundStyle(.white.opacity(0.35 * fade))
-                    } else {
-                        Text("翻译中…").foregroundStyle(.white.opacity(0.35 * fade))
-                    }
-                }
-                .font(.system(size: fontSize * 0.92, weight: .semibold))
-                .lineLimit(2)
-            }
+    /// 定稿 + 未定稿(略暗)拼成一段文字。
+    private func styled(_ final: String, _ live: String, opacity: Double) -> Text {
+        Text(final).foregroundStyle(.white.opacity(opacity)) + Text(live).foregroundStyle(.white.opacity(opacity * 0.62))
+    }
+
+    /// 固定行数的滚动框:文字按宽度自然换行,框高 = 行高 × 行数,底部对齐并裁掉顶部多出的行。
+    private func rollingBox(_ text: Text, size: CGFloat, weight: Font.Weight, lines: Int) -> some View {
+        text
+            .font(.system(size: size, weight: weight))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: Self.lineHeight(size: size, weight: weight) * CGFloat(lines), alignment: .bottom)
+            .clipped()
+            .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+    }
+
+    /// 系统字体在该字号下的行高(与 SwiftUI Text 的默认行距一致),用来让框高正好是整数行。
+    private static func lineHeight(size: CGFloat, weight: Font.Weight) -> CGFloat {
+        let nsWeight: NSFont.Weight = switch weight {
+        case .semibold: .semibold
+        case .medium: .medium
+        case .bold: .bold
+        default: .regular
         }
-        .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+        return ceil(NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: size, weight: nsWeight)))
     }
 
     private func hint(_ text: LocalizedStringKey) -> some View {
