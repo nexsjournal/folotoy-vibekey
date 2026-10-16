@@ -1,19 +1,22 @@
 import SwiftUI
 
-/// AI:LLM 连接、润色开关、翻译目标语言。
+/// AI 润色与翻译:LLM 连接、润色开关、翻译方式(系统翻译 / AI)与目标语言。
 struct AIPane: View {
-    @Bindable var settings: AppSettings
+    let app: AppState
 
     var body: some View {
+        @Bindable var settings = app.settings
         VStack(alignment: .leading, spacing: 0) {
-            SettingsSection(title: "LLM 服务", footer: "支持所有 OpenAI 兼容接口。API Key 只保存在本机配置文件中（仅当前用户可读）。") {
-                LLMConfigForm(settings: settings)
-            }
-            SettingsSection(title: "用途", footer: "目标语言选「自动」时由 AI 判断方向：\(TargetLanguage.autoSummary)。") {
+            SettingsSection(title: "翻译", footer: "目标语言选「自动」时自动判断方向：\(TargetLanguage.autoSummary)。") {
                 Card {
                     VStack(spacing: DS.Space.m) {
-                        SettingRow(title: "听写后自动润色", detail: "去掉口水词，补全标点，修正同音错字") {
-                            Toggle("", isOn: $settings.polishEnabled).labelsHidden().toggleStyle(.switch)
+                        SystemTranslationRow(translation: app.translation)
+                        Divider()
+                        SettingRow(title: "翻译方式", detailText: settings.translationEngine.detail) {
+                            Picker("", selection: $settings.translationEngine) {
+                                ForEach(TranslationEngine.allCases) { Text($0.title).tag($0) }
+                            }
+                            .labelsHidden().fixedSize()
                         }
                         Divider()
                         SettingRow(title: "翻译听写的目标语言") {
@@ -29,6 +32,16 @@ struct AIPane: View {
                             }
                             .labelsHidden().fixedSize()
                         }
+                    }
+                }
+            }
+            SettingsSection(title: "LLM 服务", footer: "支持所有 OpenAI 兼容接口。API Key 只保存在本机配置文件中（仅当前用户可读）。") {
+                LLMConfigForm(settings: settings)
+            }
+            SettingsSection(title: "润色") {
+                Card {
+                    SettingRow(title: "听写后自动润色", detail: settings.llmConfigured ? "去掉口水词，补全标点，修正同音错字" : "需要先配置上面的 LLM 服务") {
+                        Toggle("", isOn: $settings.polishEnabled).labelsHidden().toggleStyle(.switch)
                     }
                 }
                 .disabled(!settings.llmConfigured)

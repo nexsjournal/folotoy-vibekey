@@ -45,6 +45,8 @@ final class DictationController {
     @ObservationIgnored private let models: ModelManager
     @ObservationIgnored private let engines: EngineRegistry
     @ObservationIgnored private let processor: TextProcessor
+    /// 听写翻译(LLM 或系统翻译)。
+    @ObservationIgnored private let translation: TranslationService
     @ObservationIgnored private let inserter: TextInserter
     @ObservationIgnored private let sounds: SoundEffects
     @ObservationIgnored private let makeSource: () -> AudioSource
@@ -64,7 +66,9 @@ final class DictationController {
     @ObservationIgnored private var startedAt = Date()
 
     init(settings: AppSettings, models: ModelManager, engines: EngineRegistry, processor: TextProcessor,
+         translation: TranslationService,
          inserter: TextInserter, sounds: SoundEffects, makeSource: @escaping () -> AudioSource) {
+        self.translation = translation
         self.settings = settings
         self.models = models
         self.engines = engines
@@ -110,8 +114,8 @@ final class DictationController {
             fail(.noModel)
             return
         }
-        if mode == .translate, !processor.isAvailable {
-            fail(.needsLLM)
+        if mode == .translate, !translation.canTranslateDictation {
+            fail(.translationUnavailable)
             return
         }
 
@@ -244,7 +248,7 @@ final class DictationController {
             switch mode {
             case .translate:
                 phase = .processing(.translating)
-                return try await processor.translate(text)
+                return try await translation.translateDictation(text)
             case .dictate where settings.polishEnabled && processor.isAvailable:
                 phase = .processing(.polishing)
                 return try await processor.polish(text)

@@ -29,12 +29,13 @@ final class TextProcessor {
 
     /// 字幕翻译(流式):带最近几行原文和译文作为上下文(修正识别错误、保持术语一致)。
     /// 每次产出到目前为止的译文,字幕条边生成边显示。超时较短(两段数据之间 10 秒),慢了宁可不显示。
-    func translateSubtitle(_ line: String, context: [(source: String, translation: String?)]) throws -> AsyncThrowingStream<String, Error> {
+    /// - Parameter draft: 系统翻译的初稿(有的话 LLM 在它基础上修正)。
+    func translateSubtitle(_ line: String, context: [(source: String, translation: String?)], draft: String? = nil) throws -> AsyncThrowingStream<String, Error> {
         guard var client else { throw LLMError.notConfigured }
         client.timeout = 10
         return client.stream(
             system: Prompts.translateSubtitle(to: settings.subtitleTarget, vocabulary: settings.vocabularyTerms),
-            user: Prompts.subtitleUser(current: line, context: context),
+            user: Prompts.subtitleUser(current: line, context: context, draft: draft),
             temperature: 0.2)
     }
 }

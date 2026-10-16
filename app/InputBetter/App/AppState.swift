@@ -13,6 +13,8 @@ final class AppState {
     let cloudASR: CloudASRStore
     let engines: EngineRegistry
     let processor: TextProcessor
+    /// 翻译入口(系统翻译 + LLM,字幕和听写共用)。
+    let translation: TranslationService
     let deviceLink: DeviceLink
     let dictation: DictationController
     let subtitles: SubtitleController
@@ -35,18 +37,19 @@ final class AppState {
         models = ModelManager(settings: settings, cloud: cloudASR)
         engines = EngineRegistry(cloud: cloudASR)
         processor = TextProcessor(settings: settings)
+        translation = TranslationService(settings: settings, processor: processor)
         deviceLink = DeviceLink()
         agent = AgentNotifier()
         firmware = FirmwareFlasher(link: deviceLink)
         passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
         hotkeys = HotkeyManager()
-        subtitles = SubtitleController(settings: settings, models: models, engines: engines, processor: processor)
+        subtitles = SubtitleController(settings: settings, models: models, engines: engines, translation: translation)
 
         // 音源工厂:选了 Passport 且已连接时用设备麦克风,否则用系统输入设备。
         let link = deviceLink
         let inputDevices = inputDevices
         dictation = DictationController(
-            settings: settings, models: models, engines: engines, processor: processor,
+            settings: settings, models: models, engines: engines, processor: processor, translation: translation,
             inserter: TextInserter(), sounds: SoundEffects(settings: settings),
             makeSource: {
                 if settings.micID == AppSettings.passportMicID, link.connection != .disconnected {
@@ -64,7 +67,7 @@ final class AppState {
         menus = MenuBuilder(app: self)
         pill = PillPanelController(content: { [unowned self] ui, window in
             AnyView(LocalizedRoot(language: language) { PillView(
-                dictation: dictation, subtitles: subtitles, agent: agent, ui: ui,
+                dictation: dictation, subtitles: subtitles, agent: agent, translation: translation, ui: ui,
                 settings: settings, permissions: permissions,
                 hotkeyHint: { [unowned self] in hotkeys.dictateDescription },
                 actions: pillActions, window: window) })
@@ -74,7 +77,8 @@ final class AppState {
                               settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
                                   setCaptionsCollapsed(!captionsCollapsed)
                               }, startCaptions: { [unowned self] app in startCaptions(app) },
-                              stopCaptions: { [unowned self] in stopCaptions() }))
+                              stopCaptions: { [unowned self] in stopCaptions() },
+                              canTranslate: { [unowned self] in translation.isAvailable }))
         bridge.start()
         // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
         updateBluetooth()
@@ -89,6 +93,7 @@ final class AppState {
 
         installStatusItem()
         observeSettings()
+        Task { await translation.refreshSystemStatus() }
 
         #if DEBUG
         // 调试用:IB_SETTINGS_PANE 打开设置窗口,IB_ONBOARDING_STEP 打开引导。
@@ -148,6 +153,7 @@ final class AppState {
             collapseCaptions: { [unowned self] in setCaptionsCollapsed(true) },
             stopCaptions: { [unowned self] in stopCaptions() },
             showTranscript: { [unowned self] in windows.showTranscript() },
+            openTranslationSettings: { [unowned self] in windows.showSettings(.ai) },
             showMenu: { [unowned self] point in pill.popUp(menus.build(), at: point) },
             cancel: { [unowned self] in dictation.cancel() },
             confirm: { [unowned self] in dictation.stop() },

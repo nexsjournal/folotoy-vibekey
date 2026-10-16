@@ -23,6 +23,12 @@ final class SubtitleController {
     var lines: [Line] { Array(transcript.entries.suffix(maxLines)) }
     /// 正在说的那句(未定稿,会不断变化)。
     private(set) var partial = ""
+    /// 正在说的半句的系统翻译(开启翻译且系统翻译可用时,节流后实时更新)。
+    private(set) var partialTranslation: String?
+    @ObservationIgnored private var partialTask: Task<Void, Never>?
+    @ObservationIgnored private var partialPending = false
+    /// 最近一次翻译的半句和它的译文:定稿文字与之相同时直接用作初稿,不用再等。
+    @ObservationIgnored private var lastPartialTranslation: (source: String, translation: String)?
     private(set) var level: Float = 0
     /// 识别出错(如云端鉴权失败、网络中断)时的原因,收到新文字后清除。
     private(set) var streamError: String?
@@ -40,7 +46,7 @@ final class SubtitleController {
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let models: ModelManager
     @ObservationIgnored private let engines: EngineRegistry
-    @ObservationIgnored private let processor: TextProcessor
+    @ObservationIgnored private let translation: TranslationService
     @ObservationIgnored private var tap: AppAudioTap?
     @ObservationIgnored private var session: ASRSession?
     @ObservationIgnored private var eventsTask: Task<Void, Never>?
@@ -54,11 +60,11 @@ final class SubtitleController {
 
     private let maxLines = 3
 
-    init(settings: AppSettings, models: ModelManager, engines: EngineRegistry, processor: TextProcessor) {
+    init(settings: AppSettings, models: ModelManager, engines: EngineRegistry, translation: TranslationService) {
         self.settings = settings
         self.models = models
         self.engines = engines
-        self.processor = processor
+        self.translation = translation
     }
 
     /// 开始转录某个应用的声音。
@@ -131,6 +137,7 @@ final class SubtitleController {
         session = nil
         eventsTask?.cancel()
         silenceTask?.cancel()
+        resetPartialTranslation()
         level = 0
         partial = ""
         if status != .stopped { status = .stopped }
@@ -170,39 +177,81 @@ final class SubtitleController {
         case .partial(let text):
             partial = TranscriptText.normalize(text)
             if !text.isEmpty { streamError = nil }
+            schedulePartialTranslation()
         case .final(let raw):
             streamError = nil
             let text = TranscriptText.normalize(raw)
             partial = ""
+            let cached = lastPartialTranslation
+            resetPartialTranslation()
             guard !text.isEmpty else { return }
+            if settings.subtitleTranslate, let cached, cached.source == text {
+                let line = Line(text: text)
+                transcript.append(line)
+                transcript.setTranslation(cached.translation, for: line.id, draft: true)
+                translate(line)
+                return
+            }
             let line = Line(text: text)
             transcript.append(line)
             if settings.subtitleTranslate { translate(line) }
         }
     }
 
-    /// 翻译一句(流式):译文边生成边写入记录,字幕条和记录窗口随之更新。
-    /// 失败且一个字都没收到时标记失败;已经显示了一部分则保留已有部分。
+    /// 翻译一句(TranslationService:系统翻译初稿先显示,AI 润色版完整后替换;没有初稿时 AI 逐字显示)。
+    /// 已经有译文(初稿)时,失败也保留已有内容;一个字都没有才标记失败。
     private func translate(_ line: Line) {
-        guard processor.isAvailable else { return }
+        guard translation.isAvailable else { return }
         // 上下文:当前句之前的 3 句原文和已有译文。
         let context = transcript.entries.prefix { $0.id != line.id }.suffix(3).map { (source: $0.text, translation: $0.translation) }
         let sessionID = transcript.id
         Task {
-            var received = false
-            do {
-                for try await text in try processor.translateSubtitle(line.text, context: Array(context)) {
-                    guard transcript.id == sessionID else { return }
-                    received = true
-                    transcript.setTranslation(text, for: line.id)
+            for await update in translation.translateLine(line.text, context: Array(context)) {
+                guard transcript.id == sessionID else { return }
+                switch update {
+                case .draft(let text): transcript.setTranslation(text, for: line.id, draft: true)
+                case .streaming(let text), .final(let text): transcript.setTranslation(text, for: line.id)
+                case .sameLanguage: transcript.setTranslation("", for: line.id)
+                case .failed(let reason):
+                    let hasText = transcript.entries.last(where: { $0.id == line.id })?.translation != nil
+                    if !hasText { transcript.setTranslationFailed(for: line.id) }
+                    Log.subtitles.error("subtitle translation failed: \(reason, privacy: .public)")
                 }
-            } catch {
-                guard transcript.id == sessionID, !received else { return }
-                // 标记失败,字幕条不再一直显示"翻译中"。
-                transcript.setTranslationFailed(for: line.id)
-                Log.subtitles.error("subtitle translation failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    /// 半句实时翻译(节流):同一时间只有一个请求,期间有新内容就在结束后再翻一次,两次之间至少间隔 250 毫秒。
+    private func schedulePartialTranslation() {
+        guard settings.subtitleTranslate, !partial.isEmpty else {
+            partialTranslation = nil
+            return
+        }
+        if partialTask != nil {
+            partialPending = true
+            return
+        }
+        partialTask = Task { [weak self] in
+            guard let self else { return }
+            repeat {
+                partialPending = false
+                let text = partial
+                guard !text.isEmpty, let result = await translation.translatePartial(text) else { break }
+                guard !Task.isCancelled else { return }
+                partialTranslation = result
+                lastPartialTranslation = (text, result)
+                try? await Task.sleep(for: .milliseconds(250))
+            } while partialPending && !Task.isCancelled
+            partialTask = nil
+        }
+    }
+
+    private func resetPartialTranslation() {
+        partialTask?.cancel()
+        partialTask = nil
+        partialPending = false
+        partialTranslation = nil
+        lastPartialTranslation = nil
     }
 
     private func updateLevel(_ value: Float) {

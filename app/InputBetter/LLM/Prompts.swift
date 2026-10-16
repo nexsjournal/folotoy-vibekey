@@ -38,17 +38,24 @@ nonisolated enum Prompts {
         2. If the CURRENT line is a fragment continuing the previous line, translate it so it reads naturally as the continuation; \
         translate only the CURRENT line's content, without repeating the previous translation.
         3. Write a fluent, idiomatic, concise subtitle a professional translator would produce. Keep names, numbers and technical terms accurate.
+        If a MACHINE DRAFT is given, it is a quick literal machine translation of the CURRENT line: keep what is right, \
+        fix mistranslations, recognition errors and awkward wording.
         Output only the translation of the CURRENT line — no quotes, notes or explanations.
         \(vocabularyBlock(vocabulary))
         """
     }
 
-    static func subtitleUser(current: String, context: [(source: String, translation: String?)]) -> String {
-        if context.isEmpty { return "CURRENT: \(current)" }
-        let previous = context.map { line in
-            line.translation.map { "\(line.source)\n  → \($0)" } ?? line.source
+    static func subtitleUser(current: String, context: [(source: String, translation: String?)], draft: String? = nil) -> String {
+        var message = ""
+        if !context.isEmpty {
+            let previous = context.map { line in
+                line.translation.map { "\(line.source)\n  → \($0)" } ?? line.source
+            }
+            message = "PREVIOUS:\n" + previous.joined(separator: "\n") + "\n\n"
         }
-        return "PREVIOUS:\n" + previous.joined(separator: "\n") + "\n\nCURRENT: \(current)"
+        message += "CURRENT: \(current)"
+        if let draft, !draft.isEmpty { message += "\nMACHINE DRAFT: \(draft)" }
+        return message
     }
 
     /// 提示词里的"翻译成……"。自动模式按用户的语言对决定方向。

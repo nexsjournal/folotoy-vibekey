@@ -46,7 +46,7 @@ final class MenuBuilder {
         let translate = ActionItem(String(localized: "字幕翻译（\(settings.subtitleTarget.title)）", bundle: .l10n), checked: settings.subtitleTranslate) { [app] in
             app.settings.subtitleTranslate.toggle()
         }
-        translate.isEnabled = settings.llmConfigured
+        translate.isEnabled = app.translation.isAvailable
         menu.addItem(translate)
         if settings.subtitleLocked {
             menu.addItem(ActionItem(String(localized: "解锁字幕条", bundle: .l10n)) { [app] in app.settings.subtitleLocked = false })

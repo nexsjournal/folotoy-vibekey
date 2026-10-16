@@ -9,11 +9,12 @@ App(AppState 组合根)
  ├─ Hotkey ─┐
  ├─ Pill ───┤ 只读状态、发意图
  ├─ Settings / Onboarding / UI
- ├─ Dictation ──→ Audio ──→ ASR ──→ LLM ──→ Support/KeySender
- ├─ Subtitles ──→ Audio(AppAudioTap)──→ ASR ──→ LLM
+ ├─ Dictation ──→ Audio ──→ ASR ──→ LLM / Translate ──→ Support/KeySender
+ ├─ Subtitles ──→ Audio(AppAudioTap)──→ ASR ──→ Translate(系统翻译 + LLM)
  ├─ Bridge(DeviceBridge / DeviceStateMapper)──→ Device(DeviceLink)
  ├─ Vibe(KeyAction / AgentNotifier / AgentHookInstaller)
  ├─ Models(ModelManager / ModelCatalog)
+ ├─ Translate(TranslationService / SystemTranslator / LanguageDetector)──→ Translation 框架 + LLM
  └─ ASR/Cloud(CloudASRStore / CloudASREngine / StreamingCloudSession + RealtimeCodec)──→ Support/CredentialStore
 ```
 
@@ -50,6 +51,10 @@ App(AppState 组合根)
 | 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
 | OpenAI 兼容接口地址 / 鉴权 / 错误信息 / 模型列表 | `OpenAICompatibleAPI` | LLMClient、OpenAITranscriptionDecoder、LLMConfigForm、CloudASREngine.fetchModels |
 | 模型下拉选择(列表 + 手动输入 + 重新获取) | `ModelPickerField` | LLMConfigForm、CloudConfigSheet |
+| 翻译(系统翻译 + LLM 组合) | `TranslationService`(translateLine / translatePartial / translateDictation) | SubtitleController、DictationController |
+| 系统离线翻译 | `SystemTranslator`(Translation 框架,会话缓存) | TranslationService |
+| 语言识别 / 同语言判断 | `LanguageDetector` | TranslationService、TargetLanguage.resolved |
+| 系统翻译语言包状态与下载 | `SystemTranslationRow`(`.translationTask` → prepareTranslation) | 设置 › AI 润色与翻译、引导「翻译与 AI」 |
 | 结束字幕(含询问保存) | `AppState.stopCaptions` | 字幕条 ⏹、⌃ 菜单 / 菜单栏、快捷键、设置 › 实时字幕、Passport、切换应用 |
 | 字幕记录保存成文件 | `TranscriptSaver`(`CaptionTranscript.plainText`) | AppState.stopCaptions / prepareToQuit、字幕记录窗口 |
 
@@ -77,7 +82,8 @@ KeyboardShortcuts.onKeyUp(.dictate) → HotkeyManager.Actions.dictateUp
      → (150 ms 尾音)AudioSource.stop
      → await sessionTask → ASRSession.finish → 文本
      → TranscriptText.normalize
-     → postProcess:TextProcessor.polish | translate → LLMClient.complete(失败退回原文)
+     → postProcess:TextProcessor.polish | TranslationService.translateDictation
+         (有 LLM 且方式允许 → TextProcessor.translate;否则 LanguageDetector → SystemTranslator)(失败退回原文)
      → TextInserter.insert
           → snapshot 剪贴板 → copy → KeySender.press(⌘V, KeyLayout) → 700 ms 后 restore
      → succeed(DictationResult) / fail(DictationFailure)(类型化结果,界面用 .title 显示)→ 1.2 s 后回到 idle
@@ -218,10 +224,15 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
           → TranscriptText.normalize → partial / CaptionTranscript.append(完整记录;lines = 最后 3 句)
-          → .final 且开启翻译 → TextProcessor.translateSubtitle(前 3 句原文 + 译文作上下文)
-              → Prompts.translateSubtitle(先按上下文修正识别错误、理解被切开的半句,再给出通顺译文)
-              → LLMClient.stream(SSE 流式,LLMClient.parseStreamLine / visibleText 去掉思考段)
-              → 每段增量 CaptionTranscript.setTranslation(译文边生成边显示)| 一个字都没收到就失败 → setTranslationFailed
+          → .partial 且开启翻译 → schedulePartialTranslation(节流,同时只有一个请求)
+              → TranslationService.translatePartial → SystemTranslator → partialTranslation(半句实时译文)
+          → .final 且开启翻译 → TranslationService.translateLine(前 3 句原文 + 译文作上下文):
+              ① LanguageDetector 识别源语言 → TargetLanguage.resolved → SystemTranslator.translate
+                 → .draft 初稿立即显示(定稿与最近翻译过的半句相同时直接复用,零等待)
+              ② LLM:TextProcessor.translateSubtitle(带初稿)→ Prompts.translateSubtitle → LLMClient.stream(SSE)
+                 → 有初稿时完整生成后 .final 一次性替换;没有初稿时 .streaming 逐字显示
+              ③ 只有系统翻译 → 初稿即定稿;都失败 → .failed(已有初稿则保留)
+              → CaptionTranscript.setTranslation(draft:)| setTranslationFailed
           → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
  → SubtitleSurface 迷你字幕记录:按时间从上到下,最新在最下面,越旧越暗,固定高度、顶部渐隐;
      翻译时每句原文下紧跟它的译文(未返回显示"翻译中…");最后一行是正在说的半句
@@ -324,6 +335,12 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
 密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
 旧版本存在钥匙串里的 LLM Key 在启动时静默迁移一次(不弹授权框),之后删除钥匙串条目
 ```
+
+翻译方式(`TranslationEngine`,默认 `hybrid`):hybrid = 系统翻译初稿 + AI 润色替换;system = 仅系统翻译;llm = 仅 AI。
+`TranslationService.isAvailable`(系统语言包已下载 或 配置了 AI,按方式判断)决定字幕条「译」菜单、设置开关、菜单栏、Passport 上键能否打开翻译。
+语言包:`TranslationService.refreshSystemStatus`(启动、目标语言变化、app 重新激活时)→ `SystemTranslator.status`;
+下载:`SystemTranslationRow`「下载」→ `.translationTask` → `prepareTranslation()`(系统弹窗确认)→ `systemDownloadFinished`;
+或「在系统设置中管理」→ 系统设置 › 通用 › 语言与地区 › 翻译语言。字幕条「译」菜单在不可用时提供「打开翻译设置…」→ `WindowManager.showSettings(.ai)`。
 
 翻译目标语言(`TargetLanguage`,听写和字幕各一个,默认 `auto`):
 `auto` → `Prompts.target` → `TargetLanguage.autoPair`(系统首选语言 P + 另一种语言:英语,P 是英语时取第二首选语言或简体中文)

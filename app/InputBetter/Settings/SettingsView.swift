@@ -3,6 +3,8 @@ import SwiftUI
 /// 设置窗口:左侧分类,右侧内容。每个分类是独立的视图文件。
 struct SettingsView: View {
     let app: AppState
+    /// 当前分类(由 WindowManager 持有,外部可以直接打开某个分类,如字幕条里的"翻译设置")。
+    @Bindable var navigation: SettingsNavigation
 
     enum Pane: String, CaseIterable, Identifiable {
         case general, models, shortcuts, ai, subtitles, passport, vibe, vocabulary
@@ -35,20 +37,12 @@ struct SettingsView: View {
         }
     }
 
-    @State private var pane: Pane = Self.initialPane
-
-    /// 调试用:环境变量 IB_SETTINGS_PANE=<rawValue> 打开指定分类。
-    private static var initialPane: Pane {
-        #if DEBUG
-        if let raw = ProcessInfo.processInfo.environment["IB_SETTINGS_PANE"], let p = Pane(rawValue: raw) { return p }
-        #endif
-        return .general
-    }
+    private var pane: SettingsView.Pane { navigation.pane }
 
     var body: some View {
         HStack(spacing: 0) {
             // 固定宽度的侧边栏(NavigationSplitView 在自建窗口里不认列宽,英文标题会被截断)。
-            List(Pane.allCases, selection: $pane) { pane in
+            List(Pane.allCases, selection: $navigation.pane) { pane in
                 Label {
                     Text(pane.title)
                 } icon: {
@@ -86,7 +80,7 @@ struct SettingsView: View {
         case .general: GeneralPane(app: app)
         case .models: ModelsPane(app: app)
         case .shortcuts: ShortcutsPane(app: app)
-        case .ai: AIPane(settings: app.settings)
+        case .ai: AIPane(app: app)
         case .subtitles: SubtitlesPane(app: app)
         case .passport: PassportPane(app: app)
         case .vibe: VibePane(app: app)
@@ -118,6 +112,8 @@ struct SettingsSection<Content: View>: View {
 struct SettingRow<Control: View>: View {
     let title: LocalizedStringKey
     var detail: LocalizedStringKey?
+    /// 已经本地化好的说明文字(来自枚举 / 模型,用 String(localized:) 生成)。
+    var detailText: String?
     @ViewBuilder var control: Control
 
     var body: some View {
@@ -125,6 +121,7 @@ struct SettingRow<Control: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 13))
                 if let detail { Text(detail).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                if let detailText { Text(verbatim: detailText).font(.system(size: 11.5)).foregroundStyle(.secondary) }
             }
             Spacer(minLength: DS.Space.m)
             // 右侧控件统一靠右对齐,按内容宽度显示。
@@ -132,5 +129,19 @@ struct SettingRow<Control: View>: View {
                 .frame(alignment: .trailing)
         }
         .frame(minHeight: 26)
+    }
+}
+
+/// 设置窗口当前显示的分类。
+@MainActor @Observable
+final class SettingsNavigation {
+    var pane: SettingsView.Pane = SettingsNavigation.initialPane
+
+    /// 调试用:环境变量 IB_SETTINGS_PANE=<rawValue> 打开指定分类。
+    private static var initialPane: SettingsView.Pane {
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["IB_SETTINGS_PANE"], let p = SettingsView.Pane(rawValue: raw) { return p }
+        #endif
+        return .general
     }
 }

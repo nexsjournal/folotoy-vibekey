@@ -45,14 +45,14 @@ nonisolated enum DictationResult: Equatable, Sendable {
 
 /// 失败原因。
 nonisolated enum DictationFailure: Equatable, Sendable {
-    case noModel, needsLLM, engineNotReady, noSpeech
+    case noModel, translationUnavailable, engineNotReady, noSpeech
     /// 系统或引擎返回的错误描述。
     case other(String)
 
     var title: String {
         switch self {
         case .noModel: String(localized: "识别模型不可用，请在设置里下载或配置", bundle: .l10n)
-        case .needsLLM: String(localized: "翻译需要先配置 AI", bundle: .l10n)
+        case .translationUnavailable: String(localized: "翻译需要下载系统翻译语言或配置 AI", bundle: .l10n)
         case .engineNotReady: String(localized: "识别引擎未就绪", bundle: .l10n)
         case .noSpeech: String(localized: "没有听到声音", bundle: .l10n)
         case .other(let message): message

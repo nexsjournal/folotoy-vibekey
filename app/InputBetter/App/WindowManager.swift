@@ -8,6 +8,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var transcriptWindow: NSWindow?
+    /// 设置窗口当前分类(可从外部直接打开某个分类)。
+    private let settingsNavigation = SettingsNavigation()
     /// 字幕记录窗口的固定状态(固定在左侧、置顶)。
     private let transcriptPin = TranscriptPinController(autosaveName: WindowManager.transcriptAutosaveName)
     private static let transcriptAutosaveName = "InputBetterTranscript"
@@ -23,11 +25,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
         }
     }
 
-    func showSettings() {
+    /// 打开设置窗口;传入分类时切换到该分类。
+    func showSettings(_ pane: SettingsView.Pane? = nil) {
+        if let pane { settingsNavigation.pane = pane }
         if settingsWindow == nil {
             settingsWindow = makeWindow(title: String(localized: "InputBetter 设置", bundle: .l10n), size: NSSize(width: 940, height: 700),
                                         resizable: .init(minSize: NSSize(width: 820, height: 560), autosaveName: "InputBetterSettings"),
-                                        content: LocalizedRoot(language: app.language) { SettingsView(app: self.app) })
+                                        content: LocalizedRoot(language: app.language) { SettingsView(app: self.app, navigation: self.settingsNavigation) })
         }
         present(settingsWindow)
     }

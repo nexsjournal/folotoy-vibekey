@@ -318,3 +318,36 @@ nonisolated final class TranslationDisplayTests: XCTestCase {
         XCTAssertTrue(Prompts.target(.en).contains("English"))
     }
 }
+
+/// 链:TranslationService → LanguageDetector(识别源语言)→ TargetLanguage.resolved(确定目标)→ SystemTranslator。
+nonisolated final class SystemTranslationTests: XCTestCase {
+    private let zhUser = ["zh-Hans-CN", "en-US"]
+
+    func testDetectAndCompareLanguages() {
+        XCTAssertEqual(LanguageDetector.detect("The reason why human in the loop is challenging.")?.languageCode?.identifier, "en")
+        XCTAssertEqual(LanguageDetector.detect("今天下午三点在会议室开会")?.languageCode?.identifier, "zh")
+        XCTAssertTrue(LanguageDetector.same(Locale.Language(identifier: "zh"), Locale.Language(identifier: "zh-Hans")))
+        XCTAssertFalse(LanguageDetector.same(Locale.Language(identifier: "zh-Hans"), Locale.Language(identifier: "zh-Hant")))
+        XCTAssertTrue(LanguageDetector.same(Locale.Language(identifier: "en-US"), Locale.Language(identifier: "en")))
+    }
+
+    func testResolvedTargetFollowsAutoRule() {
+        let en = Locale.Language(identifier: "en"), zh = Locale.Language(identifier: "zh-Hans")
+        XCTAssertEqual(TargetLanguage.auto.resolved(source: en, preferred: zhUser).minimalIdentifier, "zh", "英文 → 主语言中文")
+        XCTAssertEqual(TargetLanguage.auto.resolved(source: zh, preferred: zhUser).minimalIdentifier, "en", "中文 → 另一种语言英文")
+        XCTAssertEqual(TargetLanguage.ja.resolved(source: en, preferred: zhUser).minimalIdentifier, "ja", "固定目标直接用")
+    }
+
+    func testProbePairForDownload() {
+        let auto = TranslationService.probePair(for: .auto, preferred: zhUser)
+        XCTAssertEqual(auto.source.minimalIdentifier, "en")
+        XCTAssertEqual(auto.target.minimalIdentifier, "zh")
+        let toEnglish = TranslationService.probePair(for: .en, preferred: zhUser)
+        XCTAssertEqual(toEnglish.source.minimalIdentifier, "zh")
+    }
+
+    func testPromptIncludesMachineDraft() {
+        let user = Prompts.subtitleUser(current: "Hello", context: [], draft: "你好")
+        XCTAssertEqual(user, "CURRENT: Hello\nMACHINE DRAFT: 你好")
+    }
+}

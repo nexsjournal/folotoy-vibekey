@@ -29,9 +29,9 @@ struct SubtitlesPane: View {
                             }
                         }
                         Divider()
-                        SettingRow(title: "显示译文", detail: settings.llmConfigured ? "目标语言：\(settings.subtitleTarget.title)（在 AI 设置里修改）" : "需要先配置 AI") {
+                        SettingRow(title: "显示译文", detail: app.translation.isAvailable ? "目标语言：\(settings.subtitleTarget.title)（在 AI 设置里修改）" : "需要下载系统翻译语言或配置 AI") {
                             Toggle("", isOn: $settings.subtitleTranslate).labelsHidden().toggleStyle(.switch)
-                                .disabled(!settings.llmConfigured)
+                                .disabled(!app.translation.isAvailable)
                         }
                         Divider()
                         SettingRow(title: "锁定字幕条", detail: "锁定后鼠标点击会穿透，不挡视频控件") {

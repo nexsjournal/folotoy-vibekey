@@ -11,6 +11,8 @@ struct PillActions {
     var stopCaptions: () -> Void
     /// 打开字幕记录窗口。
     var showTranscript: () -> Void
+    /// 打开 设置 › AI 润色与翻译(下载系统翻译语言 / 配置 AI)。
+    var openTranslationSettings: () -> Void
     /// 打开快捷菜单,参数为点击位置(窗口坐标)。
     var showMenu: (CGPoint) -> Void
     var cancel: () -> Void
@@ -29,6 +31,7 @@ struct PillView: View {
     let dictation: DictationController
     let subtitles: SubtitleController
     let agent: AgentNotifier
+    let translation: TranslationService
     let ui: PillUIState
     let settings: AppSettings
     let permissions: Permissions
@@ -146,9 +149,10 @@ struct PillView: View {
         GlassEffectContainer(spacing: 12) {
             switch surface {
             case .captionsBar:
-                SubtitleSurface(controller: subtitles, settings: settings, permissions: permissions,
+                SubtitleSurface(controller: subtitles, translation: translation, settings: settings, permissions: permissions,
                                 hovering: expanded, onDictate: actions.toggleDictation,
                                 onTranscript: actions.showTranscript,
+                                onTranslationSettings: actions.openTranslationSettings,
                                 onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions)
                     .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 22))
                     .glassEffectID("main", in: glass)

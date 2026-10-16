@@ -16,7 +16,7 @@ struct OnboardingView: View {
             case .permissions: String(localized: "授予权限", bundle: .l10n)
             case .model: String(localized: "选择识别模型", bundle: .l10n)
             case .hotkey: String(localized: "设置说话快捷键", bundle: .l10n)
-            case .ai: String(localized: "连接 AI（可选）", bundle: .l10n)
+            case .ai: String(localized: "翻译与 AI（可选）", bundle: .l10n)
             case .passport: String(localized: "连接 Passport（可选）", bundle: .l10n)
             case .tryIt: String(localized: "试一试", bundle: .l10n)
             }
@@ -28,7 +28,7 @@ struct OnboardingView: View {
             case .permissions: String(localized: "麦克风用来听你说话，辅助功能用来把文字输入到当前窗口。", bundle: .l10n)
             case .model: String(localized: "所有识别都在本机完成，声音不会离开你的 Mac。可以随时在设置里切换。", bundle: .l10n)
             case .hotkey: String(localized: "默认是 ⌥ 空格，点录制框可以改成你顺手的组合键。", bundle: .l10n)
-            case .ai: String(localized: "配置后可以自动润色口语、把中文说成英文、给字幕加翻译。", bundle: .l10n)
+            case .ai: String(localized: "下载系统翻译语言即可离线翻译字幕和听写；再连接 AI，还能润色口语、让译文更准确。", bundle: .l10n)
             case .passport: String(localized: "FoloToy AI Passport 是 InputBetter 的硬件搭档：按住说话、一键发送，Agent 完成时提醒你。", bundle: .l10n)
             case .tryIt: String(localized: "把光标放进下面的输入框，按住快捷键说一句话。", bundle: .l10n)
             }
@@ -108,6 +108,11 @@ struct OnboardingView: View {
         case .ai:
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Space.m) {
+                    Card { SystemTranslationRow(translation: app.translation) }
+                    Text("AI（OpenAI 兼容接口）")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, DS.Space.s)
                     LLMConfigForm(settings: app.settings)
                     Toggle("听写后自动润色（去口水词、补标点、修正错字）", isOn: Bindable(app.settings).polishEnabled)
                         .font(.system(size: 12.5))
@@ -178,7 +183,7 @@ struct OnboardingView: View {
     private var primaryTitle: LocalizedStringKey {
         switch step {
         case .welcome: "开始设置"
-        case .ai where !app.settings.llmConfigured: "跳过"
+        case .ai where !app.settings.llmConfigured && !app.translation.systemReady: "跳过"
         case .passport where app.passportSetup.stage != .connected: "跳过"
         case .tryIt: "完成"
         default: "继续"

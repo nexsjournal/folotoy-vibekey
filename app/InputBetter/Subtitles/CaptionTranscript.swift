@@ -13,6 +13,8 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         var translation: String?
         /// 翻译请求失败(超时 / 出错),不再等待译文。
         var translationFailed = false
+        /// 当前译文是系统翻译的初稿,AI 润色版还在路上(界面上略暗)。
+        var translationIsDraft = false
 
         /// 翻译已有结果(成功或失败)。
         var translationSettled: Bool { translation != nil || translationFailed }
@@ -56,10 +58,11 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         }
     }
 
-    /// 译文异步到达后补到对应的句子上。
-    mutating func setTranslation(_ translation: String, for id: UUID) {
+    /// 译文异步到达后补到对应的句子上。空字符串表示原文已是目标语言、不需要译文。
+    mutating func setTranslation(_ translation: String, for id: UUID, draft: Bool = false) {
         guard let index = entries.lastIndex(where: { $0.id == id }) else { return }
         entries[index].translation = translation
+        entries[index].translationIsDraft = draft
         entries[index].translationFailed = false
     }
 
@@ -72,6 +75,7 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
     mutating func clearTranslation(for id: UUID) {
         guard let index = entries.lastIndex(where: { $0.id == id }) else { return }
         entries[index].translation = nil
+        entries[index].translationIsDraft = false
         entries[index].translationFailed = false
     }
 

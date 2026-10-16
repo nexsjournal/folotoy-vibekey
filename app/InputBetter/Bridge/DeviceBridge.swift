@@ -19,6 +19,8 @@ final class DeviceBridge {
         var startCaptions: (AudioApp) -> Void
         /// 结束字幕(与 Mac 上的入口走同一个函数,会询问是否保存记录)。
         var stopCaptions: () -> Void
+        /// 翻译是否可用(系统翻译语言包或 AI),与 Mac 上的翻译开关一致。
+        var canTranslate: () -> Bool
     }
 
     /// 设备上的列表页:切换应用,或为字幕选择应用。
@@ -173,8 +175,8 @@ final class DeviceBridge {
         case .up:
             guard isTap, !dictation.phase.isBusy else { return }
             if inCaptionsMode {
-                // 和 Mac 上的翻译开关一致:没配置 AI 时不能打开翻译。
-                if subtitles.isRunning, settings.llmConfigured { settings.subtitleTranslate.toggle() }
+                // 和 Mac 上的翻译开关一致:翻译不可用时不能打开。
+                if subtitles.isRunning, hooks.canTranslate() { settings.subtitleTranslate.toggle() }
             } else {
                 perform(settings.deviceUpAction)
             }

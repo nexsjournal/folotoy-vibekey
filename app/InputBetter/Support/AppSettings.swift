@@ -110,6 +110,37 @@ nonisolated enum TargetLanguage: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 翻译方式(字幕和听写翻译共用)。
+nonisolated enum TranslationEngine: String, CaseIterable, Identifiable, Sendable {
+    /// 系统翻译先出(离线、几百毫秒),配置了 AI 时再用 AI 结合上下文润色替换。
+    case hybrid
+    /// 只用系统翻译(免费、离线、不需要 AI)。
+    case system
+    /// 只用 AI(需要配置 LLM)。
+    case llm
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .hybrid: String(localized: "系统翻译 + AI 润色", bundle: .l10n)
+        case .system: String(localized: "仅系统翻译", bundle: .l10n)
+        case .llm: String(localized: "仅 AI", bundle: .l10n)
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .hybrid: String(localized: "系统翻译立即给出译文，配置了 AI 时再结合上下文修正识别错误、润色替换", bundle: .l10n)
+        case .system: String(localized: "macOS 自带的离线翻译，免费、速度快，不需要 AI", bundle: .l10n)
+        case .llm: String(localized: "全部交给 AI，质量最好但要等 AI 生成", bundle: .l10n)
+        }
+    }
+
+    var usesSystem: Bool { self != .llm }
+    var usesLLM: Bool { self != .system }
+}
+
 /// 所有用户设置,改动即写入 UserDefaults。
 @MainActor @Observable
 final class AppSettings {
@@ -128,6 +159,7 @@ final class AppSettings {
     var translateTarget: TargetLanguage { didSet { defaults.set(translateTarget.rawValue, forKey: "translateTarget") } }
     var subtitleTranslate: Bool { didSet { defaults.set(subtitleTranslate, forKey: "subtitleTranslate") } }
     var subtitleTarget: TargetLanguage { didSet { defaults.set(subtitleTarget.rawValue, forKey: "subtitleTarget") } }
+    var translationEngine: TranslationEngine { didSet { defaults.set(translationEngine.rawValue, forKey: "translationEngine") } }
     var subtitleFontSize: Double { didSet { defaults.set(subtitleFontSize, forKey: "subtitleFontSize") } }
     var subtitleLocked: Bool { didSet { defaults.set(subtitleLocked, forKey: "subtitleLocked") } }
     /// 结束字幕时询问是否保存字幕记录(提示框里勾选"不再询问"会关掉)。
@@ -157,6 +189,7 @@ final class AppSettings {
         translateTarget = TargetLanguage(rawValue: defaults.string(forKey: "translateTarget") ?? "") ?? .auto
         subtitleTranslate = defaults.object(forKey: "subtitleTranslate") as? Bool ?? false
         subtitleTarget = TargetLanguage(rawValue: defaults.string(forKey: "subtitleTarget") ?? "") ?? .auto
+        translationEngine = TranslationEngine(rawValue: defaults.string(forKey: "translationEngine") ?? "") ?? .hybrid
         subtitleFontSize = defaults.object(forKey: "subtitleFontSize") as? Double ?? 22
         subtitleLocked = defaults.bool(forKey: "subtitleLocked")
         askToSaveCaptions = defaults.object(forKey: "askToSaveCaptions") as? Bool ?? true

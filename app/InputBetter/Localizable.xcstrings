@@ -171,6 +171,16 @@
         }
       }
     },
+    "AI（OpenAI 兼容接口）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI (OpenAI-compatible API)"
+          }
+        }
+      }
+    },
     "API Key": {
       "shouldTranslate": false
     },
@@ -459,6 +469,16 @@
     "https://api.openai.com/v1": {
       "shouldTranslate": false
     },
+    "macOS 自带的离线翻译，免费、速度快，不需要 AI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS's built-in offline translation. Free and fast, no AI needed."
+          }
+        }
+      }
+    },
     "sk-…（本地模型可留空）": {
       "localizations": {
         "en": {
@@ -595,6 +615,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download failed (HTTP %lld)"
+          }
+        }
+      }
+    },
+    "下载系统翻译语言即可离线翻译字幕和听写；再连接 AI，还能润色口语、让译文更准确。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download system translation languages to translate captions and dictation offline. Connect AI to also polish speech and make translations more accurate."
           }
         }
       }
@@ -759,6 +789,26 @@
         }
       }
     },
+    "仅 AI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Only"
+          }
+        }
+      }
+    },
+    "仅系统翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Translation Only"
+          }
+        }
+      }
+    },
     "从列表选择": {
       "localizations": {
         "en": {
@@ -885,6 +935,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Download"
+          }
+        }
+      }
+    },
+    "全部交给 AI，质量最好但要等 AI 生成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything goes to AI: best quality, but you wait for it to generate."
           }
         }
       }
@@ -1319,6 +1379,16 @@
         }
       }
     },
+    "在系统设置中管理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage in System Settings"
+          }
+        }
+      }
+    },
     "填入你自己的 API Key 后即可用于听写和字幕，按服务商价格计费。使用时录音会发送到服务商的服务器。": {
       "localizations": {
         "en": {
@@ -1579,6 +1649,16 @@
         }
       }
     },
+    "已下载（%@），翻译立即出结果，免费且不联网": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded (%@). Translations appear instantly, free and offline."
+          }
+        }
+      }
+    },
     "已拷贝": {
       "localizations": {
         "en": {
@@ -1755,6 +1835,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter Manually…"
+          }
+        }
+      }
+    },
+    "打开翻译设置…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Translation Settings…"
           }
         }
       }
@@ -2179,6 +2269,16 @@
         }
       }
     },
+    "未下载（%@）。下载后字幕翻译几乎实时，不需要 AI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not downloaded (%@). Once downloaded, captions translate almost in real time without AI."
+          }
+        }
+      }
+    },
     "未知": {
       "localizations": {
         "en": {
@@ -2389,6 +2489,16 @@
         }
       }
     },
+    "正在检查语言包…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking languages…"
+          }
+        }
+      }
+    },
     "正在转录 · %lld 句": {
       "localizations": {
         "en": {
@@ -2559,6 +2669,16 @@
         }
       }
     },
+    "润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polish"
+          }
+        }
+      }
+    },
     "润色中": {
       "localizations": {
         "en": {
@@ -2629,16 +2749,6 @@
         }
       }
     },
-    "用途": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uses"
-          }
-        }
-      }
-    },
     "电量 %lld%%": {
       "localizations": {
         "en": {
@@ -2679,12 +2789,12 @@
         }
       }
     },
-    "目标语言选「自动」时由 AI 判断方向：%@。": {
+    "目标语言选「自动」时自动判断方向：%@。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "With Automatic, AI picks the direction: %@."
+            "value": "With Automatic, the direction is chosen for you: %@."
           }
         }
       }
@@ -2825,6 +2935,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Managed by macOS"
+          }
+        }
+      }
+    },
+    "系统翻译 + AI 润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Translation + AI Polish"
+          }
+        }
+      }
+    },
+    "系统翻译不支持 %@ → %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System translation doesn't support %@ → %@"
+          }
+        }
+      }
+    },
+    "系统翻译不支持 %@，将只用 AI 翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System translation doesn't support %@. AI will be used instead."
+          }
+        }
+      }
+    },
+    "系统翻译立即给出译文，配置了 AI 时再结合上下文修正识别错误、润色替换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System translation shows a result right away; with AI set up, it's then corrected in context and replaced with a polished version."
+          }
+        }
+      }
+    },
+    "系统翻译语言未下载（%@ → %@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System translation languages not downloaded (%@ → %@)"
+          }
+        }
+      }
+    },
+    "系统翻译（离线）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Translation (Offline)"
+          }
+        }
+      }
+    },
+    "系统设置 › 通用 › 语言与地区 › 翻译语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Settings › General › Language & Region › Translation Languages"
           }
         }
       }
@@ -2989,6 +3169,36 @@
         }
       }
     },
+    "翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
+          }
+        }
+      }
+    },
+    "翻译不可用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation unavailable"
+          }
+        }
+      }
+    },
+    "翻译与 AI（可选）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation & AI (Optional)"
+          }
+        }
+      }
+    },
     "翻译中": {
       "localizations": {
         "en": {
@@ -3049,6 +3259,16 @@
         }
       }
     },
+    "翻译方式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation Method"
+          }
+        }
+      }
+    },
     "翻译设置": {
       "localizations": {
         "en": {
@@ -3059,12 +3279,22 @@
         }
       }
     },
-    "翻译需要先配置 AI": {
+    "翻译设置…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Set up AI to translate"
+            "value": "Translation Settings…"
+          }
+        }
+      }
+    },
+    "翻译需要下载系统翻译语言或配置 AI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To translate, download system translation languages or set up AI"
           }
         }
       }
@@ -3499,16 +3729,6 @@
         }
       }
     },
-    "连接 AI（可选）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connect AI (Optional)"
-          }
-        }
-      }
-    },
     "连接 Passport（可选）": {
       "localizations": {
         "en": {
@@ -3639,16 +3859,6 @@
         }
       }
     },
-    "配置后可以自动润色口语、把中文说成英文、给字幕加翻译。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Once set up, AI can polish your speech, turn spoken Chinese into English text, and translate captions."
-          }
-        }
-      }
-    },
     "配置失败：%@": {
       "localizations": {
         "en": {
@@ -3769,12 +3979,22 @@
         }
       }
     },
-    "需要先配置 AI": {
+    "需要下载系统翻译语言或配置 AI": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Set up AI first"
+            "value": "Download system translation languages or set up AI"
+          }
+        }
+      }
+    },
+    "需要先配置上面的 LLM 服务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up the LLM service above first"
           }
         }
       }

@@ -58,7 +58,7 @@ enum DeviceStateMapper {
         switch failure {
         case .noSpeech: "NO SPEECH"
         case .noModel: "NO MODEL"
-        case .needsLLM: "SET UP AI"
+        case .translationUnavailable: "NO TRANSLATE"
         case .engineNotReady: "ENGINE ERROR"
         case .other: "ERROR"
         }

@@ -6,6 +6,8 @@ import SwiftUI
 /// 背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
 struct SubtitleSurface: View {
     let controller: SubtitleController
+    /// 翻译是否可用(系统翻译语言包已下载,或配置了 AI)。
+    let translation: TranslationService
     @Bindable var settings: AppSettings
     let permissions: Permissions
     let hovering: Bool
@@ -13,6 +15,8 @@ struct SubtitleSurface: View {
     let onDictate: () -> Void
     /// 打开字幕记录窗口(查看前面的全部字幕)。
     let onTranscript: () -> Void
+    /// 打开翻译设置(翻译不可用时引导去下载系统翻译语言或配置 AI)。
+    let onTranslationSettings: () -> Void
     let onCollapse: () -> Void
     let onStop: () -> Void
 
@@ -64,7 +68,7 @@ struct SubtitleSurface: View {
     /// 关闭翻译时显示暗色的「译」,打开时显示「译 · 目标语言」。
     private var translationMenu: some View {
         Menu {
-            if settings.llmConfigured {
+            if translation.isAvailable {
                 Toggle("显示译文", isOn: $settings.subtitleTranslate)
                 Divider()
                 Picker("翻译成", selection: $settings.subtitleTarget) {
@@ -74,7 +78,12 @@ struct SubtitleSurface: View {
                 }
                 .pickerStyle(.inline)
             } else {
-                Text("翻译需要先配置 AI")
+                Text("翻译需要下载系统翻译语言或配置 AI")
+                Button("打开翻译设置…", action: onTranslationSettings)
+            }
+            if translation.isAvailable {
+                Divider()
+                Button("翻译设置…", action: onTranslationSettings)
             }
         } label: {
             Text(settings.subtitleTranslate ? "译 · \(settings.subtitleTarget.title)" : "译")
@@ -88,7 +97,7 @@ struct SubtitleSurface: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(settings.llmConfigured ? String(localized: "翻译设置", bundle: .l10n) : String(localized: "翻译需要先配置 AI", bundle: .l10n))
+        .help(translation.isAvailable ? String(localized: "翻译设置", bundle: .l10n) : String(localized: "翻译需要下载系统翻译语言或配置 AI", bundle: .l10n))
     }
 
     // MARK: - 正文
@@ -143,14 +152,23 @@ struct SubtitleSurface: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if !partial.isEmpty {
-                // 正在说(未定稿):和定稿句同样大小,略暗,表示还会变。
-                Text(partial)
-                    .font(.system(size: translating ? fontSize * 0.8 : fontSize, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(2)
-                    .truncationMode(.head)
-                    .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                    .id("partial")
+                // 正在说(未定稿):略暗,表示还会变;翻译时下面是系统翻译的实时译文。
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(partial)
+                        .font(.system(size: translating ? fontSize * 0.72 : fontSize, weight: translating ? .medium : .semibold))
+                        .foregroundStyle(.white.opacity(translating ? 0.5 : 0.7))
+                        .lineLimit(2)
+                        .truncationMode(.head)
+                    if translating, let live = controller.partialTranslation {
+                        Text(live)
+                            .font(.system(size: fontSize * 0.92, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(2)
+                            .truncationMode(.head)
+                    }
+                }
+                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+                .id("partial")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,6 +178,7 @@ struct SubtitleSurface: View {
         .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12)],
                              startPoint: .top, endPoint: .bottom))
         .animation(.spring(duration: 0.35, bounce: 0.1), value: entries.map(\.id))
+        .animation(.easeOut(duration: 0.25), value: entries.map(\.translation))
     }
 
     /// 一句定稿字幕。`age` 0 = 最新,越旧越暗;翻译时原文较小,译文在下面且更醒目。
@@ -174,7 +193,12 @@ struct SubtitleSurface: View {
             if translating {
                 Group {
                     if let translation = entry.translation {
-                        Text(translation).foregroundStyle(.white.opacity(fade))
+                        // 空字符串:原文已是目标语言,不显示译文。初稿(系统翻译)略暗,AI 润色版替换后变亮。
+                        if !translation.isEmpty {
+                            Text(translation)
+                                .foregroundStyle(.white.opacity((entry.translationIsDraft ? 0.8 : 1) * fade))
+                                .contentTransition(.interpolate)
+                        }
                     } else if entry.translationFailed {
                         Text("翻译失败").foregroundStyle(.white.opacity(0.35 * fade))
                     } else {
