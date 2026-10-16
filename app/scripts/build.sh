@@ -6,8 +6,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 configuration="${CONFIGURATION:-Release}"
 derived="build/DerivedData"
-# 固件已编译时顺带打包进 app(一键刷固件);没有编译过固件则跳过。
-[[ -f ../firmware/build/flash_args ]] && ./scripts/bundle-device-assets.sh
+# 打包烧录工具 esptool(引导页一键刷固件用;固件本身刷写时从官网下载)。第一次需要联网,失败不影响编译。
+./scripts/bundle-device-assets.sh || echo "warning: esptool 打包失败,app 里将无法刷固件" >&2
 xcodegen generate --quiet
 settings=()
 if [[ -n "${SIGN_IDENTITY:-}" ]]; then settings+=(CODE_SIGN_IDENTITY="${SIGN_IDENTITY}"); fi

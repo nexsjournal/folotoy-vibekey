@@ -30,6 +30,14 @@ final class AppState {
     @ObservationIgnored private var menus: MenuBuilder!
     @ObservationIgnored private var statusItem: NSStatusItem?
 
+    /// Passport 固件清单地址:正式版固定用官网;调试构建可用 IB_FIRMWARE_MANIFEST 指向本机测试服务器。
+    private static var firmwareManifestURL: URL {
+        #if DEBUG
+        if let url = DebugHooks.firmwareManifestURL { return url }
+        #endif
+        return FirmwareDownloader.officialManifestURL
+    }
+
     init() {
         let settings = AppSettings()
         self.settings = settings
@@ -42,7 +50,7 @@ final class AppState {
         translation = TranslationService(settings: settings, processor: processor)
         deviceLink = DeviceLink()
         agent = AgentNotifier()
-        firmware = FirmwareFlasher(link: deviceLink)
+        firmware = FirmwareFlasher(link: deviceLink, downloader: FirmwareDownloader(manifestURL: Self.firmwareManifestURL))
         passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
         hotkeys = HotkeyManager()
         subtitles = SubtitleController(settings: settings, models: models, engines: engines, translation: translation)

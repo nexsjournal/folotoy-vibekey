@@ -2,7 +2,9 @@
 # 部署 InputBetter 官网到 0os 服务器(共享 Caddy 反向代理 + *.0os.io 证书),做法与服务器上其他站点一致:
 #   website/deploy/deploy.sh <user@host> [ssh-key] [dmg]
 # - dmg 默认取 app/build/release/ 里最新的 InputBetter-*.dmg(由 app/scripts/release.sh 生成并公证);
-# - 在本机临时目录组装站点:复制 website/site,放入 DMG,把页面里的 {{VERSION}} {{SIZE}} {{SHA256}} {{DMG_URL}} 换成实际值;
+# - 固件取 firmware/build 的编译产物,由 scripts/package-firmware.sh 整理成 /firmware/manifest.json + 带版本目录的镜像
+#   (app 刷写和官网网页刷写都从这里下载;app 不再内置固件);
+# - 在本机临时目录组装站点:复制 website/site,放入 DMG 和固件,把页面里的 {{VERSION}} {{SIZE}} {{SHA256}} {{DMG_URL}} 换成实际值;
 # - 同步到服务器 /opt/inputbetter-web,重建 inputbetter-web 容器,安装 input.0os.io.caddy,校验并重载 Caddy;
 # - 最后请求线上首页和安装包确认可用。
 # 服务器地址和密钥都从参数传入,不写进仓库。
@@ -25,6 +27,10 @@ version="${file_name#InputBetter-}"; version="${version%.dmg}"
 size="$(awk -v b="$(stat -f%z "${dmg}")" 'BEGIN { printf "%.0f MB", b / 1000000 }')"
 sha="$(shasum -a 256 "${dmg}" | awk '{print $1}')"
 
+# 固件:每次部署都重新整理一遍,保证清单与 firmware/build 一致(脚本内会检查写入地址不覆盖 cardid)。
+scripts/package-firmware.sh
+fw_build="$(python3 -c "import json; print(json.load(open('firmware/build/release/manifest.json'))['build'])")"
+
 stage="$(mktemp -d)"
 trap 'rm -rf "${stage}"' EXIT
 cp -R website/site "${stage}/site"
@@ -32,6 +38,7 @@ cp -R website/deploy "${stage}/deploy"
 mkdir -p "${stage}/site/download"
 cp "${dmg}" "${stage}/site/download/${file_name}"
 echo "${sha}" > "${stage}/site/download/${file_name}.sha256"
+cp -R firmware/build/release "${stage}/site/firmware"
 for f in "${stage}/site/index.html" "${stage}/site/assets/main.js"; do
     sed -i '' -e "s|{{VERSION}}|${version}|g" -e "s|{{SIZE}}|${size}|g" -e "s|{{SHA256}}|${sha}|g" \
         -e "s|{{DMG_URL}}|/download/${file_name}|g" "${f}"
@@ -58,4 +65,6 @@ for i in 1 2 3 4 5 6; do
 done
 curl -fsS "https://${domain}/" | grep -q "${sha}" || { echo "首页没有显示新版本" >&2; exit 1; }
 curl -fsSI "https://${domain}/download/${file_name}" | grep -iE "^HTTP|content-length"
+curl -fsS "https://${domain}/firmware/manifest.json" | grep -q "\"build\": \"${fw_build}\"" || { echo "线上固件清单不是 ${fw_build}" >&2; exit 1; }
+echo "Firmware ${fw_build}: https://${domain}/firmware/manifest.json"
 echo "Deployed https://${domain}/  (download: /download/${file_name})"

@@ -254,19 +254,86 @@ nonisolated final class KeyPressTrackerTests: XCTestCase {
     }
 }
 
-/// 链:FirmwareFlasher.run → FirmwareBundle.validate / EsptoolRunner.mac / EsptoolRunner.progress。
+/// 链:FirmwareFlasher.run → FirmwareDownloader.fetchManifest → FirmwareManifest.parts → FirmwareDownloader.download
+///      → EsptoolRunner.mac / EsptoolRunner.progress。
 nonisolated final class FirmwareChainTests: XCTestCase {
-    func testValidateRejectsImagesReachingCardID() throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("fw-test-\(UUID().uuidString).bin")
-        try Data(count: 0x20).write(to: file)
-        defer { try? FileManager.default.removeItem(at: file) }
-        let tool = URL(fileURLWithPath: "/usr/bin/true")
-        let safe = FirmwareBundle(version: "t", flashArgs: [], images: [(0x10000, file)], esptool: tool)
-        XCTAssertNoThrow(try safe.validate())
-        let unsafe = FirmwareBundle(version: "t", flashArgs: [], images: [(FirmwareBundle.cardIDStart - 0x10, file)], esptool: tool)
-        XCTAssertThrowsError(try unsafe.validate())
-        let missing = FirmwareBundle(version: "t", flashArgs: [], images: [(0x0, file.appendingPathExtension("nope"))], esptool: tool)
-        XCTAssertThrowsError(try missing.validate())
+    private func manifest(_ images: [FirmwareManifest.Image], chip: String = "ESP32-C3", proto: Int = DeviceMessage.protocolVersion) -> FirmwareManifest {
+        FirmwareManifest(version: "0.1.0", build: "b96b1ea2", proto: proto, chip: chip, images: images)
+    }
+
+    private func image(_ offset: String, _ path: String, size: Int = 16, sha: String = String(repeating: "a", count: 64)) -> FirmwareManifest.Image {
+        .init(offset: offset, path: path, size: size, sha256: sha)
+    }
+
+    private let base = URL(string: "https://input.0os.io/firmware/manifest.json")!
+
+    func testPartsResolveRelativeToManifest() throws {
+        let parts = try manifest([image("0x0", "v1/bootloader.bin"), image("0x10000", "v1/app.bin")]).parts(relativeTo: base)
+        XCTAssertEqual(parts.map(\.offset), [0, 0x10000])
+        XCTAssertEqual(parts[1].url.absoluteString, "https://input.0os.io/firmware/v1/app.bin")
+    }
+
+    func testPartsRejectImagesReachingCardID() {
+        // 刚好写到 cardid 之前可以,越过一个字节就整体拒绝。
+        let edge = Int(FirmwareManifest.cardIDStart - 0x10000)
+        XCTAssertNoThrow(try manifest([image("0x10000", "a.bin", size: edge)]).parts(relativeTo: base))
+        XCTAssertThrowsError(try manifest([image("0x10000", "a.bin", size: edge + 1)]).parts(relativeTo: base)) {
+            XCTAssertEqual($0 as? FirmwareError, .unsafeOffset("a.bin"))
+        }
+        XCTAssertThrowsError(try manifest([image("0x356000", "a.bin")]).parts(relativeTo: base))
+    }
+
+    func testPartsRejectUnsafePathsAndBadFields() {
+        for path in ["../x.bin", "/x.bin", "https://evil.example/x.bin", "a/../../x.bin", "%2e%2e/x.bin", "a//b.bin", ""] {
+            XCTAssertThrowsError(try manifest([image("0x0", path)]).parts(relativeTo: base), path)
+        }
+        XCTAssertThrowsError(try manifest([image("0x0", "a.bin")], chip: "ESP32-S3").parts(relativeTo: base))
+        XCTAssertThrowsError(try manifest([image("10000", "a.bin")]).parts(relativeTo: base))
+        XCTAssertThrowsError(try manifest([image("0x0", "a.bin", sha: "xyz")]).parts(relativeTo: base))
+        XCTAssertThrowsError(try manifest([]).parts(relativeTo: base))
+        // 重叠的镜像。
+        XCTAssertThrowsError(try manifest([image("0x0", "a.bin", size: 0x9000), image("0x8000", "b.bin")]).parts(relativeTo: base))
+    }
+
+    func testCompatibilityFollowsProtocolVersion() {
+        XCTAssertTrue(manifest([]).isCompatible)
+        XCTAssertFalse(manifest([], proto: DeviceMessage.protocolVersion + 1).isCompatible)
+    }
+
+    /// 用本机 file:// 目录模拟官网:下载、校验、缓存命中,以及校验值不符时拒绝。
+    func testDownloadVerifiesChecksums() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("fw-site-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: root) }
+        try fm.createDirectory(at: root.appendingPathComponent("v1"), withIntermediateDirectories: true)
+        let boot = Data(repeating: 0xE9, count: 64), app = Data((0..<300).map { UInt8($0 & 0xFF) })
+        try boot.write(to: root.appendingPathComponent("v1/bootloader.bin"))
+        try app.write(to: root.appendingPathComponent("v1/app.bin"))
+        let json = """
+        {"name":"InputBetter Passport","version":"0.1.0","build":"b96b1ea2","proto":\(DeviceMessage.protocolVersion),"chip":"ESP32-C3","flashSize":"8MB",
+         "images":[{"offset":"0x0","path":"v1/bootloader.bin","size":64,"sha256":"\(FirmwareDownloader.sha256(boot))"},
+                   {"offset":"0x10000","path":"v1/app.bin","size":300,"sha256":"\(FirmwareDownloader.sha256(app))"}]}
+        """
+        let manifestURL = root.appendingPathComponent("manifest.json")
+        try Data(json.utf8).write(to: manifestURL)
+        let downloader = FirmwareDownloader(manifestURL: manifestURL, cacheRoot: root.appendingPathComponent("cache"))
+
+        let fetched = try await downloader.fetchManifest()
+        XCTAssertEqual(fetched.build, "b96b1ea2")
+        let images = try await downloader.download(fetched)
+        XCTAssertEqual(images.map(\.offset), [0, 0x10000])
+        XCTAssertEqual(try Data(contentsOf: images[1].file), app)
+
+        // 官网上的文件被替换(与清单不符):缓存里的旧文件仍然有效,不用重新下载;清掉缓存后应拒绝。
+        try Data(repeating: 0, count: 300).write(to: root.appendingPathComponent("v1/app.bin"))
+        _ = try await downloader.download(fetched)
+        try fm.removeItem(at: root.appendingPathComponent("cache"))
+        do {
+            _ = try await downloader.download(fetched)
+            XCTFail("校验值不符时应该失败")
+        } catch {
+            XCTAssertEqual(error as? FirmwareError, .checksumMismatch("app.bin"))
+        }
     }
 
     func testEsptoolOutputParsing() {

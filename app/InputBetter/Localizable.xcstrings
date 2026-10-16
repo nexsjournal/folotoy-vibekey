@@ -456,22 +456,12 @@
         }
       }
     },
-    "app 内置了新版固件（%@）": {
+    "app 缺少烧录工具 esptool，请重新安装 InputBetter，或在官网用浏览器刷入": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app includes a newer firmware build (%@)"
-          }
-        }
-      }
-    },
-    "app 里没有内置固件，请用 scripts/flash-firmware.sh 烧录": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This build has no bundled firmware. Use scripts/flash-firmware.sh instead."
+            "value": "The app is missing the esptool flashing tool. Reinstall InputBetter, or flash in your browser on the website."
           }
         }
       }
@@ -679,6 +669,16 @@
         }
       }
     },
+    "下载的 %@ 校验不通过，请重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded %@ failed verification. Please try again."
+          }
+        }
+      }
+    },
     "下载系统翻译语言即可离线翻译字幕和听写；再连接 AI，还能润色口语、让译文更准确。": {
       "localizations": {
         "en": {
@@ -869,6 +869,16 @@
         }
       }
     },
+    "从官网下载最新固件，大约 1 分钟，期间不要拔线": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads the latest firmware from the website. Takes about a minute — don’t unplug the cable."
+          }
+        }
+      }
+    },
     "使用": {
       "localizations": {
         "en": {
@@ -1049,6 +1059,16 @@
         }
       }
     },
+    "写入地址无效：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid write address: %@"
+          }
+        }
+      }
+    },
     "写入失败：%@": {
       "localizations": {
         "en": {
@@ -1125,6 +1145,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete Model"
+          }
+        }
+      }
+    },
+    "刷入固件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flash Firmware"
           }
         }
       }
@@ -1369,16 +1399,6 @@
         }
       }
     },
-    "固件文件缺失：%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Firmware file missing: %@"
-          }
-        }
-      }
-    },
     "固定在屏幕右侧": {
       "localizations": {
         "en": {
@@ -1485,16 +1505,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "High multilingual accuracy in a compressed build that uses less disk space."
-          }
-        }
-      }
-    },
-    "大约 1 分钟，期间不要拔线": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Takes about 1 minute. Keep the cable connected."
           }
         }
       }
@@ -1629,6 +1639,56 @@
         }
       }
     },
+    "官网固件清单有误（%@），已停止": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The firmware manifest on the website is invalid (%@). Stopped."
+          }
+        }
+      }
+    },
+    "官网有新版固件（%@ · %@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New firmware available on the website (%1$@ · %2$@)"
+          }
+        }
+      }
+    },
+    "官网的固件 %@ 需要更新版本的 InputBetter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmware %@ on the website needs a newer InputBetter"
+          }
+        }
+      }
+    },
+    "官网的固件 %@ 需要更新版本的 InputBetter，请先更新 app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmware %@ on the website needs a newer version of InputBetter. Update the app first."
+          }
+        }
+      }
+    },
+    "官网的固件 %@ 需要更新版本的 InputBetter，请先更新 app。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmware %@ on the website needs a newer version of InputBetter. Update the app first."
+          }
+        }
+      }
+    },
     "实时字幕": {
       "localizations": {
         "en": {
@@ -1749,12 +1809,12 @@
         }
       }
     },
-    "已是 app 内置的最新固件": {
+    "已是最新固件": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Up to date with the firmware bundled in the app"
+            "value": "Firmware is up to date"
           }
         }
       }
@@ -2289,6 +2349,16 @@
         }
       }
     },
+    "无法从官网获取固件：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t get firmware from the website: %@"
+          }
+        }
+      }
+    },
     "无法打开 %@：%@": {
       "localizations": {
         "en": {
@@ -2305,6 +2375,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't load models: %@"
+          }
+        }
+      }
+    },
+    "无法解析": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unreadable"
           }
         }
       }
@@ -2365,6 +2445,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Highly accurate Mandarin, with mixed Chinese–English and many dialects. Best in Mainland China."
+          }
+        }
+      }
+    },
+    "暂时无法连接官网检查新固件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t reach the website to check for new firmware right now"
           }
         }
       }
@@ -2559,6 +2649,16 @@
         }
       }
     },
+    "校验值无效：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid checksum: %@"
+          }
+        }
+      }
+    },
     "模型": {
       "localizations": {
         "en": {
@@ -2605,6 +2705,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Welcome to InputBetter"
+          }
+        }
+      }
+    },
+    "正在从官网下载固件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading firmware from the website"
+          }
+        }
+      }
+    },
+    "正在从官网获取最新固件…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting the latest firmware from the website…"
           }
         }
       }
@@ -2695,6 +2815,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Looking for your device…"
+          }
+        }
+      }
+    },
+    "正在检查新固件…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking for new firmware…"
           }
         }
       }
@@ -2815,6 +2945,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Didn't hear anything"
+          }
+        }
+      }
+    },
+    "没有固件镜像": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no firmware images"
           }
         }
       }
@@ -3599,6 +3739,16 @@
         }
       }
     },
+    "芯片型号不是 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chip is not %@"
+          }
+        }
+      }
+    },
     "获取 API Key": {
       "localizations": {
         "en": {
@@ -4019,12 +4169,12 @@
         }
       }
     },
-    "这个版本的 app 没有内置固件，请在项目目录运行 scripts/flash-firmware.sh。": {
+    "这个版本的 app 缺少烧录工具，请重新安装 InputBetter，或在官网 input.0os.io 用浏览器刷入。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This build of the app has no bundled firmware. Run scripts/flash-firmware.sh in the project folder."
+            "value": "This copy of the app is missing its flashing tool. Reinstall InputBetter, or flash in your browser at input.0os.io."
           }
         }
       }
@@ -4255,6 +4405,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lock (clicks pass through; unlock from the menu)"
+          }
+        }
+      }
+    },
+    "镜像写入范围重叠：%@、%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "image write ranges overlap: %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "镜像路径无效：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "invalid image path: %@"
           }
         }
       }

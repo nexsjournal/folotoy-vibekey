@@ -88,11 +88,15 @@ open build/InputBetter.app
 
 ## 烧录 Passport 固件
 
-推荐在 app 里一键刷入:
+app 不内置固件,刷写时从官网下载最新固件([input.0os.io/firmware/manifest.json](https://input.0os.io/firmware/manifest.json)),下载后逐个校验 SHA-256。
 
-- 位置:引导的「连接 Passport」一步,或 设置 › Passport。
-- `build.sh` 会用 `scripts/bundle-device-assets.sh` 把固件和 esptool 打包进 app。
+**在 app 里一键刷入(推荐)**:
+
+- 位置:引导的「连接 Passport」一步,或 设置 › Passport;设置页会显示官网是否有新固件。
+- `build.sh` 会用 `scripts/bundle-device-assets.sh` 把烧录工具 esptool 打包进 app。
 - 第一次刷某台设备前,app 会把整片 Flash 备份到 `~/Library/Application Support/InputBetter/Backups/`。
+
+**在官网用浏览器刷入**:用电脑上的 Chrome / Edge 打开 [input.0os.io](https://input.0os.io/#firmware),先退出 InputBetter app,点「连接并刷入」。可选先把整片 Flash 备份下载到本机。网页会检查芯片、Flash 大小和 `cardid` 分区,不是 Passport 就停止。
 
 也可以用命令行:
 
@@ -103,7 +107,9 @@ open build/InputBetter.app
 - 第一次烧录某台设备前,脚本会把整片 Flash 备份到 `~/esp/passport-backups/`。
 - 烧录前请先退出 InputBetter。
 
-两种方式都只写 bootloader、分区表和应用,绝不写 `cardid` 分区。
+三种方式都只写 bootloader、分区表和应用,不擦除整片 Flash,绝不写 `cardid` 分区。
+
+发布新固件:编译固件后运行 `website/deploy/deploy.sh`,它会调用 `scripts/package-firmware.sh` 生成清单和镜像并发布到官网,app 和网页随即可以刷到新版本。
 
 ## Vibe Coding 通知
 

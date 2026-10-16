@@ -7,12 +7,14 @@
 | 路径 | 内容 |
 | --- | --- |
 | `website/site/` | 静态页面:`index.html`、`assets/style.css`、`assets/main.js`(中英文切换、滚动浮现、听写 / 双语字幕演示动画)、图标 |
+| `website/site/assets/flasher.js` | Passport 网页刷写(Web Serial + esptool-js),见下文「Passport 固件」 |
+| `website/site/assets/vendor/esptool-js-0.7.0.js` | Espressif 官方 [esptool-js](https://github.com/espressif/esptool-js) 0.7.0 的 `bundle.js` 原样拷贝(Apache-2.0,许可证同目录),本站自带,不走 CDN |
 | `website/deploy/Dockerfile`、`nginx.conf` | 只服务静态文件的 nginx 容器(非 root,8080,不记录访问日志) |
 | `website/deploy/docker-compose.yml` | 容器 `inputbetter-web`,接入服务器上共享的 `web` 网络 |
 | `website/deploy/input.0os.io.caddy` | 共享 Caddy 的站点配置(`*.0os.io` 证书、公共安全头、HSTS),反代到 `inputbetter-web:8080` |
 | `website/deploy/deploy.sh` | 部署脚本 |
 
-页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换。中文写在 HTML 里,英文在 `main.js` 的 `en` 字典中;默认跟随浏览器语言,可手动切换。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源。
+页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换。中文写在 HTML 里,英文在 `main.js` 的 `en` 字典中;默认跟随浏览器语言,可手动切换。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
 
 本地预览:把 `website/site` 复制到临时目录、替换占位符后用 `python3 -m http.server` 打开(`deploy.sh` 里的组装步骤可以照抄)。
 
@@ -31,6 +33,32 @@ NOTARY_KEY=<AuthKey_XXXXXXXXXX.p8 路径> NOTARY_KEY_ID=<Key ID> NOTARY_ISSUER=<
 - 产物在 `app/build/release/`(已在 .gitignore 中),不提交到仓库。
 - 发版前记得改 `app/project.yml` 的 `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`。
 
+## Passport 固件
+
+app 不内置固件,app 和网页刷写都从官网 `/firmware/` 下载同一份:
+
+```
+/firmware/manifest.json                 清单:version、build(app.bin 0xB0 起 4 字节,与设备 hello 一致)、proto、chip、images[]
+/firmware/<version>-<build>/bootloader.bin   0x0
+/firmware/<version>-<build>/partition-table.bin   0x8000
+/firmware/<version>-<build>/app.bin     0x10000
+```
+
+- 由 `scripts/package-firmware.sh` 从 `firmware/build` 生成(到 `firmware/build/release/`),`deploy.sh` 每次部署都会重新生成并发布。脚本检查镜像地址与 `build/flash_args` 一致、写入范围都在 `cardid`(0x356000)之前,并给每个镜像算 SHA-256。
+- 清单里不放 esptool 参数,只有地址、大小和校验值;app(`FirmwareManifest`)和网页(`flasher.js`)用同样的规则校验:芯片 ESP32-C3、地址 < 0x356000、不重叠、路径只能是清单目录下的相对路径。
+- `proto` 与 app 的协议版本不一致时,app 不刷,提示先更新 app。
+- 缓存:`manifest.json` 不缓存,发布后立即生效;镜像目录带版本和构建标识,长缓存。
+
+网页刷写(`#firmware` 一节)没有用 ESP Web Tools:它在「全新安装」时默认擦除整片 Flash(勾选询问时用户也可能选擦除),会抹掉 Passport 的设备身份数据。`flasher.js` 只做 app 里同样的事:
+
+1. 点击后选择串口(VID 0x303A);
+2. 下载清单和镜像,校验大小与 SHA-256;
+3. 连接下载模式,确认芯片 ESP32-C3、Flash 8 MB、分区表里有 `cardid@0x356000`,否则停止;
+4. 可选(默认勾选)先读出整片 8 MB 存成 `passport-<MAC>-flash.bin`;
+5. `writeFlash` 只写清单里的三段(`eraseAll: false`,flash 参数 `keep`),然后硬复位。
+
+需要桌面版 Chrome / Edge(Web Serial),页面必须是 HTTPS;InputBetter app 会独占串口,网页刷写前要先退出它。
+
 ## 部署
 
 ```bash
@@ -38,7 +66,7 @@ website/deploy/deploy.sh <user@host> <ssh-key> [dmg]
 ```
 
 - dmg 默认取 `app/build/release/` 里最新的;没有公证票据的 DMG 会被拒绝发布。
-- 脚本在本机临时目录组装站点(放入 DMG 和 `.sha256`,替换占位符),同步到服务器 `/opt/inputbetter-web`,重建容器,把 `input.0os.io.caddy` 安装到 `/opt/proxy/caddy/sites/`,校验并重载 Caddy,最后请求线上首页和安装包确认可用。
+- 脚本先运行 `scripts/package-firmware.sh`(需要已编译的 `firmware/build`),然后在本机临时目录组装站点(放入 DMG、`.sha256` 和 `firmware/`,替换占位符),同步到服务器 `/opt/inputbetter-web`,重建容器,把 `input.0os.io.caddy` 安装到 `/opt/proxy/caddy/sites/`,校验并重载 Caddy,最后请求线上首页、安装包和固件清单确认可用。
 - 服务器上的共享代理(`/opt/proxy`)、`web` 网络、`*.0os.io` 证书和其他站点都不改动;做法与同机的其他站点一致。
 - 安装包按附件下载,文件名带版本号,可长缓存;首页不缓存,发版后立即生效。
 

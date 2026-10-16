@@ -30,7 +30,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 
 | 类型 | 示例 | 说明 |
 | --- | --- | --- |
-| hello | `{"t":"hello","fw":"inputbetter","proto":1,"ver":"0.1.0","build":"a506a8bb","boot":"9f3a21c4"}` | 回复 `hello` 命令。`build` 是固件 ELF 文件 SHA-256 的前 8 位小写十六进制(esptool 把它写进镜像,设备用 `esp_app_get_elf_sha256()` 读出),等于 `shasum -a 256 firmware/build/InputBetter-Passport.elf` 的前 8 位,也等于 `InputBetter-Passport.bin` 文件偏移 `0xB0` 起 4 个字节的十六进制;Mac 用它判断设备固件是否与 app 内置的一致 |
+| hello | `{"t":"hello","fw":"inputbetter","proto":1,"ver":"0.1.0","build":"a506a8bb","boot":"9f3a21c4"}` | 回复 `hello` 命令。`build` 是固件 ELF 文件 SHA-256 的前 8 位小写十六进制(esptool 把它写进镜像,设备用 `esp_app_get_elf_sha256()` 读出),等于 `shasum -a 256 firmware/build/InputBetter-Passport.elf` 的前 8 位,也等于 `InputBetter-Passport.bin` 文件偏移 `0xB0` 起 4 个字节的十六进制;Mac 用它判断设备固件是否与官网最新固件(`/firmware/manifest.json` 的 `build`)一致 |
 | key | `{"t":"key","k":"ok","e":"down","seq":12,"boot":"9f3a21c4"}` | 按键原始事件。`k`:`ok`/`up`/`down`;`e`:`down`(按下瞬间)/`up`(松开)/`long`(按住 1 秒)。该次按压用于关闭 agent 通知时附加 `"ack":1`(同一次按压的 down/up/long 都带) |
 | bat | `{"t":"bat","soc":87,"mv":4012,"chg":0}` | `hello` 之后及每 60 秒;读不到为 `-1`;`chg` 是否在充电(读不到为 0) |
 | pong | `{"t":"pong"}` | 回复 `ping` |

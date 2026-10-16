@@ -23,11 +23,13 @@ struct PassportSetupView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(.spring(duration: 0.35), value: model.stage)
+        .onAppear { model.checkFirmware() }
         .onDisappear { model.stopMicTest() }
     }
 
     private var illustrationScreen: PassportIllustration.Screen {
         switch model.flasher.phase {
+        case .downloading(let p): return .progress(p, "DOWNLOAD")
         case .backingUp(let p): return .progress(p, "BACKUP")
         case .flashing(let p): return .progress(p, "FLASHING")
         case .preparing, .restarting: return .progress(0, "WAIT")
@@ -75,7 +77,7 @@ struct PassportSetupView: View {
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     VStack(alignment: .leading, spacing: 4) {
-                        bullet("clock", "大约 1 分钟，期间不要拔线")
+                        bullet("arrow.down.circle", "从官网下载最新固件，大约 1 分钟，期间不要拔线")
                         bullet("externaldrive.badge.checkmark", "第一次刷写会先把整片 Flash 备份到本机，随时可恢复原固件")
                         bullet("lock.shield", "只写入固件区域，不会改动设备身份数据")
                     }
@@ -91,11 +93,21 @@ struct PassportSetupView: View {
     private var flashControls: some View {
         switch model.flasher.phase {
         case .idle, .done:
-            if let version = model.flasher.bundledVersion {
-                Button("刷入固件（\(version)）") { model.flashFirmware() }
-                    .buttonStyle(PrimaryButtonStyle())
+            if model.flasher.esptool == nil {
+                Hint("这个版本的 app 缺少烧录工具，请重新安装 InputBetter，或在官网 input.0os.io 用浏览器刷入。")
+            } else if case .incompatible(let manifest) = model.flasher.latest {
+                Hint("官网的固件 \(manifest.version) 需要更新版本的 InputBetter，请先更新 app。")
             } else {
-                Hint("这个版本的 app 没有内置固件，请在项目目录运行 scripts/flash-firmware.sh。")
+                VStack(alignment: .leading, spacing: 6) {
+                    if let version = model.flasher.latestManifest?.version {
+                        Button("刷入固件（\(version)）") { model.flashFirmware() }
+                            .buttonStyle(PrimaryButtonStyle())
+                    } else {
+                        Button("刷入固件") { model.flashFirmware() }
+                            .buttonStyle(PrimaryButtonStyle())
+                    }
+                    latestStatus
+                }
             }
         case .failed(let message):
             VStack(alignment: .leading, spacing: 6) {
@@ -104,6 +116,8 @@ struct PassportSetupView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button("重试") { model.flashFirmware() }.buttonStyle(SecondaryButtonStyle())
             }
+        case .downloading(let p):
+            progressRow("正在从官网下载固件", value: p)
         case .preparing:
             progressRow("正在进入下载模式…", value: nil)
         case .backingUp(let p):
@@ -112,6 +126,20 @@ struct PassportSetupView: View {
             progressRow("正在写入固件", value: p)
         case .restarting:
             progressRow("正在重启设备…", value: nil)
+        }
+    }
+
+    /// 刷写按钮下方的官网固件查询状态(查询失败不挡刷写,点刷入时会再请求)。
+    @ViewBuilder
+    private var latestStatus: some View {
+        switch model.flasher.latest {
+        case .checking:
+            Text("正在从官网获取最新固件…").font(.system(size: 11.5)).foregroundStyle(.secondary)
+        case .failed(let message):
+            Text(verbatim: message).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        default:
+            EmptyView()
         }
     }
 
@@ -167,11 +195,18 @@ struct PassportSetupView: View {
     private var firmwareDetail: String {
         if model.link.connection == .ble { return String(localized: "更新固件需要用 USB 连接", bundle: .l10n) }
         if case .failed(let message) = model.flasher.phase { return String(localized: "上次刷写失败：\(message)", bundle: .l10n) }
-        if model.firmwareUpdateAvailable, let version = model.flasher.bundledVersion {
-            let build = model.flasher.bundledBuild.map { " · \($0)" } ?? ""
-            return String(localized: "app 内置了新版固件（\(version + build)）", bundle: .l10n)
+        switch model.flasher.latest {
+        case .available(let latest) where model.firmwareUpdateAvailable:
+            return String(localized: "官网有新版固件（\(latest.version) · \(latest.build)）", bundle: .l10n)
+        case .available:
+            return String(localized: "已是最新固件", bundle: .l10n)
+        case .incompatible(let latest):
+            return String(localized: "官网的固件 \(latest.version) 需要更新版本的 InputBetter", bundle: .l10n)
+        case .checking, .unknown:
+            return String(localized: "正在检查新固件…", bundle: .l10n)
+        case .failed:
+            return String(localized: "暂时无法连接官网检查新固件", bundle: .l10n)
         }
-        return String(localized: "已是 app 内置的最新固件", bundle: .l10n)
     }
 
     // MARK: - 已连接

@@ -38,6 +38,7 @@ App(AppState 组合根)
 | 设备 ASCII 文本 | `DeviceText.ascii` | DeviceLink 发出的所有命令 |
 | 设备状态映射 | `DeviceStateMapper` | DeviceBridge |
 | esptool 调用与输出解析 | `EsptoolRunner` | FirmwareFlasher |
+| 固件清单校验(地址 / 路径 / 校验值) | `FirmwareManifest.parts`(网页端 `flasher.js` 的 `partsOf` 同规则) | FirmwareDownloader |
 | Agent hook 合并写入 | `AgentHookInstaller.install` | VibePane(Claude Code、Codex) |
 | 快捷键卡片 | `ShortcutsCard` | 引导快捷键页、设置 › 快捷键 |
 | 界面语言选择 | `LanguagePicker` / `LanguageState` / `L10n` | 设置 › 通用、欢迎页,所有根视图 |
@@ -393,19 +394,37 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
 
 ## 9. 一键刷固件 / 更新固件
 
+app 不内置固件,只内置 esptool(Resources/DeviceAssets/Tools);固件刷写时从官网下载,官网网页刷写用的是同一份清单。
+
 ```
+发布:firmware/build → scripts/package-firmware.sh(检查地址 < cardid,算 SHA-256)
+ → firmware/build/release/{manifest.json, <ver>-<build>/*.bin} → website/deploy/deploy.sh → https://input.0os.io/firmware/
+
+PassportSetupView 出现 → PassportSetupModel.checkFirmware → FirmwareFlasher.checkLatest(10 分钟内不重复)
+ → FirmwareDownloader.fetchManifest → FirmwareManifest.isCompatible(proto == DeviceMessage.protocolVersion)
+ → FirmwareFlasher.latest(.available / .incompatible / .failed)
+
 PassportSetupView「刷入固件」→ PassportSetupModel.flashFirmware
  → FirmwareFlasher.flash(port:) → run
-     → DeviceLink.suspendUSB(让出串口)
-     → FirmwareBundle.load / validate(镜像都在 cardid 0x356000 之前)
+     → FirmwareDownloader.fetchManifest → record(协议不一致 → FirmwareError.incompatible,提示先更新 app)
+     → FirmwareDownloader.download → FirmwareManifest.parts(芯片 ESP32-C3、地址 < cardid 0x356000、不重叠、
+        相对路径不越出清单目录)→ 下载到 ~/Library/Caches/InputBetter/Firmware/<ver>-<build>/,逐个校验大小与 SHA-256
+        (已缓存且校验通过的跳过)→ phase .downloading(USB 链路此时照常工作)
+     → write:DeviceLink.suspendUSB(让出串口)→ 再次确认本机文件地址 < cardid
      → EsptoolRunner.run(read-mac)→ EsptoolRunner.mac
      → ensureBackup:已有备份则跳过,否则 EsptoolRunner.run(read-flash 8 MB)→ 校验大小
-     → EsptoolRunner.run(write-flash 三个镜像)→ EsptoolRunner.progress → phase
+     → EsptoolRunner.run(write-flash 三个镜像,不传 flash 参数即保持镜像头里的值,不擦除整片)→ EsptoolRunner.progress → phase
      → DeviceLink.resumeUSB → 重新握手 → PassportSetupModel.stage == .connected
 设备识别:DeviceLink.handleHello(固件名不符)/ 握手超时 → handshakeFailed → foreignDevice → stage .needsFirmware
-是否需要更新:DeviceLink.firmwareBuild(hello 的 build)≠ FirmwareBundle.build(manifest,取自 app.bin 0xB0)
+是否需要更新:DeviceLink.firmwareBuild(hello 的 build)≠ FirmwareFlasher.latestManifest.build(官网清单,取自 app.bin 0xB0)
  → PassportSetupModel.firmwareUpdateAvailable → 「更新固件」;相同则显示「重新刷入」(都用 DeviceLink.usbPortPath)
 刷写期间 PassportSetupModel.stage == .flashing(USB 暂停,不按连接状态判断)
+调试:IB_FIRMWARE_MANIFEST=<url> 改用别的清单地址;IB_FLASH_FIRMWARE=1 连上 USB 后自动刷一次
+
+官网网页刷写(website/site/assets/flasher.js,不用 ESP Web Tools:它全新安装时默认擦除整片 Flash,会抹掉 cardid):
+「连接并刷入」→ navigator.serial.requestPort(VID 0x303A)→ fetchManifest → partsOf(与 FirmwareManifest 相同规则)
+ → download(大小 + SHA-256)→ esptool-js ESPLoader.main → 芯片 ESP32-C3 / Flash 8MB / 分区表有 cardid@0x356000,否则停止
+ → (可选)readFlash 整片 8 MB 存成 passport-<MAC>-flash.bin → writeFlash(eraseAll: false,flash 参数 keep)→ after(hard_reset)
 ```
 
 ## 10. 界面语言

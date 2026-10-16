@@ -58,14 +58,19 @@ final class PassportSetupModel {
         set { settings.deviceBluetooth = newValue }
     }
 
-    /// 设备固件与 app 内置固件不同(旧固件没有 build 字段也算不同)。
+    /// 设备固件与官网最新固件不同(旧固件没有 build 字段也算不同)。还没查到官网结果时为 false。
     var firmwareUpdateAvailable: Bool {
-        guard let bundled = flasher.bundledBuild else { return false }
-        return link.firmwareBuild != bundled
+        guard let latest = flasher.latestManifest else { return false }
+        return link.firmwareBuild != latest.build
     }
 
-    /// 已连接时能否重新刷写:需要 USB(蓝牙不能刷)。
-    var canReflash: Bool { link.usbPortPath != nil && flasher.bundledVersion != nil }
+    /// 已连接时能否重新刷写:需要 USB(蓝牙不能刷)和 app 内置的 esptool。
+    var canReflash: Bool { link.usbPortPath != nil && flasher.esptool != nil }
+
+    /// 进入 Passport 页面时查询官网最新固件(有缓存,不会频繁请求)。
+    func checkFirmware() {
+        flasher.checkLatest()
+    }
 
     /// 刷入固件:未识别的设备用发现时的串口,已连接的设备用当前 USB 串口。
     func flashFirmware() {

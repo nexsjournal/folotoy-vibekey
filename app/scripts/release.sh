@@ -36,8 +36,8 @@ app="${derived}/Build/Products/Release/InputBetter.app"
 dmg="${out}/InputBetter-${version}.dmg"
 
 # ---- 构建并签名 ----
-# 固件已编译时打包进 app(引导里一键刷固件);没有编译过固件则跳过。
-[[ -f ../firmware/build/flash_args ]] && ./scripts/bundle-device-assets.sh
+# 打包烧录工具 esptool(发布版必须带上,否则用户无法在 app 里刷固件);固件本身刷写时从官网下载。
+./scripts/bundle-device-assets.sh
 xcodegen generate --quiet
 echo "==> Building InputBetter ${version} (Release, ${DEVELOPER_ID})"
 xcodebuild -project InputBetter.xcodeproj -scheme InputBetter -configuration Release \

@@ -21,7 +21,8 @@ cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
 ./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)
 cd app && ./scripts/release.sh               # 打包签名公证的 DMG(证书与公证凭据用环境变量传入,见 docs/website.md)
-website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG);服务器地址和密钥不写进仓库
+./scripts/package-firmware.sh                # 把 firmware/build 整理成官网固件清单与镜像(deploy.sh 会自动调用)
+website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG 和固件);服务器地址和密钥不写进仓库
 ```
 
 调试构建支持的环境变量见 `app/InputBetter/Debug/DebugHooks.swift`:
@@ -32,7 +33,8 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - `IB_SUBTITLE_APP`:直接开字幕;
 - `IB_SHOW_TRANSCRIPT`:打开字幕记录窗口(`IB_TRANSCRIPT_TAB=summary` 打开「总结」页,`IB_SUMMARIZE_AFTER=秒` / `IB_SUMMARIZE_ALL_AFTER=秒` 定时触发一次分段 / 全文总结);
 - `IB_DEMO_CAPTIONS`:用示例双语字幕显示字幕条(不采集音频);
-- `IB_SHOW_PILL`:显示状态条。
+- `IB_SHOW_PILL`:显示状态条;
+- `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件。
 
 ## 规则
 

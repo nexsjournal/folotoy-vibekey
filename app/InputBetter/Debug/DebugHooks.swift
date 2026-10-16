@@ -12,9 +12,14 @@ import AVFoundation
 /// - IB_SUMMARIZE_ALL_AFTER=秒  启动后过这么多秒触发一次「总结全文」;
 /// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
+/// - IB_FIRMWARE_MANIFEST=url  从这个地址获取 Passport 固件清单(代替官网,测试新固件用)。
+/// - IB_FLASH_FIRMWARE=1       Passport 通过 USB 连上后自动刷一次固件(验证「下载 → 写入」整条链路)。
 @MainActor
 enum DebugHooks {
     static var env: [String: String] { ProcessInfo.processInfo.environment }
+
+    /// IB_FIRMWARE_MANIFEST 指定的固件清单地址;没设置时为 nil(用官网)。
+    static var firmwareManifestURL: URL? { env["IB_FIRMWARE_MANIFEST"].flatMap(URL.init(string:)) }
 
     static func run(app: AppState) {
         if let ids = env["IB_DOWNLOAD"] {
@@ -39,6 +44,23 @@ enum DebugHooks {
             app.startCaptions(AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
         }
         if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
+        if env["IB_FLASH_FIRMWARE"] != nil {
+            Task {
+                // 等 USB 握手完成(最多 30 秒)再刷,和用户在设置页点「重新刷入」走同一条路径。
+                for _ in 0..<60 where app.deviceLink.usbPortPath == nil {
+                    try? await Task.sleep(for: .milliseconds(500))
+                }
+                print("[IB_FLASH_FIRMWARE] port=\(app.deviceLink.usbPortPath ?? "nil")")
+                app.passportSetup.flashFirmware()
+                // 最多等 3 分钟,直到成功或失败。
+                for _ in 0..<360 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if case .done = app.firmware.phase { break }
+                    if case .failed = app.firmware.phase { break }
+                }
+                print("[IB_FLASH_FIRMWARE] result=\(app.firmware.phase)")
+            }
+        }
         if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
         if let seconds = env["IB_SUMMARIZE_ALL_AFTER"].flatMap(Double.init) {
             Task {

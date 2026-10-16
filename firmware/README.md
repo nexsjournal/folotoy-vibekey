@@ -31,6 +31,8 @@ tools/validate.sh --host   # 只跑主机测试(不需要 ESP-IDF)
 
 脚本会:检查串口没有被 InputBetter / Passport Keys app 或其它程序占用 → 编译 → 该设备(按 MAC)第一次烧录时把整片 8 MB Flash 备份到 `~/esp/passport-backups/passport-<MAC>-flash.bin` → 检查写入地址都在 `cardid` 之前 → 只写 bootloader / 分区表 / 应用,不擦除整片,**不写 `cardid` 分区(0x356000)**。
 
+普通用户不需要编译:在 InputBetter app(设置 › Passport)或官网 <https://input.0os.io/#firmware> 用浏览器刷入,两者都从官网下载同一份固件。发布固件到官网见 `docs/website.md`(`scripts/package-firmware.sh` 生成 `build/release/manifest.json` 和镜像)。
+
 分区:`nvs 0x9000`、`phy_init 0xf000`、`factory 0x10000 (3 MB)`、`cardid 0x356000 (16 KB,出厂身份数据,只保留不写)`。
 
 ## 目录结构
