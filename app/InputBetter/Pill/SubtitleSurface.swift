@@ -1,11 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// 字幕条:胶囊展开后的形态,样式参照影视 / 视频平台字幕:
-/// - 背景紧贴文字:宽度随这句字幕的长短变化、高度按实际行数,不预留空位;
-/// - 平时只有字幕文字;鼠标悬停时上方出现标题栏(直播标记、应用名、翻译菜单、工具按钮);
-/// - 翻译时一次显示一句双语字幕(原文小而暗、译文大而亮,居中),读完再换、显示后不改动
-///   (调度见 CaptionFeed / CaptionScheduler);不翻译时显示上一句和正在说的这句。
+/// 字幕条:胶囊展开后的形态,采用同传类应用的两行滚动字幕:
+/// - 原文行跟着语音实时走,译文行按句接上(通常比原文慢一两句),见 CaptionFeed / RollingCaptions;
+/// - 平时只有字幕文字;鼠标悬停时上方出现标题栏(直播标记、应用名、翻译菜单、工具按钮)。
 /// 背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
 struct SubtitleSurface: View {
     let controller: SubtitleController
@@ -79,15 +77,11 @@ struct SubtitleSurface: View {
     /// 最宽:随字号变化,最多 940。
     private var maxWidth: CGFloat { min(max(fontSize * 30, 540), 940) }
 
-    /// 字幕条宽度:紧贴当前字幕文字(长句到最大宽度后换行);悬停时至少放得下标题栏。
+    /// 字幕条宽度:有字幕后固定为最大宽度——滚动字幕的换行位置依赖宽度,宽度一变整段就会重排跳动;
+    /// 还没有字幕时用紧凑宽度。悬停时至少放得下标题栏。
     private var surfaceWidth: CGFloat {
-        let content: CGFloat
-        switch controller.status {
-        case .running where !controller.silentTooLong:
-            content = transcriptWidth + Self.horizontalPadding * 2
-        default:
-            content = 560
-        }
+        let hasText = controller.feed.captions.hasSource
+        let content: CGFloat = controller.status == .running && hasText && !controller.silentTooLong ? maxWidth : 420
         return min(max(content, headerWidth ? 500 : 200), maxWidth)
     }
 
@@ -193,90 +187,47 @@ struct SubtitleSurface: View {
         }
     }
 
-    /// 字幕正文。文字不接收鼠标事件(超出显示范围被裁掉的文字也不会挡住标题栏的按钮)。
+    /// 字幕正文:两行滚动字幕(见 RollingCaptions)。翻译时原文(小、略暗)在上,跟着语音实时走;
+    /// 译文(大、亮)在下,按句接上。各一个固定 2 行高的框,底部对齐,写满后最旧的一行整行滚出。
+    /// 左对齐:滚动字幕居中时每次增长整行都会左右移动,左对齐才稳定。
+    /// 文字不接收鼠标事件(超出框被裁掉的文字也不会挡住标题栏按钮)。
     private var transcript: some View {
-        let feed = controller.feed
-        return Group {
-            if feed.translating {
-                bilingual(feed)
+        let captions = controller.feed.captions
+        let translating = controller.feed.translating
+        return VStack(alignment: .leading, spacing: translating ? 4 : 0) {
+            if !captions.hasSource {
+                Text("等待声音…")
+                    .font(.system(size: smallSize, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.45))
+            } else if translating {
+                rollingBox(Text(captions.sourceFinal).foregroundStyle(.white.opacity(0.6))
+                           + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.4)),
+                           size: smallSize, weight: .medium)
+                rollingBox(captions.translation.isEmpty
+                           ? Text("翻译中…").foregroundStyle(.white.opacity(0.35))
+                           : Text(captions.translation).foregroundStyle(.white),
+                           size: fontSize, weight: .semibold)
             } else {
-                sourceOnly(feed)
+                rollingBox(Text(captions.sourceFinal).foregroundStyle(.white)
+                           + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.75)),
+                           size: fontSize, weight: .semibold)
             }
         }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
         .allowsHitTesting(false)
     }
 
     private var smallSize: CGFloat { fontSize * 0.72 }
 
-    /// 双语:原文(小、暗)在上,译文(大、亮)在下,各最多 2 行,太长时自动缩小字号;换句时淡入淡出。
-    /// 还没有可显示的句子时,小字显示正在说的内容。
-    @ViewBuilder
-    private func bilingual(_ feed: CaptionFeed) -> some View {
-        if let event = feed.event {
-            VStack(spacing: 2) {
-                Text(event.source)
-                    .font(.system(size: smallSize, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.75)
-                Text(event.translation ?? event.source)
-                    .font(.system(size: fontSize, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-            }
-            .id(event.shownAt)
-            .transition(.opacity)
-            .animation(.easeInOut(duration: 0.18), value: event)
-        } else {
-            Text(feed.liveRest.isEmpty ? String(localized: "等待声音…", bundle: .l10n) : feed.liveRest)
-                .font(.system(size: smallSize, weight: .medium))
-                .foregroundStyle(.white.opacity(0.45))
-                .lineLimit(1)
-                .truncationMode(.head)
-        }
-    }
-
-    /// 只显示原文:上一句(暗,一行)+ 正在说的这句(亮,最多 2 行,超出时显示最后两行)。
-    private func sourceOnly(_ feed: CaptionFeed) -> some View {
-        let lines = feed.sourceLines
-        return VStack(spacing: 2) {
-            if let previous = lines.previous {
-                Text(previous)
-                    .font(.system(size: smallSize, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .lineLimit(1)
-                    .truncationMode(.head)
-            }
-            // 句子从头开始排版、只在末尾增长,换行位置稳定;超过两行时底部对齐裁掉最上面的行。
-            Text(lines.current.isEmpty ? String(localized: "等待声音…", bundle: .l10n) : lines.current)
-                .font(.system(size: lines.current.isEmpty ? smallSize : fontSize, weight: .semibold))
-                .foregroundStyle(.white.opacity(lines.current.isEmpty ? 0.45 : 1))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .frame(maxHeight: Self.lineHeight(size: fontSize, weight: .semibold) * 2, alignment: .bottom)
-                .clipped()
-        }
-    }
-
-    /// 当前字幕文字排成一行时的宽度(超过最大宽度时会换行)。
-    private var transcriptWidth: CGFloat {
-        let feed = controller.feed
-        if feed.translating {
-            guard let event = feed.event else {
-                return Self.textWidth(feed.liveRest.isEmpty ? String(localized: "等待声音…", bundle: .l10n) : feed.liveRest,
-                                      size: smallSize, weight: .medium)
-            }
-            return max(Self.textWidth(event.source, size: smallSize, weight: .medium),
-                       Self.textWidth(event.translation ?? event.source, size: fontSize, weight: .semibold))
-        }
-        let lines = feed.sourceLines
-        return max(Self.textWidth(lines.previous ?? "", size: smallSize, weight: .medium),
-                   Self.textWidth(lines.current.isEmpty ? String(localized: "等待声音…", bundle: .l10n) : lines.current,
-                                  size: fontSize, weight: .semibold))
+    /// 固定 2 行高的滚动框:文字按宽度自然换行,底部对齐,裁掉顶部多出的行。
+    private func rollingBox(_ text: Text, size: CGFloat, weight: Font.Weight) -> some View {
+        text
+            .font(.system(size: size, weight: weight))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: Self.lineHeight(size: size, weight: weight) * 2, alignment: .bottom)
+            .clipped()
     }
 
     private static func nsFont(size: CGFloat, weight: Font.Weight) -> NSFont {
@@ -287,12 +238,6 @@ struct SubtitleSurface: View {
         default: .regular
         }
         return NSFont.systemFont(ofSize: size, weight: nsWeight)
-    }
-
-    /// 文字排成一行的宽度(加 2pt 余量,避免刚好放得下时被挤到第二行)。
-    private static func textWidth(_ text: String, size: CGFloat, weight: Font.Weight) -> CGFloat {
-        guard !text.isEmpty else { return 0 }
-        return ceil((text as NSString).size(withAttributes: [.font: nsFont(size: size, weight: weight)]).width) + 2
     }
 
     /// 系统字体在该字号下的行高(与 SwiftUI Text 的默认行距一致),用来固定正文高度。

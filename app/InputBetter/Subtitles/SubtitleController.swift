@@ -159,9 +159,7 @@ final class SubtitleController {
         appName = sample.appName
         self.partial = partial
         status = .running
-        if let last = sample.entries.last {
-            feed.debugShow(source: last.text, translation: last.translation, live: partial)
-        }
+        feed.debugShow(sample.entries.map { (source: $0.text, translation: $0.translation) }, live: partial)
     }
     #endif
 

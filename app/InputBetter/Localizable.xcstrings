@@ -3369,6 +3369,16 @@
         }
       }
     },
+    "翻译中…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translating…"
+          }
+        }
+      }
+    },
     "翻译听写": {
       "localizations": {
         "en": {

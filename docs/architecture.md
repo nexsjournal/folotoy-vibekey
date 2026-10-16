@@ -54,7 +54,7 @@ App(AppState 组合根)
 | 翻译(系统翻译 + LLM 组合) | `TranslationService`(translateLine / quickTranslate / translateDictation) | SubtitleController、CaptionFeed、DictationController |
 | 流式识别结果稳定化(LocalAgreement) | `CaptionSegmenter` | CaptionFeed |
 | 断句 | `SentenceSplitter` | SubtitleController(记录按句)、CaptionSegmenter |
-| 字幕显示调度 | `CaptionScheduler` | CaptionFeed |
+| 字幕条两行滚动文字 | `RollingCaptions` | CaptionFeed |
 | LLM 配置表单(预设 / 地址 / Key / 模型拉取 / 测试) | `LLMConfigForm`(绑定三项配置) | 设置 › AI、引导 |
 | 字幕记录分段总结 | `TranscriptSummarizer` | SummaryView |
 | 系统离线翻译 | `SystemTranslator`(Translation 框架,会话缓存) | TranslationService |
@@ -243,10 +243,12 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
                  → CaptionTranscript.setTranslation(draft:)(记录窗口 / 保存文件用 AI 版)
                  → CaptionFeed.entryTranslation(同步到关联的 unit,还没显示的句子用上更好的译文)
           → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
- → CaptionFeed 定时器(150 ms)→ CaptionScheduler.advance(影视字幕规范:一次一条、按阅读速度停留 1.5–5 秒、
-     显示后不改;落后时每条只停 0.8 秒并按顺序合并更多句子,从不跳句)→ CaptionFeed.event
- → SubtitleSurface:背景紧贴文字(宽度随字幕长短、高度按行数);翻译时原文小而暗在上、译文大而亮在下,居中;
-     不翻译时上一句(暗)+ 正在说的这句;标题栏只在悬停时出现(先加宽再淡入、先淡出再收窄,按钮不漂移);
+ → CaptionFeed.advance(每次新内容 + 每 0.5 秒)→ RollingCaptions.update(同传类应用的两行滚动字幕):
+     原文行 = 已确认句子 + 正在说的部分(跟着语音实时走,未确认部分略暗);
+     译文行 = 按句子顺序接上的译文(接上后锁定不改;等译文超时 / 失败的句子跳过),通常比原文慢一两句;
+     起点固定、只在末尾增长(换行稳定),累计超过 420 字符才按整句移动起点
+ → SubtitleSurface:原文(小)在上、译文(大)在下,各一个固定 2 行高的框,底部对齐、旧行整行滚出,左对齐;
+     有字幕后宽度固定(宽度变化会让换行重排);标题栏只在悬停时出现(先加宽再淡入、先淡出再收窄);
      字幕文字 allowsHitTesting(false),不挡标题栏按钮
  → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)

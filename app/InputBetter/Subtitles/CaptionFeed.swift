@@ -1,6 +1,6 @@
 import Foundation
 
-/// 字幕条的数据源:把识别结果变成"一句一句的双语字幕",交给 CaptionScheduler 按阅读速度排队显示。
+/// 字幕条的数据源:原文行跟着语音实时走,译文行按句接上(RollingCaptions)。
 ///
 /// 两条路径(按能否快速翻译选择):
 /// - 快速路径(有系统翻译,或不翻译):
@@ -9,17 +9,14 @@ import Foundation
 ///   handle(.final) → final → CaptionSegmenter.final:只补上还没给出的句子。句子只增不改,不丢不重。
 /// - 只有 AI 能翻译时:识别中不切句(AI 来不及),定稿后按字幕记录的句子生成 unit 并关联,
 ///   SubtitleController.translate → entryTranslation 把 AI 译文同步过来。
-/// 定时器每 150 毫秒 → CaptionScheduler.advance → event(字幕条当前显示的一条);显示后不再改动。
+/// 每次有新内容(以及每 0.5 秒检查一次等译文超时)→ RollingCaptions.update → 原文行 / 译文行。
 @MainActor @Observable
 final class CaptionFeed {
-    /// 字幕条当前显示的一条(翻译模式)。
-    private(set) var event: CaptionScheduler.Event?
+    /// 字幕条的两行文字。
+    private(set) var captions = RollingCaptions()
     /// 正在说、还没成句的部分。
-    private(set) var liveRest = ""
-    /// 最近的句子(不翻译时字幕条显示最后两句)。
-    private(set) var units: [CaptionUnit] = []
-
-    @ObservationIgnored private var scheduler = CaptionScheduler()
+    @ObservationIgnored private var liveRest = ""
+    @ObservationIgnored private var units: [CaptionUnit] = []
     @ObservationIgnored private var segmenter = CaptionSegmenter()
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private let settings: AppSettings
@@ -36,18 +33,13 @@ final class CaptionFeed {
     /// 字幕条是否显示译文。
     var translating: Bool { settings.subtitleTranslate && translation.isAvailable }
 
-    /// 不翻译时显示的两句:上一句和最新一句(或正在说的部分)。
-    var sourceLines: (previous: String?, current: String) {
-        if !liveRest.isEmpty { return (units.last?.source, liveRest) }
-        return (units.dropLast().last?.source, units.last?.source ?? "")
-    }
-
     func start() {
         ticker?.cancel()
+        // 定时刷新:等译文超时的句子要被跳过,即使没有新的识别结果。
         ticker = Task { [weak self] in
             while !Task.isCancelled {
                 self?.advance()
-                try? await Task.sleep(for: .milliseconds(150))
+                try? await Task.sleep(for: .milliseconds(500))
             }
         }
     }
@@ -55,8 +47,7 @@ final class CaptionFeed {
     func reset() {
         ticker?.cancel()
         ticker = nil
-        scheduler.reset()
-        event = nil
+        captions.reset()
         liveRest = ""
         units = []
         segmenter.reset()
@@ -116,11 +107,15 @@ final class CaptionFeed {
     }
 
     #if DEBUG
-    /// 仅调试:直接显示一条字幕。
-    func debugShow(source: String, translation: String?, live: String) {
-        event = CaptionScheduler.Event(source: source, translation: translation, shownAt: Date(), duration: 60)
+    /// 仅调试:显示示例字幕。
+    func debugShow(_ sample: [(source: String, translation: String?)], live: String) {
+        units = sample.map { item in
+            var unit = CaptionUnit(source: item.source)
+            unit.translation = item.translation
+            return unit
+        }
         liveRest = live
-        units = [CaptionUnit(source: source)]
+        advance()
     }
     #endif
 
@@ -140,25 +135,16 @@ final class CaptionFeed {
     }
 
     private func advance() {
-        // 只有 AI 能翻译时等得久一些(AI 生成要几秒),有系统翻译时 4 秒还没译文就先显示原文。
-        let timeout: TimeInterval = translation.systemReady && settings.translationEngine.usesSystem ? 4 : 10
-        let before = scheduler.nextIndex
-        if scheduler.advance(units, translating: translating, timeout: timeout, now: Date()) {
-            event = scheduler.current
-            if let shown = units[safe: scheduler.nextIndex - 1], scheduler.nextIndex > before {
-                Log.subtitles.debug("caption shown units \(before)..<\(self.scheduler.nextIndex) of \(self.units.count), \(Date().timeIntervalSince(shown.createdAt), format: .fixed(precision: 2))s after sentence")
-            }
-        }
+        // 只有 AI 能翻译时等得久一些(AI 生成要几秒);有系统翻译时 4 秒还没译文就跳过这句。
+        let timeout: TimeInterval = translation.systemReady && settings.translationEngine.usesSystem ? 4 : 12
+        var updated = captions
+        updated.update(&units, live: liveRest, translating: translating, timeout: timeout, now: Date())
+        if updated != captions { captions = updated }
+        // 裁掉早已滚出字幕条的旧句子(两行都已经越过它们)。
         if units.count > Self.maxUnits {
-            let drop = min(units.count - Self.maxUnits, max(0, scheduler.nextIndex - 1))
-            if drop > 0 {
-                units.removeFirst(drop)
-                scheduler.dropped(drop)
-            }
+            let drop = units.count - Self.maxUnits
+            units.removeFirst(drop)
+            captions.dropped(drop)
         }
     }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }

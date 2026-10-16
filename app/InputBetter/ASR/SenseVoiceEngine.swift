@@ -41,7 +41,8 @@ final class SenseVoiceEngine: ASREngine {
 }
 
 nonisolated final class SenseVoiceDecoder: SegmentDecoder, @unchecked Sendable {
-    let partialInterval = 0.6
+    /// 识别中结果的刷新间隔:SenseVoice 识别 8 秒音频只要 0.1–0.2 秒,0.4 秒刷新一次让字幕原文紧跟语音。
+    let partialInterval = 0.4
     let maxWholeSeconds = 30.0
     let prefersWholeDictation = false
     private let recognizer: SherpaOnnxOfflineRecognizer

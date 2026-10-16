@@ -429,36 +429,47 @@ nonisolated final class CaptionPipelineTests: XCTestCase {
         return unit
     }
 
-    func testSchedulerHoldsForReadingTimeAndNeverSkips() {
+    func testRollingSourceFollowsSpeechAndTranslationFollowsSentences() {
         let now = Date()
-        var scheduler = CaptionScheduler()
-        var units = [unit("Hello there friend.", "你好朋友。", now: now)]
-        XCTAssertTrue(scheduler.advance(units, translating: true, timeout: 4, now: now))
-        XCTAssertEqual(scheduler.current?.translation, "你好朋友。")
-        units.append(unit("Next sentence here.", "下一句。", now: now))
-        XCTAssertFalse(scheduler.advance(units, translating: true, timeout: 4, now: now.addingTimeInterval(0.5)), "没读完不换")
-        XCTAssertTrue(scheduler.advance(units, translating: true, timeout: 4, now: now.addingTimeInterval(2)))
-        XCTAssertEqual(scheduler.current?.translation, "下一句。")
+        var captions = RollingCaptions()
+        var units = [unit("First sentence is complete here.", "第一句已经完整。", now: now),
+                     unit("Second sentence waits for translation.", nil, now: now)]
+        captions.update(&units, live: "and the speaker keeps", translating: true, timeout: 4, now: now)
+        XCTAssertEqual(captions.sourceFinal, "First sentence is complete here. Second sentence waits for translation.")
+        XCTAssertEqual(captions.sourceLive, " and the speaker keeps", "原文行实时接上正在说的部分")
+        XCTAssertEqual(captions.translation, "第一句已经完整。", "译文行只接到第一句,第二句还在等")
 
-        // 落后时:合并显示,所有句子都出现,一句不跳。
-        var behind = CaptionScheduler()
-        let many = (0..<6).map { unit("Sentence number \($0).", "第\($0)句。", age: 5, now: now) }
-        var shown: [String] = []
-        var t = now
-        for _ in 0..<10 {
-            if behind.advance(many, translating: true, timeout: 4, now: t), let text = behind.current?.translation { shown.append(text) }
-            t = t.addingTimeInterval(1)
-        }
-        XCTAssertEqual(shown.joined(), (0..<6).map { "第\($0)句。" }.joined(), "落后时按顺序合并,不丢句")
+        units[1].translation = "第二句等待翻译。"
+        captions.update(&units, live: "", translating: true, timeout: 4, now: now)
+        XCTAssertEqual(captions.translation, "第一句已经完整。第二句等待翻译。")
+
+        // 已接上的译文锁定:之后 AI 润色版到达也不改字幕条。
+        units[0].translation = "第一句（润色版）。"
+        captions.update(&units, live: "", translating: true, timeout: 4, now: now)
+        XCTAssertEqual(captions.translation, "第一句已经完整。第二句等待翻译。")
     }
 
-    func testSchedulerWaitsForTranslationThenTimesOut() {
+    func testRollingSkipsSentencesWhoseTranslationTimesOut() {
         let now = Date()
-        var scheduler = CaptionScheduler()
-        let pending = [unit("No translation yet here.", nil, now: now)]
-        XCTAssertFalse(scheduler.advance(pending, translating: true, timeout: 4, now: now))
-        XCTAssertTrue(scheduler.advance(pending, translating: true, timeout: 4, now: now.addingTimeInterval(4.5)))
-        XCTAssertNil(scheduler.current?.translation, "超时只显示原文")
+        var captions = RollingCaptions()
+        var units = [unit("Stuck sentence without translation.", nil, age: 5, now: now),
+                     unit("Next sentence translated fine.", "下一句。", now: now)]
+        captions.update(&units, live: "", translating: true, timeout: 4, now: now)
+        XCTAssertEqual(captions.translation, "下一句。", "超时的句子跳过,后面的不再等")
+    }
+
+    func testRollingTrimsWholeSentencesOccasionally() {
+        let now = Date()
+        var captions = RollingCaptions()
+        var units = (0..<20).map { unit("This is sentence number \($0) of the talk.", nil, now: now) }
+        captions.update(&units, live: "", translating: false, timeout: 4, now: now)
+        XCTAssertLessThanOrEqual(captions.sourceFinal.count, RollingCaptions.trimAt)
+        XCTAssertTrue(captions.sourceFinal.hasPrefix("This is sentence"), "按整句裁剪,开头是完整的句子")
+        XCTAssertTrue(captions.sourceFinal.hasSuffix("number 19 of the talk."))
+        let before = captions.sourceFinal
+        units.append(unit("One more.", nil, now: now))
+        captions.update(&units, live: "", translating: false, timeout: 4, now: now)
+        XCTAssertTrue(captions.sourceFinal.hasPrefix(before), "没超过上限时起点不动,只在末尾增长(换行稳定)")
     }
 }
 
