@@ -164,11 +164,16 @@ DeviceBridge.sync(16 Hz 定时器,或连接变化时)
 
 ```
 设备模式(长按上键循环 dict → tr → sub,听写进行中不切换)
- dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在后台运行也不影响;空闲页 msg "LIVE" 显示 LIVE 标记
+ dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在运行也不影响(此时设备显示字幕页,按键仍是听写模式的含义)
  sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时 Hooks.stopCaptions(= AppState.stopCaptions)
        (Mac 上正显示模态框时不响应)
        上 / 下短按 = 字幕翻译开关(需已配置 AI,与 Mac 上一致)/ 收起展开字幕条(仅字幕运行时)
-DeviceStateMapper.state:听写阶段优先 → 列表 → 字幕页(仅 sub 模式且字幕运行)→ 空闲页(+LIVE)
+DeviceStateMapper.state:设备临时错误(如 NO APPS,2 秒)→ 听写阶段 → 列表 → 字幕页(字幕在运行,不论模式;mode 如实上报)→ 空闲页
+DeviceStateMapper.keyHints:字幕页按模式给提示(sub:停止 / 翻译(翻译不可用时隐藏)/ 收起;dict / tr:麦克风 + vibe 动作)
+OK 键:听写进行中(含从 Mac 开始的)始终交给听写(pressDown / pressUp,记录 okDrivesDictation);
+ 连接变化时补发 pressUp;Passport 麦克风录音中断开 → DictationController.stop
+Agent 提醒:Mac 上关掉 → AgentNotifier.dismiss → onNotice(.clear) 同步清掉设备;设备按键确认 → dismiss(fromDevice:);重连后重发未处理的提醒
+固件:done / err 自动返回时回到「常驻页」(最近一次 idle / sub 的页面、模式和 msg);rec → proc 继续推流最多 500 ms 等 mic off(录完尾音)
 列表页 ListSession:切换应用(长按下键)/ 选择字幕应用(sub 模式 OK),按键规则相同
 列表打开时 Mac 上开始了听写:DeviceBridge.sync 关闭列表(设备已切到录音页,按键不再归列表)
 定时器加在 RunLoop common 模式,菜单 / 模态框显示时设备状态照常同步

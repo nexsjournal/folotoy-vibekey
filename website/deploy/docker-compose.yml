@@ -1,0 +1,17 @@
+# InputBetter 官网。共享代理(/opt/proxy)通过 "web" 网络以 inputbetter-web:8080 访问这个容器。
+name: inputbetter-web
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: inputbetter-web
+    restart: unless-stopped
+    networks:
+      web:
+        aliases: [inputbetter-web]
+
+networks:
+  web:
+    external: true

@@ -95,15 +95,10 @@ static void anim_start(lv_obj_t *obj, lv_anim_exec_xcb_t cb, int32_t from, int32
     lv_anim_start(&a);
 }
 
-// IDLE 页上 msg 为 "LIVE" 表示 Mac 正在后台跑字幕(听写 / 翻译模式下 OK 仍用于听写):
-// 状态栏左侧显示与 SUB 页相同的 LIVE 徽章,msg 清空后恢复链路文字。
-#define IB_UI_IDLE_LIVE_MSG "LIVE"
-
 static ib_bar_mode_t bar_mode_for(ib_ui_screen_t screen)
 {
     if (screen == IB_UI_REC) return IB_BAR_REC;
     if (screen == IB_UI_SUB) return IB_BAR_LIVE;
-    if (screen == IB_UI_IDLE && strcmp(s_ctx.msg, IB_UI_IDLE_LIVE_MSG) == 0) return IB_BAR_LIVE;
     return IB_BAR_NORMAL;
 }
 

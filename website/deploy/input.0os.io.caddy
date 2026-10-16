@@ -1,0 +1,7 @@
+# 由 website/deploy/deploy.sh 安装到共享代理:/opt/proxy/caddy/sites/input.0os.io.caddy。
+input.0os.io {
+	import tls_0os_io
+	import common
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy inputbetter-web:8080
+}

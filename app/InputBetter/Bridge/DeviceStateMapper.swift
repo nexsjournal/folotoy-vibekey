@@ -21,9 +21,10 @@ enum DeviceStateMapper {
         let dictMode: DeviceMode = dictationMode == .translate ? .tr : .dict
         switch phase {
         case .idle:
-            // 字幕页只在设备处于字幕模式时显示;听写 / 翻译模式下字幕在后台运行,空闲页带 LIVE 标记。
-            if deviceMode == .sub, subtitlesRunning { return State(ui: .sub, mode: .sub, msg: subtitleApp) }
-            return State(ui: .idle, mode: deviceMode, msg: subtitlesRunning ? "LIVE" : "")
+            // 显示与按键分开:字幕在运行就显示字幕页(应用名 + 随声音跳动的均衡器),不管设备在哪个模式;
+            // 按键含义仍由设备模式决定(见 keyHints 与 DeviceBridge),mode 字段如实上报当前模式。
+            if subtitlesRunning { return State(ui: .sub, mode: deviceMode, msg: subtitleApp) }
+            return State(ui: .idle, mode: deviceMode, msg: "")
         case .starting, .recording:
             return State(ui: .rec, mode: dictMode, msg: "")
         case .processing:
@@ -35,7 +36,7 @@ enum DeviceStateMapper {
         }
     }
 
-    static func keyHints(state: DeviceUIState, deviceMode: DeviceMode, handsFree: Bool, translating: Bool,
+    static func keyHints(state: DeviceUIState, deviceMode: DeviceMode, handsFree: Bool, canTranslate: Bool,
                          up: KeyAction, down: KeyAction) -> Hints {
         switch state {
         case .rec:
@@ -44,7 +45,9 @@ enum DeviceStateMapper {
         case .proc, .done, .err:
             return Hints(ok: nil, up: nil, down: nil)
         case .sub:
-            return Hints(ok: .stop, up: .translate, down: .hide)
+            // 字幕模式:OK 结束字幕、上键开关翻译、下键收起字幕条;听写 / 翻译模式:OK 说话,上下键是 vibe 动作。
+            if deviceMode == .sub { return Hints(ok: .stop, up: canTranslate ? .translate : nil, down: .hide) }
+            return Hints(ok: .mic, up: up.deviceIcon, down: down.deviceIcon)
         case .list:
             return Hints(ok: .check, up: .up, down: .down)
         case .idle:

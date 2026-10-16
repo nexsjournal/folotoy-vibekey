@@ -6,8 +6,9 @@ import AppKit
 /// 用 16 Hz 定时器比较差异后下发,不需要各控制器主动通知,保持解耦。
 ///
 /// 交互规则(docs/architecture.md「Passport 按键」):
-/// - OK 键的含义由设备当前模式决定:听写 / 翻译模式下始终是听写(字幕可以在后台运行,
-///   设备显示 LIVE 标记);字幕模式下没有字幕时打开"选择应用"列表,有字幕时停止字幕。
+/// - 显示与按键分开:字幕在运行时设备显示字幕页(不管哪个模式);按键含义由设备模式决定。
+/// - OK:听写进行中始终交给听写(按住说话 / 免提停止);否则听写 / 翻译模式是说话,
+///   字幕模式下没有字幕时打开"选择应用"列表、有字幕时结束字幕。
 /// - 列表页(切换应用 / 选择字幕应用)打开时,按键只用于列表。
 @MainActor
 final class DeviceBridge {
@@ -71,6 +72,10 @@ final class DeviceBridge {
     private var presses = KeyPressTracker()
     /// 列表关闭后忽略 OK 新按下的时长(防抖,避免误触听写)。
     private let okLockoutAfterList: TimeInterval = 0.25
+    /// 这次 OK 按下交给了听写:松开时要发 pressUp(断线 / 切换链路时也要补发,否则按住说话收不了尾)。
+    private var okDrivesDictation = false
+    /// 设备上的临时错误提示(如没有可选的应用),到期前代替正常状态显示,时长与固件的错误页一致。
+    private var deviceError: (msg: String, until: Date)?
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
          agent: AgentNotifier, settings: AppSettings, hooks: Hooks) {
@@ -84,13 +89,8 @@ final class DeviceBridge {
 
     func start() {
         link.onKey = { [weak self] key, event, ack in self?.handle(key, event, ack: ack) }
-        link.onConnectionChange = { [weak self] _ in
-            // 重连后强制重发全部状态,清掉断线前未完成的按压和列表。
-            self?.presses.reset()
-            self?.list = nil
-            self?.lastState = nil
-            self?.lastConfig = nil
-            self?.sync()
+        link.onConnectionChange = { [weak self] connection in
+            self?.connectionChanged(connection)
         }
         agent.onNotice = { [weak self] notice in
             guard let self else { return }
@@ -109,6 +109,29 @@ final class DeviceBridge {
         self.timer = timer
     }
 
+    /// 连接变化(断开、重连、USB / 蓝牙切换):
+    /// - 正按着 OK 说话:松开事件可能丢了,补一次 pressUp,免得按住说话停不下来;
+    /// - 用 Passport 麦克风录音时设备断开:结束这次录音(已说的内容照常识别输入);
+    /// - 强制重发全部状态,清掉未完成的按压和列表;还没处理的 Agent 提醒重新发给设备。
+    private func connectionChanged(_ connection: DeviceLink.Connection) {
+        if okDrivesDictation {
+            okDrivesDictation = false
+            dictation.pressUp()
+        }
+        let recording = dictation.phase == .recording || dictation.phase == .starting
+        if connection == .disconnected, settings.micID == AppSettings.passportMicID, recording {
+            dictation.stop()
+        }
+        presses.reset()
+        list = nil
+        lastState = nil
+        lastConfig = nil
+        sync()
+        if connection != .disconnected, let notice = agent.current {
+            agent.onNotice?(notice)
+        }
+    }
+
     // MARK: - 按键
 
     /// 原始按键 → 手势 → 动作。手势规则见 `KeyPressTracker`(按压归属、松开判定短按、防抖锁定)。
@@ -117,7 +140,7 @@ final class DeviceBridge {
         case .down:
             let owner: KeyPressTracker.Owner = ack ? .agentAck : (list != nil ? .switcher : .normal)
             guard let owner = presses.began(key, owner: owner) else { return }
-            if owner == .agentAck { agent.dismiss(); return }
+            if owner == .agentAck { agent.dismiss(fromDevice: true); return }
             owner == .switcher ? listPressBegan(key) : pressBegan(key)
         case .long:
             guard let owner = presses.longPressed(key) else { return }
@@ -142,12 +165,17 @@ final class DeviceBridge {
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
         guard key == .ok else { return }
-        if inCaptionsMode {
-            // 听写中,或 Mac 上正显示模态提示框(如"保存字幕吗?")时不开 / 停字幕,避免叠加弹框。
-            guard !dictation.phase.isBusy, NSApp.modalWindow == nil else { return }
+        // 听写进行中(包括从 Mac 上开始的):OK 交给听写,与屏幕上的停止 / 麦克风提示一致。
+        if dictation.phase.isBusy {
+            dictation.pressDown(mode: dictation.mode)
+            okDrivesDictation = true
+        } else if inCaptionsMode {
+            // Mac 上正显示模态提示框(如"结束字幕?")时不开 / 停字幕,避免叠加弹框。
+            guard NSApp.modalWindow == nil else { return }
             subtitles.isRunning ? hooks.stopCaptions() : openCaptionAppPicker()
         } else {
             dictation.pressDown(mode: mode == .tr ? .translate : .dictate)
+            okDrivesDictation = true
         }
     }
 
@@ -171,12 +199,19 @@ final class DeviceBridge {
     private func pressEnded(_ key: DeviceKey, isTap: Bool) {
         switch key {
         case .ok:
-            if !inCaptionsMode { dictation.pressUp() }
+            if okDrivesDictation {
+                okDrivesDictation = false
+                dictation.pressUp()
+            }
         case .up:
             guard isTap, !dictation.phase.isBusy else { return }
             if inCaptionsMode {
-                // 和 Mac 上的翻译开关一致:翻译不可用时不能打开。
-                if subtitles.isRunning, hooks.canTranslate() { settings.subtitleTranslate.toggle() }
+                if subtitles.isRunning {
+                    // 和 Mac 上的翻译开关一致:翻译不可用时不能切换(提示图标此时也隐藏)。
+                    if hooks.canTranslate() { settings.subtitleTranslate.toggle() }
+                } else {
+                    cycleMode()  // 没有字幕时上键提示是"切换模式"
+                }
             } else {
                 perform(settings.deviceUpAction)
             }
@@ -197,7 +232,7 @@ final class DeviceBridge {
         case .appSwitcher: openAppSwitcher()
         default: KeySender.perform(action)
         }
-        // 用户开始回应 Agent,顺手清掉"等待输入"提醒。
+        // 用户开始回应 Agent,顺手清掉"等待输入"提醒(设备上的也一起清)。
         if agent.current != nil { agent.dismiss() }
     }
 
@@ -221,7 +256,10 @@ final class DeviceBridge {
     private func openCaptionAppPicker() {
         let apps = AudioProcesses.runningApps()
         guard !apps.isEmpty else {
-            link.sendState(.err, mode: mode, msg: "NO APPS")
+            // 走正常的状态同步(而不是直接发),重连后不会重放过期的错误页。
+            deviceError = ("NO APPS", Date().addingTimeInterval(Self.errorHold))
+            lastState = nil
+            sync()
             return
         }
         openList(ListSession(purpose: .pickCaptionApp(apps), selected: 0))
@@ -242,8 +280,13 @@ final class DeviceBridge {
         case .ok:
             closeList()
             switch current.purpose {
-            case .switchApp(let apps): AppSwitcher.activate(apps[current.selected])
-            case .pickCaptionApp(let apps): hooks.startCaptions(apps[current.selected])
+            case .switchApp(let apps):
+                AppSwitcher.activate(apps[current.selected])
+            case .pickCaptionApp(let apps):
+                // 列表打开期间 Mac 上已经开始了字幕,或正显示对话框:只关闭列表,
+                // 不从设备触发 Mac 上的确认框(设备上没法回答)。
+                guard !subtitles.isRunning, NSApp.modalWindow == nil else { return }
+                hooks.startCaptions(apps[current.selected])
             }
         case .down:
             break
@@ -302,7 +345,7 @@ final class DeviceBridge {
         }
         let hints = DeviceStateMapper.keyHints(
             state: state.ui, deviceMode: mode, handsFree: dictation.isHandsFree,
-            translating: settings.subtitleTranslate, up: settings.deviceUpAction, down: settings.deviceDownAction)
+            canTranslate: hooks.canTranslate(), up: settings.deviceUpAction, down: settings.deviceDownAction)
         link.sendKeyHints(ok: hints.ok, up: hints.up, down: hints.down)
         switch state.ui {
         case .rec: link.sendLevel(Int(dictation.level * 100))
@@ -311,7 +354,14 @@ final class DeviceBridge {
         }
     }
 
+    /// 错误页停留时长(与固件 ERR_HOLD_MS 一致)。
+    static let errorHold: TimeInterval = 2.0
+
     private func currentState() -> DeviceStateMapper.State {
+        if let error = deviceError {
+            if Date() < error.until, !dictation.phase.isBusy { return .init(ui: .err, mode: mode, msg: error.msg) }
+            deviceError = nil
+        }
         if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
         return DeviceStateMapper.state(
             phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,

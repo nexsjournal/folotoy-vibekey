@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InputBetter — 说出来，就写好了</title>
+<meta name="description" content="InputBetter：macOS 本地语音输入与实时双语字幕。按住快捷键说话，文字直接输入到光标处；任何应用的声音都能实时转成字幕并翻译。开源、本地优先。">
+<meta name="theme-color" content="#050507">
+<meta property="og:title" content="InputBetter — 说出来，就写好了">
+<meta property="og:description" content="macOS 本地语音输入与实时双语字幕，开源、本地优先。">
+<meta property="og:image" content="/assets/icon.png">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <a class="brand" href="#top"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
+  <div class="nav-actions">
+    <button class="lang" id="lang" type="button" aria-label="Switch language">EN</button>
+    <a class="link" href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn small" href="{{DMG_URL}}" data-i18n="cta.short">下载</a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 首屏:一枚会变形的玻璃胶囊,演示听写 → 字幕 -->
+  <section class="hero">
+    <h1 class="title" data-split><span data-i18n="hero.title">说出来，就写好了。</span></h1>
+    <p class="lead fade" data-i18n="hero.lead">macOS 本地语音输入与实时双语字幕。</p>
+    <div class="cta fade">
+      <a class="btn primary" href="{{DMG_URL}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg><span data-i18n="cta.download">下载 macOS 版</span></a>
+      <a class="btn ghost" href="https://github.com/racall/InputBetter" target="_blank" rel="noopener" data-i18n="cta.source">查看源码</a>
+    </div>
+
+    <div class="stage fade" aria-hidden="true">
+      <div class="bubble" id="bubble"></div>
+      <div class="morph" id="morph" data-state="idle">
+        <div class="layer l-idle"><span class="sliver"></span></div>
+        <div class="layer l-rec">
+          <span class="rec-dot"></span>
+          <span class="wave" id="wave"></span>
+          <kbd>⌥ Space</kbd>
+        </div>
+        <div class="layer l-done"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span data-i18n="demo.typed">已输入</span></div>
+        <div class="layer l-cap">
+          <div class="cap-head"><span class="live"></span>YouTube<span class="tag" data-i18n="demo.tag">译 · 简体中文</span></div>
+          <div class="cap-src" id="capSrc"></div>
+          <div class="cap-tr" id="capTr"></div>
+        </div>
+      </div>
+      <p class="stage-label" id="stageLabel"></p>
+    </div>
+  </section>
+
+  <!-- 功能:四张卡片,各带一个小动画 -->
+  <section class="bento" id="features">
+    <article class="card reveal">
+      <div class="card-text"><h3 data-i18n="f1.title">在任何地方听写</h3><p data-i18n="f1.body">按住 ⌥ 空格说话，松开就输入到光标处。可选 AI 润色。</p></div>
+      <div class="viz viz-dict" aria-hidden="true">
+        <div class="keys"><kbd>⌥</kbd><kbd class="wide">Space</kbd></div>
+        <div class="field"><span id="miniTyped"></span><i class="caret"></i></div>
+      </div>
+    </article>
+    <article class="card reveal">
+      <div class="card-text"><h3 data-i18n="f2.title">任何声音，双语字幕</h3><p data-i18n="f2.body">原文跟着语音走，译文逐句接上。系统离线翻译，AI 再润色。</p></div>
+      <div class="viz viz-cap" aria-hidden="true">
+        <div class="lines"><span data-i18n="f2.src">“The extra thinking solves the hard problems.”</span><b data-i18n="f2.tr">“正是这些额外的思考，解决了难题。”</b></div>
+      </div>
+    </article>
+    <article class="card reveal">
+      <div class="card-text"><h3 data-i18n="f3.title">一键总结</h3><p data-i18n="f3.body">每隔几分钟提炼要点，结束后总结全文。</p></div>
+      <div class="viz viz-sum" aria-hidden="true">
+        <ol><li><i></i><span data-i18n="f3.p1">推理模型会检查多种方案</span></li><li><i></i><span data-i18n="f3.p2">多花的计算换来正确答案</span></li><li><i></i><span data-i18n="f3.p3">新一代 AI 基础设施登场</span></li></ol>
+      </div>
+    </article>
+    <article class="card reveal">
+      <div class="card-text"><h3>AI Passport</h3><p data-i18n="f4.body">按住说话、回车、Esc、切换应用，Agent 完成时提醒你。</p></div>
+      <div class="viz viz-device" aria-hidden="true">
+        <div class="device">
+          <div class="screen">
+            <div class="ring"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></div>
+            <span class="mode">DICTATE</span>
+          </div>
+          <span class="side s1"></span><span class="side s2"></span><span class="side s3"></span>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- 隐私:一行四点 -->
+  <section class="trust reveal">
+    <div><b data-i18n="t1">本机识别</b><span data-i18n="t1d">声音不离开 Mac</span></div>
+    <div><b data-i18n="t2">密钥只在本机</b><span data-i18n="t2d">仅当前用户可读</span></div>
+    <div><b data-i18n="t3">不留历史</b><span data-i18n="t3d">记录只在内存里</span></div>
+    <div><b data-i18n="t4">开源</b><span data-i18n="t4d">MIT · 含 Passport 固件</span></div>
+  </section>
+
+  <!-- 下载 -->
+  <section class="download reveal" id="download">
+    <img class="app-icon" src="/assets/icon.png" alt="InputBetter" width="96" height="96">
+    <h2 data-i18n="dl.title">现在就开始说。</h2>
+    <a class="btn primary" href="{{DMG_URL}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg><span data-i18n="cta.download">下载 macOS 版</span></a>
+    <p class="meta" data-i18n="dl.meta">版本 {{VERSION}} · {{SIZE}} · macOS 26+ · Apple 芯片 · 已签名并经 Apple 公证</p>
+    <p class="sha">SHA-256 {{SHA256}}</p>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>© 2026 InputBetter · <span data-i18n="ft.license">MIT 开源</span></span>
+  <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script src="/assets/main.js" defer></script>
+</body>
+</html>

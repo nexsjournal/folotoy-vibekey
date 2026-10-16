@@ -46,9 +46,12 @@ final class AgentNotifier {
         }
     }
 
-    /// 用户已看到(按了设备按键或点了胶囊)。
-    func dismiss() {
+    /// 用户已看到。在 Mac 上关掉(点了胶囊等)时同时清除设备上的提醒;
+    /// 设备上按键确认的(`fromDevice`)设备已经自己清掉了,不用再发。
+    func dismiss(fromDevice: Bool = false) {
+        guard let notice = current else { return }
         current = nil
         expireTask?.cancel()
+        if !fromDevice { onNotice?(Notice(event: .clear, source: notice.source, date: Date())) }
     }
 }

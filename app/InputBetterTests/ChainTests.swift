@@ -103,12 +103,15 @@ nonisolated final class SegmentedSessionChainTests: XCTestCase {
 
 /// 链:DeviceBridge.sync → DeviceStateMapper → DeviceLink.send*。
 nonisolated final class DeviceStateMapperTests: XCTestCase {
-    @MainActor func testCaptionsPageOnlyInCaptionsMode() {
+    @MainActor func testCaptionsPageWheneverCaptionsRun() {
         let sub = DeviceStateMapper.state(phase: .idle, dictationMode: .dictate, deviceMode: .sub, subtitlesRunning: true, subtitleApp: "Chrome")
         XCTAssertEqual(sub, .init(ui: .sub, mode: .sub, msg: "Chrome"))
-        // 听写模式下字幕在后台运行:仍是空闲页(OK 可以听写),带 LIVE 标记。
+        // 听写模式下字幕在运行:同样显示字幕页(mode 如实为 dict),按键仍是听写模式的含义。
         let live = DeviceStateMapper.state(phase: .idle, dictationMode: .dictate, deviceMode: .dict, subtitlesRunning: true, subtitleApp: "Chrome")
-        XCTAssertEqual(live, .init(ui: .idle, mode: .dict, msg: "LIVE"))
+        XCTAssertEqual(live, .init(ui: .sub, mode: .dict, msg: "Chrome"))
+        let dictHints = DeviceStateMapper.keyHints(state: .sub, deviceMode: .dict, handsFree: false, canTranslate: true, up: .enter, down: .escape)
+        XCTAssertEqual(dictHints.ok, .mic, "听写模式下字幕页的 OK 仍是说话")
+        XCTAssertEqual(dictHints.up, KeyAction.enter.deviceIcon)
         // 听写优先:字幕运行中开始听写,设备显示录音页。
         let rec = DeviceStateMapper.state(phase: .recording, dictationMode: .dictate, deviceMode: .sub, subtitlesRunning: true, subtitleApp: "Chrome")
         XCTAssertEqual(rec.ui, .rec)
@@ -127,10 +130,12 @@ nonisolated final class DeviceStateMapperTests: XCTestCase {
     }
 
     @MainActor func testKeyHints() {
-        XCTAssertEqual(DeviceStateMapper.keyHints(state: .idle, deviceMode: .dict, handsFree: false, translating: false, up: .enter, down: .escape),
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .idle, deviceMode: .dict, handsFree: false, canTranslate: false, up: .enter, down: .escape),
                        .init(ok: .mic, up: .enter, down: .esc))
-        XCTAssertEqual(DeviceStateMapper.keyHints(state: .rec, deviceMode: .dict, handsFree: true, translating: false, up: .enter, down: .escape).ok, .stop)
-        XCTAssertEqual(DeviceStateMapper.keyHints(state: .sub, deviceMode: .sub, handsFree: false, translating: true, up: .enter, down: .escape).up, .translate)
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .rec, deviceMode: .dict, handsFree: true, canTranslate: false, up: .enter, down: .escape).ok, .stop)
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .sub, deviceMode: .sub, handsFree: false, canTranslate: true, up: .enter, down: .escape).up, .translate)
+        XCTAssertNil(DeviceStateMapper.keyHints(state: .sub, deviceMode: .sub, handsFree: false, canTranslate: false, up: .enter, down: .escape).up,
+                     "翻译不可用时不显示翻译提示(按了也不会切换)")
     }
 }
 
@@ -153,7 +158,7 @@ nonisolated final class SwitcherListTests: XCTestCase {
     }
 
     @MainActor func testListStateHints() {
-        XCTAssertEqual(DeviceStateMapper.keyHints(state: .list, deviceMode: .dict, handsFree: false, translating: false, up: .enter, down: .escape),
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .list, deviceMode: .dict, handsFree: false, canTranslate: false, up: .enter, down: .escape),
                        .init(ok: .check, up: .up, down: .down))
     }
 }

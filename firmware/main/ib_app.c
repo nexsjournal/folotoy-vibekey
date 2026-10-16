@@ -57,6 +57,7 @@ _Static_assert((int)IB_UI_KEY_UP == (int)IB_KEY_UP && (int)IB_UI_KEY_DOWN == (in
 #define ERR_HOLD_MS          2000
 #define MIC_LOCAL_GRACE_MS   600    // 本地开麦后这段时间内收到的 idle 不停麦(Mac 还没来得及切 rec)
 #define MIC_LOCAL_WAIT_MS    2000   // 本地开麦后 Mac 迟迟不切 rec 就停麦
+#define MIC_TAIL_MS          500    // 离开 rec 进入 proc 后继续推流的最长时间(Mac 要录完尾音,等它发 mic off)
 #define AGENT_DONE_MS        15000
 #define AGENT_CHIME_MS       20000
 
@@ -99,6 +100,12 @@ static int64_t s_screen_off_ms = DEFAULT_SCREEN_OFF_S * 1000;
 // Mac 下发的状态与当前显示
 static ib_state_t s_st = IB_ST_IDLE;
 static ib_mode_t s_mode = IB_MODE_DICT;
+// 「常驻」页面:最近一次 idle / sub 状态的模式、页面和 msg。done / err 自动返回时回到这里,
+// 而不是 rec / proc 带来的听写模式和默认空闲页(否则字幕模式或字幕运行时会短暂闪出错误的页面)。
+static ib_mode_t s_home_mode = IB_MODE_DICT;
+static ib_state_t s_home_st = IB_ST_IDLE;
+static char s_home_msg[IB_TEXT_MAX];
+static int64_t s_mic_tail_until;
 static char s_msg[IB_TEXT_MAX];
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
 static int64_t s_revert_at;             // done/err 自动回 IDLE 的时刻,0 表示无
@@ -355,6 +362,11 @@ static void apply_state(const ib_cmd_t *cmd, int64_t now)
     } else {
         s_msg[0] = '\0';
     }
+    if (s_st == IB_ST_IDLE || s_st == IB_ST_SUB) {
+        s_home_mode = s_mode;
+        s_home_st = s_st;
+        memcpy(s_home_msg, s_msg, sizeof(s_home_msg));
+    }
 
     // 提示音:进入录音上行双音;离开录音下行双音;完成短促一声。
     if (s_st == IB_ST_REC && prev != IB_ST_REC) play(IB_SOUND_START);
@@ -364,12 +376,20 @@ static void apply_state(const ib_cmd_t *cmd, int64_t now)
         play(IB_SOUND_STOP);
     }
 
-    // 麦克风:rec 确认本地开麦;其它状态停麦(本地刚开麦时的 idle 给一个宽限期)。
+    // 麦克风:rec 确认本地开麦;其它状态停麦。例外:
+    // - 本地刚开麦时收到的 idle / sub 给一个宽限期(Mac 还没来得及切 rec);
+    // - rec → proc 继续推流,等 Mac 的 mic off(它要录完 150 ms 尾音),最多 MIC_TAIL_MS。
     if (s_st == IB_ST_REC) {
         s_mic_local = false;
+        s_mic_tail_until = 0;
     } else if (s_audio_ok && ib_audio_mic_active()) {
-        bool grace = s_st == IB_ST_IDLE && s_mic_local && now - s_mic_local_ms < MIC_LOCAL_GRACE_MS;
-        if (!grace) mic_stop();
+        bool grace = (s_st == IB_ST_IDLE || s_st == IB_ST_SUB) && s_mic_local && now - s_mic_local_ms < MIC_LOCAL_GRACE_MS;
+        bool tail = s_st == IB_ST_PROC && prev == IB_ST_REC;
+        if (tail) {
+            s_mic_tail_until = now + MIC_TAIL_MS;
+        } else if (!grace) {
+            mic_stop();
+        }
     }
 
     s_revert_at = s_st == IB_ST_DONE ? now + DONE_HOLD_MS : s_st == IB_ST_ERR ? now + ERR_HOLD_MS : 0;
@@ -473,8 +493,10 @@ static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
     }
     if (key != IB_KEY_OK) return;
 
-    // 以屏幕为准判断"空闲":done/err 自行回到 IDLE 后 Mac 的 idle 可能还没到,此时按 OK 也应立即开麦。
-    if (ev == IB_KEY_EV_DOWN && act.send && !act.ack && s_cfg_mic && s_screen == IB_UI_IDLE &&
+    // 以屏幕为准判断"空闲":done/err 自行回到常驻页后 Mac 的状态可能还没到,此时按 OK 也应立即开麦。
+    // 字幕在运行时(听写 / 翻译模式)显示的是字幕页,OK 同样是说话。
+    if (ev == IB_KEY_EV_DOWN && act.send && !act.ack && s_cfg_mic &&
+        (s_screen == IB_UI_IDLE || s_screen == IB_UI_SUB) &&
         s_mode != IB_MODE_SUB && s_audio_ok && !ib_audio_mic_active()) {
         // Passport 麦克风作为听写音源:按下瞬间就开始推流,不等 Mac 的 mic 命令,减少首字丢失。
         ib_link_t link = ib_links_preferred(&s_links, now);
@@ -556,11 +578,18 @@ static void refresh_timers(int64_t now)
     if (s_revert_at && now >= s_revert_at) {
         s_revert_at = 0;
         if (s_online && (s_screen == IB_UI_DONE || s_screen == IB_UI_ERR)) {
-            s_msg[0] = '\0';
-            show_screen(IB_UI_IDLE);
+            // 回到常驻页面(idle 或字幕页)和它的模式,Mac 随后的状态会再确认一次。
+            s_st = s_home_st;
+            s_mode = s_home_mode;
+            memcpy(s_msg, s_home_msg, sizeof(s_msg));
+            show_screen(screen_for(s_st));
         }
     }
     if (s_mic_local && s_st != IB_ST_REC && now - s_mic_local_ms > MIC_LOCAL_WAIT_MS) mic_stop();
+    if (s_mic_tail_until && now >= s_mic_tail_until) {
+        s_mic_tail_until = 0;
+        if (s_st != IB_ST_REC && s_audio_ok && ib_audio_mic_active()) mic_stop();
+    }
 
     if (s_agent_on) {
         if (s_agent_kind == IB_AGENT_DONE && now >= s_agent_deadline) {

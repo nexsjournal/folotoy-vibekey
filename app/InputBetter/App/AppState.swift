@@ -80,7 +80,7 @@ final class AppState {
                               settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
                                   setCaptionsCollapsed(!captionsCollapsed)
                               }, startCaptions: { [unowned self] app in startCaptions(app) },
-                              stopCaptions: { [unowned self] in stopCaptions(confirm: false) },
+                              stopCaptions: { [unowned self] in stopCaptions(fromDevice: true) },
                               canTranslate: { [unowned self] in translation.isAvailable }))
         bridge.start()
         // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
@@ -185,9 +185,10 @@ final class AppState {
 
     /// 结束字幕(所有入口都走这里:字幕条、菜单、快捷键、设置、Passport)。
     /// 只确认"是否结束"(设置里可关);结束后如果字幕记录窗口没在显示,就打开它——保存、总结由用户在窗口里处理。
-    /// - Parameter confirm: Passport 上结束时传 false(设备上没法回答 Mac 上的确认框)。
+    /// - Parameter fromDevice: Passport 上结束时为 true:不弹确认框(设备上没法回答),
+    ///   打开字幕记录窗口但不激活 InputBetter(否则设备上的回车 / Esc 会发到 InputBetter 而不是用户正在用的应用)。
     /// 启动失败时(字幕条显示原因)调用则只是关闭字幕条。
-    func stopCaptions(confirm: Bool = true) {
+    func stopCaptions(fromDevice: Bool = false) {
         guard subtitles.needsSurface else { return }
         guard subtitles.isRunning else {
             subtitles.stop()
@@ -195,9 +196,11 @@ final class AppState {
         }
         let finish: @MainActor @Sendable () -> Void = { [unowned self] in
             subtitles.stop()
-            if !subtitles.transcript.isEmpty, !windows.isTranscriptVisible { windows.showTranscript(tab: .captions) }
+            if !subtitles.transcript.isEmpty, !windows.isTranscriptVisible {
+                windows.showTranscript(tab: .captions, activate: !fromDevice)
+            }
         }
-        confirm ? confirmThen(finish) : finish()
+        fromDevice ? finish() : confirmThen(finish)
     }
 
     /// 需要时先确认结束当前字幕再执行。确认框放到下一轮事件循环,避免在菜单 / 按钮的事件处理过程中弹出模态框;

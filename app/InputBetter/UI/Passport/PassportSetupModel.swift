@@ -49,7 +49,7 @@ final class PassportSetupModel {
     var downLongActionTitle: String { settings.deviceDownLongAction.title }
     /// 示意图屏幕右侧的按键提示图标(与设备空闲页一致,取自同一个映射)。
     var deviceHints: DeviceStateMapper.Hints {
-        DeviceStateMapper.keyHints(state: .idle, deviceMode: .dict, handsFree: false, translating: false,
+        DeviceStateMapper.keyHints(state: .idle, deviceMode: .dict, handsFree: false, canTranslate: false,
                                    up: settings.deviceUpAction, down: settings.deviceDownAction)
     }
 

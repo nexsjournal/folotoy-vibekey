@@ -123,7 +123,10 @@ struct SubtitleSurface: View {
             if translation.isAvailable {
                 Toggle("显示译文", isOn: $settings.subtitleTranslate)
                 Divider()
-                Picker("翻译成", selection: $settings.subtitleTarget) {
+                // 选了目标语言就是要看译文:同时打开「显示译文」,不用再单独勾一次。
+                Picker("翻译成", selection: Binding(
+                    get: { settings.subtitleTarget },
+                    set: { settings.subtitleTarget = $0; settings.subtitleTranslate = true })) {
                     ForEach(TargetLanguage.allCases) { language in
                         Text(language == .auto ? "\(language.title)（\(TargetLanguage.autoSummary)）" : language.title).tag(language)
                     }

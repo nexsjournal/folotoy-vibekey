@@ -49,7 +49,7 @@
 - 圈内是 56 px 的 Material Icons Round 图标(与按键提示同一份上游字体,`gen-icon-font.sh` 生成):dict = `mic`、tr = `translate`、sub = `closed_caption`。
 - 图标下方是模式名(`DICTATE` / `TRANSLATE` / `SUBTITLES`,Montserrat 20),再下面是 3 个分页点,当前模式的点为白色、略宽,其余为灰色。
 - 图标与分页点下方是引擎名(小字);操作提示由右侧按键提示列显示。
-- Mac 在听写 / 翻译模式下后台跑字幕时会发 `state idle` + `msg:"LIVE"`:状态栏左侧显示与 SUB 页相同的 LIVE 徽章(代替 `USB` / `BLE`),页面其余不变;`msg` 清空后恢复链路文字。字幕应用选择器复用 LIST 页(标题 `CAPTIONS`)。
+- 字幕在运行时(不论设备在哪个模式),Mac 发 `state sub`,设备显示 SUB 页;听写 / 翻译模式下按键仍是听写的含义,提示图标由 `keys` 命令给出。字幕应用选择器复用 LIST 页(标题 `CAPTIONS`)。
 - 切换模式时,图标和名字向左/右滑出、新的从另一侧滑入(250 ms ease-out),新旧卡片相距一整个内容区宽度(200 px),两个模式名不会重叠,超出内容区的部分被裁掉;细圈与光晕不动,分页点同步移动。
 
 ### REC

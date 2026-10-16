@@ -57,10 +57,11 @@
 | `docs/protocol.md` | 设备通信协议 |
 | `docs/device-ui.md` | 设备界面与交互设计 |
 | `docs/changelogs/` | 每次修改的记录 |
+| `website/` | 官网(静态页面与部署脚本),见 `docs/website.md` |
 
 ## 编译运行
 
-本仓库只提供源码,暂不提供打包好的 app 下载,请自行编译。需要 Xcode 27 和 XcodeGen(`brew install xcodegen`)。
+已签名并经 Apple 公证的安装包可以在官网下载:<https://input.0os.io>(macOS 26+,Apple 芯片)。也可以自行编译,需要 Xcode 27 和 XcodeGen(`brew install xcodegen`)。
 
 默认 ad-hoc 签名。想让重新编译后辅助功能权限不失效,可以新建 `app/Config/Signing.local.xcconfig`(已在 .gitignore 中)填入自己的开发证书:
 
@@ -118,3 +119,10 @@ open build/InputBetter.app
 - 源语言是简体中文。
 - 英文翻译在 `app/Localization/en.json`,按界面语境翻译。
 - 改了界面文字后运行 `app/scripts/update-strings.sh`,重新生成 `Localizable.xcstrings`;缺少翻译时脚本会列出来。
+
+## 参考项目
+
+InputBetter 参考了以下开源项目的设计与做法(未复制其代码):
+
+- [betterwispr](https://github.com/opennookorg/betterwispr):状态胶囊条、按应用采集系统声音、粘贴输入。
+- [MemoEcho](https://github.com/isecret/MemoEcho):SenseVoice 接入、首次引导、剪贴板恢复。

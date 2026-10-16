@@ -52,7 +52,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
 
     /// 字幕记录窗口(字幕条 / 菜单 / 设置里的"字幕记录")。显示本次或刚结束的字幕会话,可以拷贝或保存成文件。
-    func showTranscript(tab: TranscriptNavigation.Tab? = nil) {
+    /// - Parameter activate: false 时只把窗口放到前面、不激活 app(从 Passport 结束字幕时,不抢用户当前应用的焦点)。
+    func showTranscript(tab: TranscriptNavigation.Tab? = nil, activate: Bool = true) {
         if let tab { transcriptNavigation.tab = tab }
         if transcriptWindow == nil {
             transcriptWindow = makeWindow(title: String(localized: "字幕记录", bundle: .l10n), size: NSSize(width: 560, height: 620),
@@ -67,7 +68,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
                                           })
             transcriptPin.attach(transcriptWindow!)
         }
-        present(transcriptWindow)
+        if activate {
+            present(transcriptWindow)
+        } else {
+            transcriptWindow?.orderFrontRegardless()
+        }
         app.summarizer.setWindowVisible(true)
     }
 

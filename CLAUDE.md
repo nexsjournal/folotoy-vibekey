@@ -1,6 +1,6 @@
 # InputBetter
 
-本地语音输入 macOS app(听写输入 + 应用声音实时字幕),配套 FoloToy AI Passport 硬件固件。需求原文见 `plan.md`。
+本地语音输入 macOS app(听写输入 + 应用声音实时字幕),配套 FoloToy AI Passport 硬件固件。
 
 ## 目录
 
@@ -10,6 +10,7 @@
 | `firmware/` | Passport 固件(ESP-IDF 5.5.3,ESP32-C3,LVGL 9),为本项目全新编写 |
 | `docs/` | 协议、设备交互设计、修改记录 |
 | `scripts/` | 烧录等脚本 |
+| `website/` | 官网 input.0os.io(静态页面 + 部署脚本) |
 
 ## 常用命令
 
@@ -19,6 +20,8 @@ cd app && ./scripts/test.sh                  # 单元测试
 cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成 String Catalog(英文在 app/Localization/en.json)
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
 ./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)
+cd app && ./scripts/release.sh               # 打包签名公证的 DMG(证书与公证凭据用环境变量传入,见 docs/website.md)
+website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG);服务器地址和密钥不写进仓库
 ```
 
 调试构建支持的环境变量见 `app/InputBetter/Debug/DebugHooks.swift`:

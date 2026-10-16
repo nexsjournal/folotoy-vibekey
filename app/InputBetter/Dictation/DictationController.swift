@@ -292,7 +292,7 @@ final class DictationController {
         interpreter.reset()
         phase = .failed(failure)
         sounds.error()
-        scheduleReset(after: 2.4)
+        scheduleReset(after: 2.0)  // 与 Passport 固件的错误页停留时长(ERR_HOLD_MS)一致
     }
 
     private func finishSilently() {
