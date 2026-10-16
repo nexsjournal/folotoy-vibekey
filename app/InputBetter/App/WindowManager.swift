@@ -55,13 +55,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
             transcriptWindow = makeWindow(title: String(localized: "字幕记录", bundle: .l10n), size: NSSize(width: 560, height: 620),
                                           resizable: .init(minSize: NSSize(width: 360, height: 360), autosaveName: Self.transcriptAutosaveName),
                                           content: LocalizedRoot(language: app.language) {
-                                              TranscriptView(controller: self.app.subtitles, pin: self.transcriptPin) { [weak self] in
+                                              TranscriptView(controller: self.app.subtitles, summarizer: self.app.summarizer,
+                                                             settings: self.app.settings, pin: self.transcriptPin) { [weak self] in
                                                   self?.saveTranscriptFromWindow()
                                               }
                                           })
             transcriptPin.attach(transcriptWindow!)
         }
         present(transcriptWindow)
+        app.summarizer.setWindowVisible(true)
     }
 
     /// 记录窗口里的"保存…":在窗口上弹出保存面板(表单),保存的是点击那一刻的记录。
@@ -109,8 +111,19 @@ final class WindowManager: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    /// 字幕记录窗口最小化时总结也暂停,还原后继续。
+    func windowDidMiniaturize(_ notification: Notification) {
+        if notification.object as? NSWindow === transcriptWindow { app.summarizer.setWindowVisible(false) }
+    }
+
+    func windowDidDeminiaturize(_ notification: Notification) {
+        if notification.object as? NSWindow === transcriptWindow { app.summarizer.setWindowVisible(true) }
+    }
+
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+        // 关闭字幕记录窗口:总结自动暂停。
+        if window === transcriptWindow { app.summarizer.setWindowVisible(false) }
         if window === onboardingWindow {
             onboardingWindow = nil
             // 直接关掉引导窗口也视为完成,避免下次启动又弹出。

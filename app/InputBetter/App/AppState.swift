@@ -18,6 +18,8 @@ final class AppState {
     let deviceLink: DeviceLink
     let dictation: DictationController
     let subtitles: SubtitleController
+    /// 字幕记录的分段总结(字幕记录窗口「总结」页)。
+    let summarizer: TranscriptSummarizer
     let agent: AgentNotifier
     let firmware: FirmwareFlasher
     let passportSetup: PassportSetupModel
@@ -44,6 +46,7 @@ final class AppState {
         passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
         hotkeys = HotkeyManager()
         subtitles = SubtitleController(settings: settings, models: models, engines: engines, translation: translation)
+        summarizer = TranscriptSummarizer(settings: settings, subtitles: subtitles)
 
         // 音源工厂:选了 Passport 且已连接时用设备麦克风,否则用系统输入设备。
         let link = deviceLink

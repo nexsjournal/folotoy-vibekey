@@ -7,7 +7,8 @@ import AVFoundation
 /// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
 /// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
 /// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
-/// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口;
+/// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口(IB_TRANSCRIPT_TAB=summary 打开「总结」页);
+/// - IB_SUMMARIZE_AFTER=秒      启动后过这么多秒触发一次「立即总结」;
 /// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 @MainActor
@@ -38,6 +39,12 @@ enum DebugHooks {
         }
         if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
         if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
+        if let seconds = env["IB_SUMMARIZE_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.summarizer.summarizeNow()
+            }
+        }
     }
 
     private static func showDemoCaptions(app: AppState) {

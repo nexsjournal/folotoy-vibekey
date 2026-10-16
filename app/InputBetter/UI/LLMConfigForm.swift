@@ -2,8 +2,13 @@ import SwiftUI
 
 /// LLM 配置表单:服务商预设 + 地址 + Key + 模型 + 连接测试。
 /// 地址或 Key 改动后自动从接口拉取模型列表(GET /models,输入停顿 0.6 秒后请求),在下拉菜单里选择。
+/// 通用组件:AI 设置(主 LLM)和字幕记录的"总结"(可单独指定接口)共用,只绑定三项配置。
 struct LLMConfigForm: View {
-    @Bindable var settings: AppSettings
+    @Binding var baseURL: String
+    @Binding var apiKey: String
+    @Binding var model: String
+    /// 是否显示服务商预设按钮(窄窗口里可以不显示)。
+    var showsPresets = true
 
     private struct Preset: Identifiable {
         let name: String
@@ -33,30 +38,32 @@ struct LLMConfigForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.m) {
+            if showsPresets {
             HStack(spacing: 6) {
                 ForEach(presets) { preset in
                     Button(preset.name) {
-                        settings.llmBaseURL = preset.url
-                        settings.llmModel = preset.model
+                        baseURL = preset.url
+                        model = preset.model
                         testState = .idle
                     }
                     .buttonStyle(SecondaryButtonStyle())
-                    .overlay(Capsule().strokeBorder(settings.llmBaseURL == preset.url ? DS.accent : .clear, lineWidth: 1.2))
+                    .overlay(Capsule().strokeBorder(baseURL == preset.url ? DS.accent : .clear, lineWidth: 1.2))
                 }
+            }
             }
 
             Card {
                 VStack(spacing: DS.Space.m) {
                     field("API 地址") {
-                        TextField("https://api.openai.com/v1", text: $settings.llmBaseURL)
+                        TextField("https://api.openai.com/v1", text: $baseURL)
                     }
                     Divider()
                     field("API Key") {
-                        SecureField("sk-…（本地模型可留空）", text: $settings.llmAPIKey)
+                        SecureField("sk-…（本地模型可留空）", text: $apiKey)
                     }
                     Divider()
                     field("模型") {
-                        ModelPickerField(selection: $settings.llmModel, options: availableModels,
+                        ModelPickerField(selection: $model, options: availableModels,
                                          loading: loadingModels, error: modelsError,
                                          onRefresh: { refreshToken += 1 }, placeholder: "gpt-4o-mini")
                     }
@@ -74,7 +81,7 @@ struct LLMConfigForm: View {
                     }
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .disabled(settings.llmBaseURL.isEmpty || testState == .testing)
+                .disabled(baseURL.isEmpty || testState == .testing)
                 switch testState {
                 case .ok(let msg):
                     Label(msg, systemImage: "checkmark.circle.fill").foregroundStyle(DS.success).font(.system(size: 12))
@@ -86,13 +93,13 @@ struct LLMConfigForm: View {
             }
         }
         .textFieldStyle(.plain)
-        .task(id: "\(settings.llmBaseURL)|\(settings.llmAPIKey)|\(refreshToken)") { await fetchModels() }
+        .task(id: "\(baseURL)|\(apiKey)|\(refreshToken)") { await fetchModels() }
     }
 
     /// 拉取模型列表。地址无效时不请求;连续输入时等停顿后再请求(task 被新的 id 取消即放弃)。
     private func fetchModels() async {
         modelsError = nil
-        guard OpenAICompatibleAPI.endpoint(settings.llmBaseURL, "models") != nil else {
+        guard OpenAICompatibleAPI.endpoint(baseURL, "models") != nil else {
             availableModels = []
             return
         }
@@ -101,7 +108,7 @@ struct LLMConfigForm: View {
         loadingModels = true
         defer { loadingModels = false }
         do {
-            let ids = try await OpenAICompatibleAPI.listModels(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey)
+            let ids = try await OpenAICompatibleAPI.listModels(baseURL: baseURL, apiKey: apiKey)
             guard !Task.isCancelled else { return }
             availableModels = ModelOption.ids(ids)
             if ids.isEmpty { modelsError = String(localized: "接口没有返回可用模型，可以手动输入", bundle: .l10n) }
@@ -121,7 +128,7 @@ struct LLMConfigForm: View {
 
     /// 用一句话做真实请求,确认地址、Key 和模型都可用。
     private func test() {
-        guard !settings.llmModel.isEmpty else {
+        guard !model.isEmpty else {
             testState = .failed(String(localized: "请先选择模型", bundle: .l10n))
             return
         }
@@ -129,12 +136,20 @@ struct LLMConfigForm: View {
         Task {
             do {
                 let started = Date()
-                _ = try await LLMClient(config: .init(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey, model: settings.llmModel))
+                _ = try await LLMClient(config: .init(baseURL: baseURL, apiKey: apiKey, model: model))
                     .complete(system: "Reply with OK.", user: "ping")
                 testState = .ok(String(localized: "连接正常 · \(Int(Date().timeIntervalSince(started) * 1000)) ms", bundle: .l10n))
             } catch {
                 testState = .failed(error.localizedDescription)
             }
         }
+    }
+}
+
+extension LLMConfigForm {
+    /// 编辑主 LLM 配置(设置 › AI、引导)。
+    init(settings: AppSettings) {
+        @Bindable var settings = settings
+        self.init(baseURL: $settings.llmBaseURL, apiKey: $settings.llmAPIKey, model: $settings.llmModel)
     }
 }

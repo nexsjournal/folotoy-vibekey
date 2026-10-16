@@ -1,10 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// 字幕记录窗口:显示本次(或刚结束的那次)字幕会话的全部内容,可以拷贝或保存成文件。
+/// 字幕记录窗口:两个标签页——「字幕」显示本次(或刚结束的那次)字幕会话的全部内容,可以拷贝或保存成文件;
+/// 「总结」由 AI 每隔一段时间总结一次(SummaryView)。
 /// 只读 SubtitleController 的状态;保存 / 拷贝通过闭包交给外部(WindowManager)。
 struct TranscriptView: View {
     let controller: SubtitleController
+    let summarizer: TranscriptSummarizer
+    let settings: AppSettings
     /// 固定在屏幕右侧(置顶、半透明)。
     let pin: TranscriptPinController
     /// 保存成文件(由 WindowManager 在本窗口上弹出保存面板)。
@@ -13,6 +16,17 @@ struct TranscriptView: View {
     /// 新内容到达时自动滚到最新(用户想往回看时可以关掉)。
     @State private var followLatest = true
     @State private var copied = false
+    @State private var tab: Tab = Self.initialTab
+
+    /// 调试用:IB_TRANSCRIPT_TAB=summary 直接打开「总结」页。
+    private static var initialTab: Tab {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["IB_TRANSCRIPT_TAB"] == "summary" { return .summary }
+        #endif
+        return .captions
+    }
+
+    enum Tab: Hashable { case captions, summary }
 
     private var transcript: CaptionTranscript { controller.transcript }
 
@@ -20,13 +34,18 @@ struct TranscriptView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            if transcript.isEmpty && controller.partial.isEmpty {
-                empty
-            } else {
-                list
+            switch tab {
+            case .captions:
+                if transcript.isEmpty && controller.partial.isEmpty {
+                    empty
+                } else {
+                    list
+                }
+                Divider()
+                footer
+            case .summary:
+                SummaryView(summarizer: summarizer, settings: settings)
             }
-            Divider()
-            footer
         }
         .frame(minWidth: 360, minHeight: 360)
         .background { background.ignoresSafeArea() }
@@ -58,6 +77,14 @@ struct TranscriptView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Picker("", selection: $tab) {
+                Text("字幕").tag(Tab.captions)
+                Text("总结").tag(Tab.summary)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            Spacer()
             Button { pin.toggle() } label: {
                 Image(systemName: pin.isPinned ? "pin.fill" : "pin")
                     .foregroundStyle(pin.isPinned ? AnyShapeStyle(DS.accent) : AnyShapeStyle(.secondary))
@@ -65,9 +92,11 @@ struct TranscriptView: View {
             .buttonStyle(.plain)
             .help(pin.isPinned ? "取消固定" : "固定在屏幕右侧（始终在最前面，半透明）")
             .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕右侧")
-            Toggle("跟随最新", isOn: $followLatest)
-                .toggleStyle(.checkbox)
-                .font(.system(size: 12))
+            if tab == .captions {
+                Toggle("跟随最新", isOn: $followLatest)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 12))
+            }
         }
         .padding(.horizontal, DS.Space.l)
         .padding(.top, DS.Space.xs)  // 内容已从透明标题栏下方开始,只留一点间距

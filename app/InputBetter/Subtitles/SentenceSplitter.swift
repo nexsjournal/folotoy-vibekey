@@ -5,18 +5,20 @@ import Foundation
 /// 规则(对正在增长的文字保持稳定:文字只在末尾增加时,已切出的句子不会再变,
 /// 这样"识别中先切出并显示的句子"和"定稿后切出的句子"能按顺序一一对应):
 /// - 句末标点(. ? ! 。？！…,可带引号括号)后面是空白、结尾或中日韩文字时断句;"3.14" 这类小数不断。
-/// - 长句在逗号处再切:第一个位于"分量" ≥ 20 处、且后面还有 ≥ 10 分量的逗号(中日韩 1 字 = 1,其他 2 字符 = 1)。
-/// - 很短的句子(拉丁文字少于 3 个词,中日韩少于 4 个字)和下一句合并。
+/// - 长句在逗号处再切:第一个位于"分量" ≥ 30 处、且后面还有 ≥ 15 分量的逗号(中日韩 1 字 = 1,其他 2 字符 = 1)。
+/// - 太短的句子(拉丁文字少于 6 个词,中日韩少于 8 个字)和下一句合并;定稿时末尾的短句并入前一句。
+///   识别中的句号并不可靠(引擎常在半句处先打句号、定稿时又去掉),只切出几个词的碎片单独显示、单独翻译,
+///   读起来像漏了内容(实测),所以宁可等到意思完整的长度再显示。
 /// - 正在识别的文字(`final == false`):最后一段算"还在说"(rest);若最后一个完整句是短句,也放回 rest 等下一句。
 /// 纯函数,便于测试。
 nonisolated enum SentenceSplitter {
     private static let terminators: Set<Character> = [".", "?", "!", "。", "？", "！", "…"]
     private static let commas: Set<Character> = [",", "，", ";", "；"]
     private static let closers: Set<Character> = ["\"", "'", "”", "’", ")", "）", "」", "』"]
-    static let clauseMinWeight = 20.0
-    static let clauseRestWeight = 10.0
-    static let shortWords = 3
-    static let shortCJK = 4
+    static let clauseMinWeight = 30.0
+    static let clauseRestWeight = 15.0
+    static let shortWords = 6
+    static let shortCJK = 8
 
     static func split(_ text: String, final: Bool) -> (complete: [String], rest: String) {
         let (sentences, tail) = sentencesAndTail(text)
@@ -36,6 +38,10 @@ nonisolated enum SentenceSplitter {
         if !final, let last = merged.last, isShort(last) {
             merged.removeLast()
             rest = TranscriptText.join([last, rest])
+        } else if final, merged.count >= 2, let last = merged.last, isShort(last) {
+            // 定稿没有后文可等了:末尾的短句并入前一句。
+            merged.removeLast()
+            merged[merged.count - 1] = TranscriptText.join([merged[merged.count - 1], last])
         }
         return (merged, rest)
     }

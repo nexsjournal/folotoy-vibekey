@@ -355,10 +355,14 @@ nonisolated final class SystemTranslationTests: XCTestCase {
 /// 链:SubtitleController.handle → CaptionFeed → CaptionSegmenter(LocalAgreement 确认)→ SentenceSplitter → CaptionScheduler。
 nonisolated final class CaptionPipelineTests: XCTestCase {
     func testSplitterBasics() {
-        XCTAssertEqual(SentenceSplitter.split("Pi is 3.14 today. Next one", final: false).complete, ["Pi is 3.14 today."])
-        XCTAssertEqual(SentenceSplitter.split("你好世界今天。明天见", final: false).complete, ["你好世界今天。"])
-        XCTAssertEqual(SentenceSplitter.split("We know. How to solve that. And", final: false).complete, ["We know. How to solve that."], "短句并入下一句")
-        XCTAssertEqual(SentenceSplitter.split("We know.", final: true).complete, ["We know."], "定稿时最后的短句保留")
+        XCTAssertEqual(SentenceSplitter.split("Pi is about 3.14 in every textbook today. Next one", final: false).complete,
+                       ["Pi is about 3.14 in every textbook today."], "小数点不断句")
+        XCTAssertEqual(SentenceSplitter.split("你好世界今天天气很好。明天见", final: false).complete, ["你好世界今天天气很好。"])
+        XCTAssertEqual(SentenceSplitter.split("Well, that's been reflected. In computing across the board. And", final: false).complete,
+                       ["Well, that's been reflected. In computing across the board."], "碎片短句并入下一句")
+        XCTAssertEqual(SentenceSplitter.split("We know.", final: true).complete, ["We know."], "定稿只有一句短句时保留")
+        XCTAssertEqual(SentenceSplitter.split("We solved the quadratic equation in class today. We know.", final: true).complete,
+                       ["We solved the quadratic equation in class today. We know."], "定稿末尾的短句并入前一句")
     }
 
     func testSplitterIsPrefixStable() {
@@ -384,13 +388,13 @@ nonisolated final class CaptionPipelineTests: XCTestCase {
 
     func testConfirmedTextIsAppendOnly() {
         var segmenter = CaptionSegmenter()
-        _ = segmenter.hypothesis("It understands friction and inertia. Cause")
-        let shown = segmenter.hypothesis("It understands friction and inertia. Cause and")
-        XCTAssertEqual(shown.sentences, ["It understands friction and inertia."])
+        _ = segmenter.hypothesis("It understands things like friction and inertia. Cause")
+        let shown = segmenter.hypothesis("It understands things like friction and inertia. Cause and")
+        XCTAssertEqual(shown.sentences, ["It understands things like friction and inertia."])
         // 引擎后来把句号改成了逗号:已给出的句子不再重复给出,后面的内容接着成句。
-        _ = segmenter.hypothesis("It understands friction and inertia, cause and effect. Object")
-        let next = segmenter.hypothesis("It understands friction and inertia, cause and effect. Object permanence")
-        XCTAssertEqual(next.sentences, ["Cause and effect."], "不重复已显示的部分")
+        _ = segmenter.hypothesis("It understands things like friction and inertia, cause and effect and object permanence. When")
+        let next = segmenter.hypothesis("It understands things like friction and inertia, cause and effect and object permanence. When someone")
+        XCTAssertEqual(next.sentences, ["Cause and effect and object permanence."], "不重复已显示的部分")
     }
 
     func testFinalAddsOnlyWhatWasNotShown() {
@@ -455,5 +459,30 @@ nonisolated final class CaptionPipelineTests: XCTestCase {
         XCTAssertFalse(scheduler.advance(pending, translating: true, timeout: 4, now: now))
         XCTAssertTrue(scheduler.advance(pending, translating: true, timeout: 4, now: now.addingTimeInterval(4.5)))
         XCTAssertNil(scheduler.current?.translation, "超时只显示原文")
+    }
+}
+
+/// 链:SummaryView → TranscriptSummarizer.summarize → AppSettings.summaryLLMConfig → Prompts.summarize / summaryUser → LLMClient.stream。
+nonisolated final class SummaryTests: XCTestCase {
+    @MainActor
+    func testSummaryUsesMainOrCustomLLM() {
+        let defaults = UserDefaults(suiteName: "ib-summary-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.llmBaseURL = "https://main.example.com/v1"
+        settings.llmModel = "main-model"
+        XCTAssertEqual(settings.summaryLLMConfig?.model, "main-model", "默认用 AI 设置里的服务")
+        settings.summaryUsesCustomLLM = true
+        settings.summaryBaseURL = "https://other.example.com/v1"
+        settings.summaryModel = ""
+        XCTAssertNil(settings.summaryLLMConfig, "单独指定但没选模型时不可用")
+        settings.summaryModel = "summary-model"
+        XCTAssertEqual(settings.summaryLLMConfig?.baseURL, "https://other.example.com/v1")
+        XCTAssertEqual(settings.summaryLLMConfig?.model, "summary-model")
+    }
+
+    func testSummaryPromptIncludesPreviousForContinuity() {
+        XCTAssertEqual(Prompts.summaryUser(transcript: "a\nb", previous: nil), "NEW TRANSCRIPT:\na\nb")
+        XCTAssertTrue(Prompts.summaryUser(transcript: "c", previous: "- x").hasPrefix("PREVIOUS SUMMARY:\n- x\n\nNEW TRANSCRIPT:"))
+        XCTAssertTrue(Prompts.summarize(language: .zhHans).contains("Simplified Chinese"))
     }
 }

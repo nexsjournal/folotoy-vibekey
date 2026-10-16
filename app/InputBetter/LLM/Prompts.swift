@@ -58,6 +58,25 @@ nonisolated enum Prompts {
         return message
     }
 
+    /// 字幕记录分段总结:只总结 NEW 部分,PREVIOUS SUMMARY 用于衔接上下文、避免重复。
+    static func summarize(language: TargetLanguage) -> String {
+        let name = (language.localeLanguage.map { _ in language.promptName }) ?? "the user's language"
+        return """
+        You summarize a live talk / meeting / video from its real-time transcript, one segment at a time.
+        The transcript comes from speech recognition and may contain misheard words; infer the intended meaning.
+        Summarize ONLY the NEW TRANSCRIPT segment in \(name):
+        - 2 to 5 concise bullet points starting with "- ", most important first;
+        - keep names, numbers, products and technical terms accurate;
+        - do not repeat points already in the PREVIOUS SUMMARY; no preamble, no closing remarks.
+        """
+    }
+
+    static func summaryUser(transcript: String, previous: String?) -> String {
+        var message = ""
+        if let previous, !previous.isEmpty { message += "PREVIOUS SUMMARY:\n\(previous)\n\n" }
+        return message + "NEW TRANSCRIPT:\n\(transcript)"
+    }
+
     /// 提示词里的"翻译成……"。自动模式按用户的语言对决定方向。
     static func target(_ language: TargetLanguage) -> String {
         guard language == .auto else { return "into \(language.promptName)" }
