@@ -167,9 +167,8 @@ final class AppSettings {
     var llmBaseURL: String { didSet { defaults.set(llmBaseURL, forKey: "llmBaseURL") } }
     var llmModel: String { didSet { defaults.set(llmModel, forKey: "llmModel") } }
     var llmAPIKey: String { didSet { CredentialStore.shared.set(llmAPIKey, for: "llmAPIKey") } }
-    /// 字幕记录"总结":开关、间隔(分钟)、模型。
+    /// 字幕记录"总结":间隔(分钟)、模型(开关不在这里:每场新的字幕默认关闭,见 TranscriptSummarizer.enabled)。
     /// 接口只能用设置里配置的 LLM 服务(不单独填写地址和 Key);模型可以从该服务的模型列表里另选,空 = 跟随 AI 设置。
-    var summaryEnabled: Bool { didSet { defaults.set(summaryEnabled, forKey: "summaryEnabled") } }
     var summaryInterval: Int { didSet { defaults.set(summaryInterval, forKey: "summaryInterval") } }
     var summaryModel: String { didSet { defaults.set(summaryModel, forKey: "summaryModel") } }
     var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
@@ -202,7 +201,7 @@ final class AppSettings {
         llmModel = defaults.string(forKey: "llmModel") ?? ""
         CredentialStore.shared.migrateFromKeychain(account: "llmAPIKey")
         llmAPIKey = CredentialStore.shared.value(for: "llmAPIKey") ?? ""
-        summaryEnabled = defaults.bool(forKey: "summaryEnabled")
+        defaults.removeObject(forKey: "summaryEnabled")  // 旧版本把开关存成全局设置;现在每场字幕默认关闭
         summaryInterval = defaults.object(forKey: "summaryInterval") as? Int ?? 2
         summaryModel = defaults.string(forKey: "summaryModel") ?? ""
         // 旧版本允许总结单独填写接口和 Key,现在只用设置里的服务:清掉遗留的配置。

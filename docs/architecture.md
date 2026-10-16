@@ -247,7 +247,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
      原文行 = 已确认句子 + 正在说的部分(跟着语音实时走,未确认部分略暗);
      译文行 = 按句子顺序接上的译文(接上后锁定不改;等译文超时 / 失败的句子跳过),通常比原文慢一两句;
      起点固定、只在末尾增长(换行稳定),累计超过 420 字符才按整句移动起点
- → SubtitleSurface:原文(小)在上、译文(大)在下,各一个固定 2 行高的框,底部对齐、旧行整行滚出,左对齐;
+ → SubtitleSurface:原文(字号 68%)在上、译文(85%)在下,各一个最多 2 行的框(不足 2 行按实际高度),底部对齐、旧行整行滚出,左对齐;
      有字幕后宽度固定(宽度变化会让换行重排);标题栏只在悬停时出现(先加宽再淡入、先淡出再收窄);
      字幕文字 allowsHitTesting(false),不挡标题栏按钮
  → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
@@ -269,7 +269,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
  正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇)
  「总结」标签页 → SummaryView(出现 / 消失 → TranscriptSummarizer.setTabVisible)
      WindowManager.showTranscript / windowWillClose / 最小化 → setWindowVisible
-     isActive = 窗口开着 && 停在总结页 && AppSettings.summaryEnabled;不满足 → 暂停定时检查并取消进行中的请求
+     isActive = 窗口开着 && 停在总结页 && TranscriptSummarizer.enabled(每场新的字幕默认关闭);不满足 → 暂停定时检查并取消进行中的请求
      定时检查(5 秒)→ 距上次 ≥ summaryInterval 分钟且新内容 ≥ 4 句(字幕结束后剩余内容也总结)→ summarize
        → AppSettings.summaryLLMConfig(接口和 Key 只来自 设置 › AI 的服务;模型可在总结页从该接口的模型列表另选,默认跟随)
        → Prompts.summarize(用户主语言,2–5 条要点)+ summaryUser(新内容 + 上一段总结作上下文)

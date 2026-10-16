@@ -188,7 +188,7 @@ struct SubtitleSurface: View {
     }
 
     /// 字幕正文:两行滚动字幕(见 RollingCaptions)。翻译时原文(小、略暗)在上,跟着语音实时走;
-    /// 译文(大、亮)在下,按句接上。各一个固定 2 行高的框,底部对齐,写满后最旧的一行整行滚出。
+    /// 译文(大、亮)在下,按句接上。各一个最多 2 行高的框,底部对齐,写满后最旧的一行整行滚出。
     /// 左对齐:滚动字幕居中时每次增长整行都会左右移动,左对齐才稳定。
     /// 文字不接收鼠标事件(超出框被裁掉的文字也不会挡住标题栏按钮)。
     private var transcript: some View {
@@ -203,10 +203,13 @@ struct SubtitleSurface: View {
                 rollingBox(Text(captions.sourceFinal).foregroundStyle(.white.opacity(0.6))
                            + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.4)),
                            size: smallSize, weight: .medium)
-                rollingBox(captions.translation.isEmpty
-                           ? Text("翻译中…").foregroundStyle(.white.opacity(0.35))
-                           : Text(captions.translation).foregroundStyle(.white),
-                           size: fontSize, weight: .semibold)
+                if captions.translation.isEmpty {
+                    Text("翻译中…")
+                        .font(.system(size: smallSize, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.35))
+                } else {
+                    rollingBox(Text(captions.translation).foregroundStyle(.white), size: translationSize, weight: .semibold)
+                }
             } else {
                 rollingBox(Text(captions.sourceFinal).foregroundStyle(.white)
                            + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.75)),
@@ -218,15 +221,20 @@ struct SubtitleSurface: View {
         .allowsHitTesting(false)
     }
 
-    private var smallSize: CGFloat { fontSize * 0.72 }
+    /// 原文字号(小)和译文字号:译文不用全字号,两行能放下更多内容,读者更容易跟上。
+    private var smallSize: CGFloat { fontSize * 0.68 }
+    private var translationSize: CGFloat { fontSize * 0.85 }
 
-    /// 固定 2 行高的滚动框:文字按宽度自然换行,底部对齐,裁掉顶部多出的行。
+    /// 最多 2 行高的滚动框:文字按宽度自然换行,不足 2 行时按实际行数(刚开始不留空白),
+    /// 超过 2 行时底部对齐、裁掉顶部多出的行。
     private func rollingBox(_ text: Text, size: CGFloat, weight: Font.Weight) -> some View {
         text
             .font(.system(size: size, weight: weight))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: Self.lineHeight(size: size, weight: weight) * 2, alignment: .bottom)
+            .frame(maxHeight: Self.lineHeight(size: size, weight: weight) * 2, alignment: .bottom)
+            // 不给高度提议,框就按文字的实际高度(最多 2 行),而不是撑满最大高度留出空白。
+            .fixedSize(horizontal: false, vertical: true)
             .clipped()
     }
 

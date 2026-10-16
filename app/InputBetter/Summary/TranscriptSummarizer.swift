@@ -2,7 +2,7 @@ import Foundation
 
 /// 字幕记录的分段总结:AI 每隔一段时间总结一次这段时间的新内容。
 ///
-/// 只在"字幕记录窗口开着 + 停在「总结」页 + 开关打开"时工作(`isActive`);任一条件不满足立即暂停,
+/// 只在"字幕记录窗口开着 + 停在「总结」页 + 开关打开(每场字幕默认关闭)"时工作(`isActive`);任一条件不满足立即暂停,
 /// 正在进行的请求一并取消(这段内容留到下次再总结,不浪费额度)。
 /// 调用链:TranscriptView(总结页出现 / 消失)→ setTabVisible;WindowManager(窗口打开 / 关闭)→ setWindowVisible;
 ///   定时检查(每 5 秒)→ 满足间隔且新内容足够 → summarize → LLMClient.stream(边生成边显示)→ sections。
@@ -23,8 +23,12 @@ final class TranscriptSummarizer {
     private(set) var error: String?
     /// 是否正在生成。
     var isGenerating: Bool { task != nil }
+    /// 「自动总结」开关:只对当前这场字幕有效,每场新的字幕默认关闭。
+    var enabled = false {
+        didSet { update() }
+    }
     /// 窗口开着、停在总结页、开关打开。
-    var isActive: Bool { windowVisible && tabVisible && settings.summaryEnabled }
+    var isActive: Bool { windowVisible && tabVisible && enabled }
     /// 能否总结(配置了可用的 LLM)。
     var isConfigured: Bool { settings.summaryLLMConfig != nil }
     /// 还没总结的句数。
@@ -177,6 +181,7 @@ final class TranscriptSummarizer {
         guard sessionID != current else { return }
         sessionID = current
         cancelGeneration()
+        enabled = false
         sections = []
         error = nil
         summarizedThrough = nil
