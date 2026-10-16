@@ -499,6 +499,36 @@
         }
       }
     },
+    "· 下次总结 %lld:%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· Next summary in %lld:%@"
+          }
+        }
+      }
+    },
+    "· 即将总结": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· Summarizing soon"
+          }
+        }
+      }
+    },
+    "· 等待更多内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· Waiting for more content"
+          }
+        }
+      }
+    },
     "⇧Tab（切换模式）": {
       "localizations": {
         "en": {

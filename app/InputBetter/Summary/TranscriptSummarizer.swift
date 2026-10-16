@@ -25,7 +25,11 @@ final class TranscriptSummarizer {
     var isGenerating: Bool { task != nil }
     /// 「自动总结」开关:只对当前这场字幕有效,每场新的字幕默认关闭。
     var enabled = false {
-        didSet { update() }
+        didSet {
+            // 打开后第一次总结也等满一个间隔(底部倒计时从这里开始)。
+            if enabled, !oldValue { lastSummaryAt = Date() }
+            update()
+        }
     }
     /// 窗口开着、停在总结页、开关打开。
     var isActive: Bool { windowVisible && tabVisible && enabled }
@@ -43,7 +47,14 @@ final class TranscriptSummarizer {
     /// 已总结到哪一句(记录里的句子 ID)和所属会话。
     @ObservationIgnored private var summarizedThrough: UUID?
     @ObservationIgnored private var sessionID: UUID?
-    @ObservationIgnored private var lastSummaryAt = Date.distantPast
+    /// 上次总结(或打开开关)的时间,下次自动总结从这里算起。
+    private var lastSummaryAt = Date.distantPast
+
+    /// 下次自动总结的时间(自动总结在工作时才有;到点后还要新内容至少 4 句)。
+    var nextSummaryAt: Date? {
+        guard isActive, isConfigured, !isGenerating, lastSummaryAt != .distantPast else { return nil }
+        return lastSummaryAt.addingTimeInterval(TimeInterval(max(1, settings.summaryInterval) * 60))
+    }
 
     /// 至少有这么多新句子才自动总结(太短的内容总结没有意义)。
     static let minimumSentences = 4

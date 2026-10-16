@@ -213,6 +213,14 @@ struct SummaryView: View {
             Text(statusText)
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
+            if let next = summarizer.nextSummaryAt {
+                // 每秒刷新一次倒计时。
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(countdown(to: next, now: context.date))
+                        .font(.system(size: 11.5).monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+            }
             Spacer()
             Button { summarizer.summarizeNow() } label: {
                 Label("立即总结", systemImage: "sparkles")
@@ -228,6 +236,17 @@ struct SummaryView: View {
         .font(.system(size: 12))
         .padding(.horizontal, DS.Space.l)
         .padding(.vertical, 10)
+    }
+
+    /// "下次总结 1:23";到点后新内容不够时说明在等内容。
+    private func countdown(to next: Date, now: Date) -> String {
+        let remaining = Int(next.timeIntervalSince(now).rounded(.up))
+        if remaining <= 0 {
+            return summarizer.pendingCount < TranscriptSummarizer.minimumSentences
+                ? String(localized: "· 等待更多内容", bundle: .l10n)
+                : String(localized: "· 即将总结", bundle: .l10n)
+        }
+        return String(localized: "· 下次总结 \(remaining / 60):\(String(format: "%02d", remaining % 60))", bundle: .l10n)
     }
 
     private var statusText: String {

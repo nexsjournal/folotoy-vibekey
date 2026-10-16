@@ -222,8 +222,8 @@ struct SubtitleSurface: View {
     }
 
     /// 原文字号(小)和译文字号:译文不用全字号,两行能放下更多内容,读者更容易跟上。
-    private var smallSize: CGFloat { fontSize * 0.68 }
-    private var translationSize: CGFloat { fontSize * 0.85 }
+    private var smallSize: CGFloat { fontSize * 0.64 }
+    private var translationSize: CGFloat { fontSize * 0.76 }
 
     /// 最多 2 行高的滚动框:文字按宽度自然换行,不足 2 行时按实际行数(刚开始不留空白),
     /// 超过 2 行时底部对齐、裁掉顶部多出的行。
