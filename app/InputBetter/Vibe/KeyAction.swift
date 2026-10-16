@@ -9,6 +9,10 @@ nonisolated enum KeyAction: String, CaseIterable, Identifiable, Sendable {
     case escape
     /// ⌘Z:撤销刚输入的文字。
     case undo
+    /// ⌫ 退格:删除光标前一个字符,说错时在 Passport 上直接回退。
+    case backspace
+    /// ⌦ 向后删除(Delete):删除光标后一个字符。
+    case forwardDelete
     /// ⇧Tab:Claude Code 里切换自动接受 / 计划模式。
     case shiftTab
     case tab
@@ -33,6 +37,8 @@ nonisolated enum KeyAction: String, CaseIterable, Identifiable, Sendable {
         case .enter: String(localized: "回车（发送）", bundle: .l10n)
         case .escape: String(localized: "Esc（打断）", bundle: .l10n)
         case .undo: String(localized: "⌘Z 撤销", bundle: .l10n)
+        case .backspace: String(localized: "⌫ 退格（删除前一个字）", bundle: .l10n)
+        case .forwardDelete: String(localized: "⌦ Delete（删除后一个字）", bundle: .l10n)
         case .shiftTab: String(localized: "⇧Tab（切换模式）", bundle: .l10n)
         case .tab: "Tab"
         case .cmdEnter: String(localized: "⌘↩ 提交", bundle: .l10n)
@@ -51,6 +57,8 @@ nonisolated enum KeyAction: String, CaseIterable, Identifiable, Sendable {
         case .enter: .enter
         case .escape: .esc
         case .undo: .undo
+        case .backspace: .bksp
+        case .forwardDelete: .del
         case .shiftTab: .stab
         case .tab: .tab
         case .cmdEnter: .send

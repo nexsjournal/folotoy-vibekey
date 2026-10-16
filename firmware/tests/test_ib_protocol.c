@@ -186,7 +186,7 @@ static void test_icons(void)
     // 固定 id 集合(docs/protocol.md),每个都能往返映射。
     static const char *const IDS[] = {
         "enter", "esc", "undo", "stab", "tab", "send", "stop", "cancel", "check", "repeat",
-        "mode", "apps", "mic", "translate", "hide", "up", "down", "play", "open",
+        "mode", "apps", "mic", "translate", "hide", "up", "down", "play", "open", "bksp", "del",
     };
     CHECK((int)(sizeof(IDS) / sizeof(IDS[0])) == IB_ICON_COUNT - 1);
     for (size_t i = 0; i < sizeof(IDS) / sizeof(IDS[0]); i++) {

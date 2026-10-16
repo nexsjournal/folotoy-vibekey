@@ -23,6 +23,8 @@ extension DeviceIcon {
         case .down: "chevron.down"
         case .play: "play.fill"
         case .open: "arrow.up.right.square"
+        case .bksp: "delete.left"
+        case .del: "delete.right"
         }
     }
 }

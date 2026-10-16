@@ -1,12 +1,13 @@
 /* main/icons/ib_icon_font_56.c: 由 tools/gen-icon-font.sh 生成,请勿手改。
  * 字形来自 Google Material Icons Round(https://github.com/google/material-design-icons,
  * 提交 49d4db35df873165d6bd6ba09b063c7dafbac2f4),按 Apache License 2.0 使用,许可证全文见同目录 LICENSE-material-icons。
+ * del(U+F8FC)由 backspace 水平镜像派生(fontTools)。
  * Copyright Google LLC. Licensed under the Apache License, Version 2.0.
  */
 /*******************************************************************************
  * Size: 56 px
  * Bpp: 4
- * Opts: --font MaterialIconsRound-Regular.otf -r 0xe5c3,0xe029,0xe8e2,0xe01c --size 56 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --lv-font-name ib_icon_font_56 -o main/icons/ib_icon_font_56.c
+ * Opts: --font icons.otf -r 0xe5c3,0xe029,0xe8e2,0xe01c --size 56 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --lv-font-name ib_icon_font_56 -o main/icons/ib_icon_font_56.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

@@ -559,6 +559,26 @@
         }
       }
     },
+    "⌦ Delete（删除后一个字）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌦ Delete (delete next character)"
+          }
+        }
+      }
+    },
+    "⌫ 退格（删除前一个字）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌫ Backspace (delete previous character)"
+          }
+        }
+      }
+    },
     "▲ 上键": {
       "localizations": {
         "en": {

@@ -101,7 +101,7 @@
 ```
 
 - 每个键是一个 22 px 图标(Material Icons Round,Apache-2.0),次要灰色 `#686868`(按下闪白时在精确灰之间过渡),后面一个指向机身边缘的小 `>`。图标由 Mac 的 `keys` 命令按 id 选择(id 列表见 `protocol.md`);空字符串或未知 id 隐藏该键的提示。
-- 图标字体由 `firmware/tools/gen-icon-font.sh` 从固定提交的上游字体生成(lv_font_conv,4 bpp):22 px 字体含 19 个按键提示字形,56 px 字体含页面主图标(mic、translate、closed_caption、apps);两种字号来自同一张表,协议 id、固件枚举与字形一一对应。
+- 图标字体由 `firmware/tools/gen-icon-font.sh` 从固定提交的上游字体生成(lv_font_conv,4 bpp):22 px 字体含 21 个按键提示字形(其中 ⌦ `del` 是把 backspace 水平镜像派生的字形,Material 没有现成图标;派生用临时 venv 里锁定版本的 fontTools,结果逐字节可复现),56 px 字体含页面主图标(mic、translate、closed_caption、apps);两种字号来自同一张表,协议 id、固件枚举与字形一一对应。
 - 按下某键时对应图标与箭头闪白 150 ms,这是唯一的按键视觉反馈(状态栏不再闪烁)。
 - 三个纵坐标(70 / 170 / 270)是固件 `ib_ui_hints.h` 里的常量 `IB_HINT_Y_UP/DOWN/OK`,实测偏差时只改这里。
 - IDLE 页原来的 `HOLD OK TO TALK` 提示由提示列承担。

@@ -211,6 +211,18 @@ nonisolated final class KeyActionTests: XCTestCase {
         let line = HostCommand.keys(ok: DeviceIcon.mic.rawValue, up: DeviceIcon.enter.rawValue, down: "").line
         XCTAssertEqual(line, #"{"cmd":"keys","ok":"mic","up":"enter","down":""}"#)
     }
+
+    /// app 的图标 id 必须和固件图标表(firmware/main/icons/ib_icon_list.h,由 gen-icon-font.sh 生成)完全一致,
+    /// 否则设备收到不认识的 id 会隐藏提示。
+    func testIconIDsMatchFirmwareTable() throws {
+        let list = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("firmware/main/icons/ib_icon_list.h")
+        let text = try String(contentsOf: list, encoding: .utf8)
+        let ids = text.matches(of: /IB_ICON_DEF\(\w+,\s*"([a-z]+)"/).map { String($0.output.1) }
+        XCTAssertEqual(Set(ids), Set(DeviceIcon.allCases.map(\.rawValue)))
+        XCTAssertEqual(ids.count, DeviceIcon.allCases.count)
+    }
 }
 
 /// 链:DeviceLink.onKey → DeviceBridge.handle → KeyPressTracker(按压归属、松开判定短按、防抖)。

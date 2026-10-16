@@ -6,6 +6,8 @@
 #   提交   49d4db35df873165d6bd6ba09b063c7dafbac2f4(2026-10-09)
 #   文件   font/MaterialIconsRound-Regular.otf、font/MaterialIconsRound-Regular.codepoints、LICENSE
 #   下载后按下面的 SHA-256 校验,不一致就停止(防止上游改动导致结果漂移)。
+# 派生字形:Material 没有向右删除(⌦)图标,用 fontTools 4.60.1(临时 venv,pip 安装锁定版本)把 backspace(⌫)
+#   水平镜像成新字形,放在字体没用到的私用区码点 U+F8FC,见下方 DERIVED 表。
 # 转换:lv_font_conv 1.5.3(npm,通过 npx 运行;需要 Node.js),4 bpp,不压缩
 #   (LVGL 9 默认 LV_USE_FONT_COMPRESSED=0,压缩字体无法显示)。
 #
@@ -16,6 +18,7 @@
 #
 # 表格式:"枚举名:协议 id:Material 图标名:字号列表"
 #   协议 id 为 "-" 表示不是按键提示图标(只用于页面主图标,不进入 keys 协议)。
+#   Material 图标名也可以是 DERIVED 表里的派生字形名。
 #   改表后重新运行本脚本;按键提示 id 变化时同步更新 docs/protocol.md。
 set -euo pipefail
 
@@ -39,8 +42,16 @@ ICONS=(
     "DOWN:down:keyboard_arrow_down:22"
     "PLAY:play:play_arrow:22"
     "OPEN:open:open_in_new:22"
+    "BKSP:bksp:backspace:22"             # ⌫ 退格
+    "DEL:del:backspace_mirrored:22"      # ⌦ 向右删除(派生字形)
     "CC:-:closed_caption:56"             # 字幕模式主图标
 )
+
+# 派生字形表:"派生名:码点:来源图标名:变换",变换目前只有 mirror(水平镜像)。
+DERIVED=(
+    "backspace_mirrored:f8fc:backspace:mirror"
+)
+FONTTOOLS="fonttools==4.60.1"
 
 COMMIT="49d4db35df873165d6bd6ba09b063c7dafbac2f4"
 BASE="https://raw.githubusercontent.com/google/material-design-icons/${COMMIT}"
@@ -70,8 +81,62 @@ fetch font/MaterialIconsRound-Regular.otf "${SHA_OTF}"
 fetch font/MaterialIconsRound-Regular.codepoints "${SHA_CODEPOINTS}"
 fetch LICENSE "${SHA_LICENSE}"
 
-codepoint() {   # codepoint <Material 名> → 十六进制码点
-    local cp
+# 派生字形:在临时 venv 里用锁定版本的 fontTools 生成 icons.otf(原字体 + 派生字形),之后都用它转换。
+font="${work}/MaterialIconsRound-Regular.otf"
+if (( ${#DERIVED[@]} > 0 )); then
+    python3 -m venv "${work}/venv"
+    "${work}/venv/bin/pip" install --quiet --disable-pip-version-check "${FONTTOOLS}"
+    "${work}/venv/bin/python" - "${font}" "${work}/icons.otf" "${work}/MaterialIconsRound-Regular.codepoints" "${DERIVED[@]}" <<'PY'
+import sys
+from fontTools.ttLib import TTFont
+from fontTools.pens.t2CharStringPen import T2CharStringPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.boundsPen import BoundsPen
+
+src, dst, codepoints_path, *derived = sys.argv[1:]
+names = dict(line.split() for line in open(codepoints_path) if line.strip())
+font = TTFont(src)
+cmap = font.getBestCmap()
+glyph_set = font.getGlyphSet()
+cff = font["CFF "].cff
+top = cff.topDictIndex[0]
+char_strings = top.CharStrings
+order = font.getGlyphOrder()
+for entry in derived:
+    name, cp_hex, base, transform = entry.split(":")
+    cp = int(cp_hex, 16)
+    if cp in cmap:
+        sys.exit(f"派生字形码点 U+{cp_hex} 已被字体使用")
+    if transform != "mirror":
+        sys.exit(f"不支持的变换 {transform}")
+    base_glyph = cmap[int(names[base], 16)]
+    width, _ = font["hmtx"][base_glyph]
+    mirror = (-1, 0, 0, 1, width, 0)
+    pen = T2CharStringPen(width, glyph_set)
+    glyph_set[base_glyph].draw(TransformPen(pen, mirror))
+    charstring = pen.getCharString(private=top.Private, globalSubrs=cff.GlobalSubrs)
+    char_strings.charStrings[name] = len(char_strings.charStringsIndex)
+    char_strings.charStringsIndex.append(charstring)
+    top.charset.append(name)
+    order.append(name)
+    bounds = BoundsPen(glyph_set)
+    glyph_set[base_glyph].draw(TransformPen(bounds, mirror))
+    font["hmtx"][name] = (width, int(bounds.bounds[0]) if bounds.bounds else 0)
+    for table in font["cmap"].tables:
+        if table.isUnicode():
+            table.cmap[cp] = name
+font.setGlyphOrder(order)
+font["maxp"].numGlyphs = len(order)
+font.save(dst)
+PY
+    font="${work}/icons.otf"
+fi
+
+codepoint() {   # codepoint <Material 名或派生名> → 十六进制码点
+    local cp entry
+    for entry in "${DERIVED[@]}"; do
+        if [[ "${entry%%:*}" == "$1" ]]; then cut -d: -f2 <<< "${entry}"; return; fi
+    done
     cp="$(awk -v n="$1" '$1 == n { print $2; exit }' "${work}/MaterialIconsRound-Regular.codepoints")"
     [[ -n "${cp}" ]] || { echo "找不到图标 $1" >&2; exit 1; }
     echo "${cp}"
@@ -84,7 +149,7 @@ utf8_escape() {   # utf8_escape <十六进制码点> → C 字符串转义
 header() {   # header <文件名> <说明>
     echo "// main/icons/$1: 由 tools/gen-icon-font.sh 生成,请勿手改。"
     echo "// $2"
-    echo "// 字形来自 Google Material Icons Round(Apache-2.0,见 LICENSE-material-icons),提交 ${COMMIT}。"
+    echo "// 字形来自 Google Material Icons Round(Apache-2.0,见 LICENSE-material-icons),提交 ${COMMIT};del 由 backspace 水平镜像派生。"
 }
 
 mkdir -p "${out_dir}"
@@ -125,7 +190,7 @@ gen_font() {
     local name="ib_icon_font_${size}"
     local range_arg; range_arg="$(IFS=,; echo "$*")"
     npx --yes "${LV_FONT_CONV}" \
-        --font "${work}/MaterialIconsRound-Regular.otf" -r "${range_arg}" \
+        --font "${font}" -r "${range_arg}" \
         --size "${size}" --bpp "${BPP}" --format lvgl --no-compress \
         --lv-include "lvgl.h" --lv-font-name "${name}" \
         -o "${out_dir}/${name}.c"
@@ -138,6 +203,7 @@ header = (
     "/* main/icons/" + name + ".c: 由 tools/gen-icon-font.sh 生成,请勿手改。\n"
     " * 字形来自 Google Material Icons Round(https://github.com/google/material-design-icons,\n"
     " * 提交 " + commit + "),按 Apache License 2.0 使用,许可证全文见同目录 LICENSE-material-icons。\n"
+    " * del(U+F8FC)由 backspace 水平镜像派生(fontTools)。\n"
     " * Copyright Google LLC. Licensed under the Apache License, Version 2.0.\n"
     " */\n"
 )

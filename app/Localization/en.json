@@ -53,6 +53,8 @@
   "⌃C 中断": "⌃C (Interrupt)",
   "⌘Z 撤销": "⌘Z (Undo)",
   "⌘↩ 提交": "⌘↩ (Submit)",
+  "⌦ Delete（删除后一个字）": "⌦ Delete (delete next character)",
+  "⌫ 退格（删除前一个字）": "⌫ Backspace (delete previous character)",
   "▲ 上键": "▲ Up",
   "▼ 下键": "▼ Down",
   "▼ 长按下键": "▼ Hold Down",

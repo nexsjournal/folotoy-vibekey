@@ -205,6 +205,9 @@ DeviceBridge(见 3b 的手势结果)
        → .pasteLast → DictationController.reinsertLast → TextInserter.insert
        → .nextMode  → DeviceBridge.cycleMode → sync
        → 其他       → KeySender.perform → KeySender.press / type
+                      (.backspace → kVK_Delete,.forwardDelete → kVK_ForwardDelete,与键盘布局无关)
+提示图标:KeyAction.deviceIcon → DeviceIcon(.bksp / .del …)→ keys 命令 → 固件 ib_icon_from_id → ib_icon_list.h
+ (app 与固件的 id 集合由 ChainTests.testIconIDsMatchFirmwareTable 保证一致)
 ```
 
 ## 4b. Passport 切换应用(vibe coding)

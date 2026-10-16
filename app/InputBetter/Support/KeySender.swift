@@ -34,6 +34,9 @@ enum KeySender {
         case .enter: press(kVK_Return)
         case .escape: press(kVK_Escape)
         case .undo: press(Int(KeyLayout.keyCode(for: "z") ?? CGKeyCode(kVK_ANSI_Z)), flags: .maskCommand)
+        // 退格 / 向后删除是固定位置的功能键,与键盘布局无关。
+        case .backspace: press(kVK_Delete)
+        case .forwardDelete: press(kVK_ForwardDelete)
         case .shiftTab: press(kVK_Tab, flags: .maskShift)
         case .tab: press(kVK_Tab)
         case .cmdEnter: press(kVK_Return, flags: .maskCommand)

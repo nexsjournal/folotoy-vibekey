@@ -84,6 +84,12 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     preview_advance(1000);
     shot("idle_dict");
 
+    keys(IB_ICON_BKSP, IB_ICON_DEL, IB_ICON_MIC);    // 上 / 下键映射为 Backspace / Delete
+    preview_advance(400);
+    shot("idle_dict_delete_keys");
+    keys(IB_ICON_ENTER, IB_ICON_ESC, IB_ICON_MIC);
+    preview_advance(400);
+
     ib_ui_show(IB_UI_IDLE, IB_UI_MODE_TR, "");      // 模式切换:左右滑动
     preview_advance(100);
     shot("idle_dict_to_tr_100ms");

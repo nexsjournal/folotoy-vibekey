@@ -39,5 +39,5 @@ nonisolated enum DeviceLinkKind: String, Sendable {
 
 /// 设备右侧按键提示用的图标 ID(`keys` 命令的取值,固件用图标字体渲染)。列表与 docs/protocol.md 一致。
 nonisolated enum DeviceIcon: String, CaseIterable, Sendable {
-    case enter, esc, undo, stab, tab, send, stop, cancel, check, `repeat`, mode, apps, mic, translate, hide, up, down, play, open
+    case enter, esc, undo, stab, tab, send, stop, cancel, check, `repeat`, mode, apps, mic, translate, hide, up, down, play, open, bksp, del
 }
