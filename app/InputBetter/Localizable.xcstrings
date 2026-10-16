@@ -909,16 +909,6 @@
         }
       }
     },
-    "修改接口…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change API…"
-          }
-        }
-      }
-    },
     "停止": {
       "localizations": {
         "en": {
@@ -1145,16 +1135,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Removes filler words, adds punctuation and fixes misheard words"
-          }
-        }
-      }
-    },
-    "去配置…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set Up…"
           }
         }
       }

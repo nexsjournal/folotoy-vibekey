@@ -41,11 +41,11 @@ struct SummaryView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .disabled(!summarizer.isConfigured)
+                // 菜单项直接列出(带勾选):菜单里嵌内联 Picker 会多出一个空的分组标题行。
                 Menu {
-                    Picker("", selection: $settings.summaryInterval) {
-                        ForEach(Self.intervals, id: \.self) { Text("每 \($0) 分钟").tag($0) }
+                    ForEach(Self.intervals, id: \.self) { minutes in
+                        Toggle("每 \(minutes) 分钟", isOn: choice($settings.summaryInterval, minutes))
                     }
-                    .pickerStyle(.inline)
                 } label: {
                     Text("每 \(settings.summaryInterval) 分钟").font(.system(size: 12))
                 }
@@ -71,15 +71,14 @@ struct SummaryView: View {
                     Text(verbatim: "·").foregroundStyle(.tertiary)
                     Text("模型").foregroundStyle(.tertiary)
                     Menu {
-                        Picker("", selection: $settings.summaryModel) {
-                            Text("跟随 AI 设置（\(settings.llmModel)）").tag("")
-                            if !settings.summaryModel.isEmpty, !models.contains(settings.summaryModel) {
-                                Text(verbatim: settings.summaryModel).tag(settings.summaryModel)
-                            }
-                            if !models.isEmpty { Divider() }
-                            ForEach(models, id: \.self) { Text(verbatim: $0).tag($0) }
+                        Toggle("跟随 AI 设置（\(settings.llmModel)）", isOn: choice($settings.summaryModel, ""))
+                        if !settings.summaryModel.isEmpty, !models.contains(settings.summaryModel) {
+                            Toggle(settings.summaryModel, isOn: choice($settings.summaryModel, settings.summaryModel))
                         }
-                        .pickerStyle(.inline)
+                        if !models.isEmpty { Divider() }
+                        ForEach(models, id: \.self) { model in
+                            Toggle(model, isOn: choice($settings.summaryModel, model))
+                        }
                     } label: {
                         Text(verbatim: settings.summaryModel.isEmpty ? settings.llmModel : settings.summaryModel)
                     }
@@ -87,11 +86,11 @@ struct SummaryView: View {
                     .fixedSize()
                     if loadingModels { ProgressView().controlSize(.mini) }
                     Spacer(minLength: DS.Space.s)
-                    Button("修改接口…", action: onOpenSettings).buttonStyle(.borderless)
+                    Button("设置…", action: onOpenSettings).buttonStyle(.borderless)
                 } else {
                     Text("总结使用 设置 › AI 润色与翻译 里配置的服务").foregroundStyle(.secondary)
                     Spacer(minLength: DS.Space.s)
-                    Button("去配置…", action: onOpenSettings).buttonStyle(.borderless)
+                    Button("设置…", action: onOpenSettings).buttonStyle(.borderless)
                 }
             }
             .font(.system(size: 11.5))
@@ -198,6 +197,11 @@ struct SummaryView: View {
             try? await Task.sleep(for: .seconds(1.5))
             copied = false
         }
+    }
+
+    /// 菜单里单选项的勾选状态:当前值等于 `value` 时打勾,点它就选它。
+    private func choice<T: Equatable>(_ selection: Binding<T>, _ value: T) -> Binding<Bool> {
+        Binding(get: { selection.wrappedValue == value }, set: { if $0 { selection.wrappedValue = value } })
     }
 
     /// 拉取设置里那个接口的模型列表(失败时只保留"跟随 AI 设置")。
