@@ -5,6 +5,8 @@ import SwiftUI
 /// 只读 SubtitleController 的状态;保存 / 拷贝通过闭包交给外部(WindowManager)。
 struct TranscriptView: View {
     let controller: SubtitleController
+    /// 固定在屏幕左侧(置顶)。
+    let pin: TranscriptPinController
     /// 保存成文件(由 WindowManager 在本窗口上弹出保存面板)。
     let onSave: () -> Void
 
@@ -45,6 +47,13 @@ struct TranscriptView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Button { pin.toggle() } label: {
+                Image(systemName: pin.isPinned ? "pin.fill" : "pin")
+                    .foregroundStyle(pin.isPinned ? AnyShapeStyle(DS.accent) : AnyShapeStyle(.secondary))
+            }
+            .buttonStyle(.plain)
+            .help(pin.isPinned ? "取消固定" : "固定在屏幕左侧（始终在最前面）")
+            .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕左侧")
             Toggle("跟随最新", isOn: $followLatest)
                 .toggleStyle(.checkbox)
                 .font(.system(size: 12))

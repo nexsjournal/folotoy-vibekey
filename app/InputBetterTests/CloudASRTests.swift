@@ -271,32 +271,28 @@ nonisolated final class CaptionTranscriptTests: XCTestCase {
     }
 }
 
-/// 链:SubtitleSurface(双语)→ CaptionTranscript.bilingual;TextProcessor → Prompts.target → TargetLanguage.autoPair。
+/// 链:SubtitleController.translate → TextProcessor.translateSubtitle → LLMClient.stream(SSE 解析);Prompts.target → TargetLanguage.autoPair。
 nonisolated final class TranslationDisplayTests: XCTestCase {
-    func testBilingualKeepsSourceAndTranslationOfSameLine() {
+    func testStreamLineParsing() {
+        XCTAssertEqual(LLMClient.parseStreamLine(#"data: {"choices":[{"delta":{"content":"你好"}}]}"#), "你好")
+        XCTAssertEqual(LLMClient.parseStreamLine("data: [DONE]"), LLMClient.streamDone)
+        XCTAssertNil(LLMClient.parseStreamLine(": keep-alive"))
+        XCTAssertNil(LLMClient.parseStreamLine(#"data: {"choices":[{"delta":{"role":"assistant"}}]}"#))
+    }
+
+    func testThinkingIsHiddenWhileStreaming() {
+        XCTAssertNil(LLMClient.visibleText("<think>let me see"), "思考段结束前不显示")
+        XCTAssertEqual(LLMClient.visibleText("<think>x</think>\n你好"), "你好")
+        XCTAssertEqual(LLMClient.visibleText(" Hello "), "Hello")
+    }
+
+    func testClearTranslationForRetranslate() {
         var transcript = CaptionTranscript(appName: "A")
-        XCTAssertEqual(transcript.bilingual(partial: "hel").source, "hel", "还没有定稿时直接显示正在说的内容")
-
-        let first = CaptionTranscript.Entry(text: "Hello.")
-        transcript.append(first)
-        var caption = transcript.bilingual(partial: "")
-        XCTAssertEqual(caption.source, "Hello.")
-        XCTAssertTrue(caption.translating, "译文没回来前显示翻译中")
-
-        transcript.setTranslation("你好。", for: first.id)
-        let second = CaptionTranscript.Entry(text: "How are you?")
-        transcript.append(second)
-        caption = transcript.bilingual(partial: "")
-        XCTAssertEqual(caption.source, "Hello.", "原文和译文必须是同一句")
-        XCTAssertEqual(caption.translation, "你好。")
-        XCTAssertEqual(caption.live, "How are you?", "等待翻译的新句子显示在上方")
-        XCTAssertEqual(transcript.bilingual(partial: "I'm").live, "I'm", "正在说的内容优先")
-
-        transcript.setTranslationFailed(for: second.id)
-        caption = transcript.bilingual(partial: "")
-        XCTAssertEqual(caption.source, "How are you?")
-        XCTAssertTrue(caption.failed, "翻译失败时不再一直显示翻译中")
-        XCTAssertNil(caption.live)
+        let entry = CaptionTranscript.Entry(text: "Hi")
+        transcript.append(entry)
+        transcript.setTranslationFailed(for: entry.id)
+        transcript.clearTranslation(for: entry.id)
+        XCTAssertFalse(transcript.entries[0].translationSettled, "换语言重新翻译前清空状态")
     }
 
     func testLocaleMappingAndAutoPair() {

@@ -229,8 +229,9 @@ final class AppState {
             engines.preload(settings.dictationModelID)
         }
         observeChanges({ [unowned self] in _ = settings.language }) { [unowned self] in models.languageChanged() }
-        observeChanges({ [unowned self] in _ = settings.subtitleTranslate }) { [unowned self] in
-            if settings.subtitleTranslate { subtitles.translationEnabled() }
+        // 打开翻译或换目标语言:重新翻译最新一句。
+        observeChanges({ [unowned self] in _ = (settings.subtitleTranslate, settings.subtitleTarget) }) { [unowned self] in
+            subtitles.translateLatest()
         }
         observeChanges({ [unowned self] in _ = subtitles.status }) { [unowned self] in
             // 字幕停止后复位"收起"状态。

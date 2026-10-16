@@ -179,8 +179,6 @@ struct PillView: View {
     private var idleCapsule: some View {
         // 玻璃由 GlassEffectContainer 统一渲染,外层 opacity 不生效;变淡时内芯降低亮度、玻璃换成更通透的 clear 样式。
         IdleCapsule(subtitlesRunning: subtitles.isRunning, dimmed: dimmed)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 6)
             .glassEffect(dimmed ? .clear.tint(.black.opacity(0.15)) : .regular.tint(.black.opacity(0.45)), in: .capsule)
             .glassEffectID("main", in: glass)
     }

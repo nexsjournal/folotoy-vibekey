@@ -1109,6 +1109,16 @@
         }
       }
     },
+    "取消固定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unpin"
+          }
+        }
+      }
+    },
     "只写入固件区域，不会改动设备身份数据": {
       "localizations": {
         "en": {
@@ -1245,6 +1255,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Firmware file missing: %@"
+          }
+        }
+      }
+    },
+    "固定在屏幕左侧": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin to Left Edge"
+          }
+        }
+      }
+    },
+    "固定在屏幕左侧（始终在最前面）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin to the left edge (always on top)"
           }
         }
       }
@@ -2075,16 +2105,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show Translation"
-          }
-        }
-      }
-    },
-    "显示译文（%@）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Translation (%@)"
           }
         }
       }
@@ -3019,6 +3039,26 @@
         }
       }
     },
+    "翻译成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate To"
+          }
+        }
+      }
+    },
+    "翻译设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
+          }
+        }
+      }
+    },
     "翻译需要先配置 AI": {
       "localizations": {
         "en": {
@@ -3225,6 +3265,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vocabulary"
+          }
+        }
+      }
+    },
+    "译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate"
           }
         }
       }

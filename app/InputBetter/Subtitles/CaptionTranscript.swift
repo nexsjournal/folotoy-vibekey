@@ -68,24 +68,11 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         entries[index].translationFailed = true
     }
 
-    /// 双语字幕条要显示的内容(开启翻译时):
-    /// - `source` + `translation`:最近一句已经有翻译结果的原文和译文,两者始终对应同一句;
-    /// - 还没有任何翻译结果时,`source` 是最新定稿句,`translating` 为真(显示"翻译中…");
-    /// - `live`:正在说的内容(未定稿的部分,或已定稿但译文还没回来的最新一句),暗色显示在上方。
-    /// 纯函数,便于测试。
-    func bilingual(partial: String) -> BilingualCaption {
-        let recent = entries.suffix(8)
-        if let settled = recent.last(where: \.translationSettled) {
-            let waiting = recent.drop { $0.id != settled.id }.dropFirst()
-            let live = partial.isEmpty ? waiting.last?.text : partial
-            return BilingualCaption(live: live, source: settled.text, translation: settled.translation,
-                                    translating: false, failed: settled.translationFailed)
-        }
-        if let latest = recent.last {
-            return BilingualCaption(live: partial.isEmpty ? nil : partial, source: latest.text, translation: nil,
-                                    translating: true, failed: false)
-        }
-        return BilingualCaption(live: nil, source: partial, translation: nil, translating: false, failed: false)
+    /// 清掉译文(换了目标语言、要重新翻译时)。
+    mutating func clearTranslation(for id: UUID) {
+        guard let index = entries.lastIndex(where: { $0.id == id }) else { return }
+        entries[index].translation = nil
+        entries[index].translationFailed = false
     }
 
     /// 标记前 `count` 句已保存(默认全部)。
@@ -122,13 +109,4 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         let name = appName.isEmpty ? "Captions" : appName.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         return "\(name) \(formatter.string(from: startedAt)).txt"
     }
-}
-
-/// 双语字幕条的一帧内容,见 `CaptionTranscript.bilingual(partial:)`。
-nonisolated struct BilingualCaption: Equatable, Sendable {
-    var live: String?
-    var source: String
-    var translation: String?
-    var translating: Bool
-    var failed: Bool
 }

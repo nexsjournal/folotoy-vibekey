@@ -142,9 +142,11 @@ final class SubtitleController {
         if transcript.id == saved.id { transcript.markSaved(upTo: saved.entries.count) }
     }
 
-    /// 运行中打开翻译:补译最新一句,字幕条马上有原文 + 译文可显示(之前的句子不补,避免一次发出大量请求)。
-    func translationEnabled() {
-        guard isRunning, let last = transcript.entries.last, !last.translationSettled else { return }
+    /// 运行中打开翻译或换了目标语言:重新翻译最新一句,字幕条马上有对应的译文
+    /// (之前的句子不补,避免一次发出大量请求)。
+    func translateLatest() {
+        guard isRunning, settings.subtitleTranslate, let last = transcript.entries.last else { return }
+        transcript.clearTranslation(for: last.id)
         translate(last)
     }
 
@@ -179,15 +181,23 @@ final class SubtitleController {
         }
     }
 
+    /// 翻译一句(流式):译文边生成边写入记录,字幕条和记录窗口随之更新。
+    /// 失败且一个字都没收到时标记失败;已经显示了一部分则保留已有部分。
     private func translate(_ line: Line) {
         guard processor.isAvailable else { return }
         // 上下文:当前句之前的 3 句原文和已有译文。
         let context = transcript.entries.prefix { $0.id != line.id }.suffix(3).map { (source: $0.text, translation: $0.translation) }
+        let sessionID = transcript.id
         Task {
+            var received = false
             do {
-                let translation = try await processor.translateSubtitle(line.text, context: Array(context))
-                transcript.setTranslation(translation, for: line.id)
+                for try await text in try processor.translateSubtitle(line.text, context: Array(context)) {
+                    guard transcript.id == sessionID else { return }
+                    received = true
+                    transcript.setTranslation(text, for: line.id)
+                }
             } catch {
+                guard transcript.id == sessionID, !received else { return }
                 // 标记失败,字幕条不再一直显示"翻译中"。
                 transcript.setTranslationFailed(for: line.id)
                 Log.subtitles.error("subtitle translation failed: \(error.localizedDescription, privacy: .public)")

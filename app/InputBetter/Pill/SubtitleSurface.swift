@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// 字幕条:胶囊展开后的形态。顶部是直播标记 + 应用名(悬停时显示工具按钮),下面是上一句(暗)、
-/// 当前句(亮)和译文。背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
+/// 字幕条:胶囊展开后的形态。顶部是直播标记 + 应用名 + 翻译菜单(悬停时显示工具按钮);
+/// 下面是迷你字幕记录:按时间从上到下排列,最新的在最下面,越旧越暗,超出高度的从顶部淡出——
+/// 和字幕记录窗口的阅读方向一致,一眼能看出哪句是最新的。开启翻译时每句原文下面紧跟它的译文。
+/// 背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
 struct SubtitleSurface: View {
     let controller: SubtitleController
     @Bindable var settings: AppSettings
@@ -25,7 +27,6 @@ struct SubtitleSurface: View {
         .padding(.top, 12)
         .padding(.bottom, 16)
         .frame(width: min(max(fontSize * 30, 540), 940), alignment: .leading)
-        .animation(.spring(duration: 0.35, bounce: 0.15), value: controller.lines)
         .animation(.easeOut(duration: 0.2), value: hovering)
     }
 
@@ -37,14 +38,7 @@ struct SubtitleSurface: View {
             Text(controller.appName.isEmpty ? String(localized: "字幕", bundle: .l10n) : controller.appName)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.55))
-            if settings.subtitleTranslate {
-                Text("译 · \(settings.subtitleTarget.title)")
-                    .help(settings.subtitleTarget == .auto ? TargetLanguage.autoSummary : settings.subtitleTarget.title)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(Capsule().strokeBorder(.white.opacity(0.2)))
-            }
+            translationMenu
             Spacer(minLength: 12)
             if case .failed = controller.status {
                 // 启动失败:没有可结束的字幕,只提供关闭(其他工具都没有意义)。
@@ -53,11 +47,6 @@ struct SubtitleSurface: View {
                 HStack(spacing: 2) {
                     tool("textformat.size.smaller", help: String(localized: "缩小字号", bundle: .l10n)) { settings.subtitleFontSize = max(14, fontSize - 2) }
                     tool("textformat.size.larger", help: String(localized: "放大字号", bundle: .l10n)) { settings.subtitleFontSize = min(44, fontSize + 2) }
-                    tool(settings.subtitleTranslate ? "character.bubble.fill" : "character.bubble",
-                         help: settings.llmConfigured ? String(localized: "显示译文（\(settings.subtitleTarget.title)）", bundle: .l10n) : String(localized: "翻译需要先配置 AI", bundle: .l10n)) {
-                        settings.subtitleTranslate.toggle()
-                    }
-                    .disabled(!settings.llmConfigured)
                     tool("lock", help: String(localized: "锁定（鼠标穿透，可在菜单里解锁）", bundle: .l10n)) { settings.subtitleLocked = true }
                     tool("text.page", help: String(localized: "字幕记录", bundle: .l10n), action: onTranscript)
                     Divider().frame(height: 14).padding(.horizontal, 4)
@@ -69,6 +58,37 @@ struct SubtitleSurface: View {
             }
         }
         .frame(height: 20)
+    }
+
+    /// 翻译菜单(标签样式):开关译文、直接选择目标语言,不用去设置里改。
+    /// 关闭翻译时显示暗色的「译」,打开时显示「译 · 目标语言」。
+    private var translationMenu: some View {
+        Menu {
+            if settings.llmConfigured {
+                Toggle("显示译文", isOn: $settings.subtitleTranslate)
+                Divider()
+                Picker("翻译成", selection: $settings.subtitleTarget) {
+                    ForEach(TargetLanguage.allCases) { language in
+                        Text(language == .auto ? "\(language.title)（\(TargetLanguage.autoSummary)）" : language.title).tag(language)
+                    }
+                }
+                .pickerStyle(.inline)
+            } else {
+                Text("翻译需要先配置 AI")
+            }
+        } label: {
+            Text(settings.subtitleTranslate ? "译 · \(settings.subtitleTarget.title)" : "译")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(settings.subtitleTranslate ? 0.75 : 0.4))
+                .padding(.horizontal, 6).padding(.vertical, 1)
+                .background(Capsule().strokeBorder(.white.opacity(settings.subtitleTranslate ? 0.3 : 0.15)))
+                .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(settings.llmConfigured ? String(localized: "翻译设置", bundle: .l10n) : String(localized: "翻译需要先配置 AI", bundle: .l10n))
     }
 
     // MARK: - 正文
@@ -106,84 +126,66 @@ struct SubtitleSurface: View {
         }
     }
 
-    @ViewBuilder
+    /// 迷你字幕记录:最近几句 + 正在说的半句,底部对齐,高度固定(不随内容跳动),顶部渐隐。
     private var transcript: some View {
-        if settings.subtitleTranslate {
-            bilingual
-        } else {
-            sourceOnly
-        }
-    }
-
-    /// 只显示原文:上一句(暗)+ 当前句(亮,正在说时略暗)。
-    private var sourceOnly: some View {
-        let lines = controller.lines
-        let current = controller.partial.isEmpty ? lines.last?.text ?? "" : controller.partial
-        let previous = controller.partial.isEmpty ? lines.dropLast().last : lines.last
-        return VStack(alignment: .leading, spacing: 4) {
-            if let previous {
-                dimLine(previous.text).id("prev-\(previous.id)")
-            }
-            Text(current.isEmpty ? String(localized: "等待声音…", bundle: .l10n) : current)
-                .font(.system(size: fontSize, weight: .semibold))
-                .foregroundStyle(.white.opacity(current.isEmpty ? 0.4 : controller.partial.isEmpty ? 1 : 0.86))
-                .lineLimit(2)
-                .truncationMode(.head)
-                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                .contentTransition(.interpolate)
-                .animation(.easeOut(duration: 0.15), value: current)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// 双语:上方暗色是正在说的内容;下面是同一句的原文和译文(译文最醒目)。
-    /// 原文和译文始终对应同一句,译文没回来之前显示"翻译中…",不会出现原文和译文错位。
-    private var bilingual: some View {
-        let caption = controller.transcript.bilingual(partial: controller.partial)
-        return VStack(alignment: .leading, spacing: 4) {
-            if let live = caption.live, !live.isEmpty {
-                dimLine(live)
-            }
-            if caption.source.isEmpty {
+        let translating = settings.subtitleTranslate
+        // 翻译时每句占两行(原文 + 译文),显示最近 2 句;不翻译时显示最近 3 句。再加正在说的半句。
+        let entries = Array(controller.transcript.entries.suffix(translating ? 2 : 3))
+        let partial = controller.partial
+        return VStack(alignment: .leading, spacing: translating ? 10 : 6) {
+            if entries.isEmpty && partial.isEmpty {
                 Text("等待声音…")
                     .font(.system(size: fontSize, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.4))
-            } else {
-                Text(caption.source)
-                    .font(.system(size: fontSize * 0.78, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.78))
+            }
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                row(entry, age: entries.count - 1 - index + (partial.isEmpty ? 0 : 1), translating: translating)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            if !partial.isEmpty {
+                // 正在说(未定稿):和定稿句同样大小,略暗,表示还会变。
+                Text(partial)
+                    .font(.system(size: translating ? fontSize * 0.8 : fontSize, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(2)
                     .truncationMode(.head)
                     .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                Group {
-                    if let translation = caption.translation {
-                        Text(translation)
-                            .foregroundStyle(.white)
-                    } else if caption.failed {
-                        Text("翻译失败")
-                            .foregroundStyle(.white.opacity(0.4))
-                    } else if caption.translating {
-                        Text("翻译中…")
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                }
-                .font(.system(size: fontSize, weight: .semibold))
-                .lineLimit(2)
-                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                .contentTransition(.interpolate)
+                    .id("partial")
             }
         }
-        .animation(.easeOut(duration: 0.2), value: caption)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // 高度固定(不随内容跳动),大约容纳上面的句数;个别句子折行超出时,最旧的从顶部渐隐。
+        .frame(height: fontSize * (translating ? 6.4 : 4.6), alignment: .bottom)
+        .clipped()
+        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12)],
+                             startPoint: .top, endPoint: .bottom))
+        .animation(.spring(duration: 0.35, bounce: 0.1), value: entries.map(\.id))
     }
 
-    private func dimLine(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: fontSize * 0.72, weight: .medium))
-            .foregroundStyle(.white.opacity(0.42))
-            .lineLimit(1)
-            .truncationMode(.head)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+    /// 一句定稿字幕。`age` 0 = 最新,越旧越暗;翻译时原文较小,译文在下面且更醒目。
+    private func row(_ entry: SubtitleController.Line, age: Int, translating: Bool) -> some View {
+        let fade = max(0.35, 1 - Double(age) * 0.3)
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(entry.text)
+                .font(.system(size: translating ? fontSize * 0.72 : fontSize, weight: translating ? .medium : .semibold))
+                .foregroundStyle(.white.opacity((translating ? 0.6 : 1) * fade))
+                .lineLimit(2)
+                .truncationMode(.head)
+            if translating {
+                Group {
+                    if let translation = entry.translation {
+                        Text(translation).foregroundStyle(.white.opacity(fade))
+                    } else if entry.translationFailed {
+                        Text("翻译失败").foregroundStyle(.white.opacity(0.35 * fade))
+                    } else {
+                        Text("翻译中…").foregroundStyle(.white.opacity(0.35 * fade))
+                    }
+                }
+                .font(.system(size: fontSize * 0.92, weight: .semibold))
+                .lineLimit(2)
+            }
+        }
+        .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
     }
 
     private func hint(_ text: LocalizedStringKey) -> some View {

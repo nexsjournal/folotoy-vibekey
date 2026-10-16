@@ -8,6 +8,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var transcriptWindow: NSWindow?
+    /// 字幕记录窗口的固定状态(固定在左侧、置顶)。
+    private let transcriptPin = TranscriptPinController(autosaveName: WindowManager.transcriptAutosaveName)
+    private static let transcriptAutosaveName = "InputBetterTranscript"
 
     init(app: AppState) {
         self.app = app
@@ -46,10 +49,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
     func showTranscript() {
         if transcriptWindow == nil {
             transcriptWindow = makeWindow(title: String(localized: "字幕记录", bundle: .l10n), size: NSSize(width: 560, height: 620),
-                                          resizable: .init(minSize: NSSize(width: 420, height: 360), autosaveName: "InputBetterTranscript"),
+                                          resizable: .init(minSize: NSSize(width: 360, height: 360), autosaveName: Self.transcriptAutosaveName),
                                           content: LocalizedRoot(language: app.language) {
-                                              TranscriptView(controller: self.app.subtitles) { [weak self] in self?.saveTranscriptFromWindow() }
+                                              TranscriptView(controller: self.app.subtitles, pin: self.transcriptPin) { [weak self] in
+                                                  self?.saveTranscriptFromWindow()
+                                              }
                                           })
+            transcriptPin.attach(transcriptWindow!)
         }
         present(transcriptWindow)
     }

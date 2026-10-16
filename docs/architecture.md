@@ -220,10 +220,12 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → TranscriptText.normalize → partial / CaptionTranscript.append(完整记录;lines = 最后 3 句)
           → .final 且开启翻译 → TextProcessor.translateSubtitle(前 3 句原文 + 译文作上下文)
               → Prompts.translateSubtitle(先按上下文修正识别错误、理解被切开的半句,再给出通顺译文)
-              → LLMClient.complete → CaptionTranscript.setTranslation | setTranslationFailed
-          → 运行中打开翻译 → SubtitleController.translationEnabled(补译最新一句)
- → SubtitleSurface:不翻译时显示上一句 + 当前句;翻译时用 CaptionTranscript.bilingual:
-     上方暗色 = 正在说的内容;下面 = 最近一句已有结果的原文 + 译文(同一句,译文最醒目;未返回显示"翻译中…")
+              → LLMClient.stream(SSE 流式,LLMClient.parseStreamLine / visibleText 去掉思考段)
+              → 每段增量 CaptionTranscript.setTranslation(译文边生成边显示)| 一个字都没收到就失败 → setTranslationFailed
+          → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
+ → SubtitleSurface 迷你字幕记录:按时间从上到下,最新在最下面,越旧越暗,固定高度、顶部渐隐;
+     翻译时每句原文下紧跟它的译文(未返回显示"翻译中…");最后一行是正在说的半句
+ → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions
  → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
@@ -240,6 +242,8 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
      「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
      「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
  正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇)
+ 📌 → TranscriptPinController.toggle:固定 = 贴屏幕左边占满可用高度、floating 层级(始终最前)、所有桌面空间可见、不可拖动;
+     取消 = 恢复普通层级和之前保存的位置;状态存 UserDefaults,屏幕参数变化时重新贴边
 ```
 
 ## 6. 胶囊状态条与字幕交互
@@ -250,7 +254,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 | --- | --- | --- |
 | 听写录音 / 处理 / 结果 | 听写形态(优先级最高) | 听写进行时字幕在后台继续采集,解码暂停(`SubtitleController.setDecodingPaused`),结束后补上 |
 | 字幕启动失败 | 字幕条(只显示原因和 ✕ 关闭) | 关闭 → `AppState.stopCaptions` |
-| 字幕运行且展开 | 字幕条 | 悬停:字号、翻译、锁定、📄 字幕记录、🎤 听写、⌄ 收起、⏹ 结束 |
+| 字幕运行且展开 | 字幕条 | 「译」标签菜单:开关译文、目标语言;悬停:字号、锁定、📄 字幕记录、🎤 听写、⌄ 收起、⏹ 结束 |
 | 悬停,没有字幕 | 工具条 | 🎤 听写;◉ 弹出应用列表(`MenuBuilder.captionAppsMenu`)选择后开始;⌃ 菜单 |
 | 悬停,字幕已收起 | 工具条 | ◉ 展开字幕条;结束、字幕记录在 ⌃ 菜单 |
 | 不悬停 | Agent 通知 / 细胶囊 | 字幕在后台运行时细胶囊带红点 |
