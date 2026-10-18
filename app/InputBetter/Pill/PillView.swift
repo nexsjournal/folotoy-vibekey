@@ -11,8 +11,16 @@ struct PillActions {
     var stopCaptions: () -> Void
     /// 打开字幕记录窗口。
     var showTranscript: () -> Void
-    /// 打开 设置 › AI 润色与翻译(下载系统翻译语言 / 配置 AI)。
+    /// 字幕条「翻译设置…」:打开 设置 › 实时字幕(字幕的翻译方式在那里)。
     var openTranslationSettings: () -> Void
+    /// 配置某个在线翻译服务(打开 设置 › 翻译服务 并弹出配置表单)。
+    var configureTranslationProvider: (TranslationProvider) -> Void
+    /// 打开 设置 › 翻译服务 并弹出系统翻译的配置(下载语言包)。
+    var openSystemTranslation: () -> Void
+    /// 打开 设置 › AI 服务(配置 LLM 服务)。
+    var openLLMSettings: () -> Void
+    /// 打开 设置 › 听写(听写翻译不可用、翻译 / 润色失败时点击结果胶囊)。
+    var openDictationSettings: () -> Void
     /// 打开快捷菜单,参数为点击位置(窗口坐标)。
     var showMenu: (CGPoint) -> Void
     var cancel: () -> Void
@@ -32,6 +40,7 @@ struct PillView: View {
     let subtitles: SubtitleController
     let agent: AgentNotifier
     let translation: TranslationService
+    let catalog: LLMModelCatalog
     let ui: PillUIState
     let settings: AppSettings
     let permissions: Permissions
@@ -149,10 +158,13 @@ struct PillView: View {
         GlassEffectContainer(spacing: 12) {
             switch surface {
             case .captionsBar:
-                SubtitleSurface(controller: subtitles, translation: translation, settings: settings, permissions: permissions,
+                SubtitleSurface(controller: subtitles, translation: translation, catalog: catalog, settings: settings, permissions: permissions,
                                 hovering: expanded, onDictate: actions.toggleDictation,
                                 onTranscript: actions.showTranscript,
                                 onTranslationSettings: actions.openTranslationSettings,
+                                onConfigureProvider: actions.configureTranslationProvider,
+                                onConfigureSystem: actions.openSystemTranslation,
+                                onConfigureLLM: actions.openLLMSettings,
                                 onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions)
                     .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 18))
                     .glassEffectID("main", in: glass)
@@ -168,10 +180,15 @@ struct PillView: View {
                 if case .processing(let step) = dictation.phase { processingPill(step.title) }
             case .result:
                 switch dictation.phase {
+                case .done(let result) where result.isWarning:
+                    // 翻译 / 润色失败、已输入原文:警告色,点击打开听写设置。
+                    resultPill(symbol: "exclamationmark.circle.fill", color: DS.warning, text: result.title,
+                               action: actions.openDictationSettings)
                 case .done(let result):
                     resultPill(symbol: "checkmark.circle.fill", color: DS.success, text: result.title)
                 case .failed(let failure):
-                    resultPill(symbol: "exclamationmark.triangle.fill", color: DS.danger, text: failure.title)
+                    resultPill(symbol: "exclamationmark.triangle.fill", color: DS.danger, text: failure.title,
+                               action: Self.opensDictationSettings(failure) ? actions.openDictationSettings : nil)
                 default:
                     EmptyView()
                 }
@@ -226,7 +243,7 @@ struct PillView: View {
             WaveformView(level: dictation.level, active: dictation.phase == .recording)
                 .frame(width: dictation.isHandsFree ? 78 : 92, height: 22)
             if dictation.mode == .translate {
-                Text(verbatim: "译")
+                Text("译")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 5).padding(.vertical, 2)
@@ -259,8 +276,16 @@ struct PillView: View {
         .overlay(FlowingBorder())
     }
 
-    private func resultPill(symbol: String, color: Color, text: String) -> some View {
-        HStack(spacing: 7) {
+    /// 哪些失败点击后打开 设置 › 听写(用户能在那里解决的问题)。
+    private static func opensDictationSettings(_ failure: DictationFailure) -> Bool {
+        if case .translationUnavailable = failure { return true }
+        return false
+    }
+
+    /// 完成 / 失败卡片。传入 `action` 时整个卡片可点击(末尾显示 › 提示),悬停有说明。
+    @ViewBuilder
+    private func resultPill(symbol: String, color: Color, text: String, action: (() -> Void)? = nil) -> some View {
+        let content = HStack(spacing: 7) {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(color)
@@ -269,11 +294,29 @@ struct PillView: View {
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
+                .truncationMode(.tail)
+            if action != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
         }
         .padding(.horizontal, 14)
+        .frame(maxWidth: 520)
         .frame(height: 34)
-        .glassEffect(.regular.tint(.black.opacity(0.5)), in: .capsule)
-        .glassEffectID("main", in: glass)
+        .contentShape(Capsule())
+        if let action {
+            Button(action: action) { content }
+                .buttonStyle(.plain)
+                .help(Text("打开听写设置"))
+                .accessibilityHint(Text("打开听写设置"))
+                .glassEffect(.regular.tint(.black.opacity(0.5)).interactive(), in: .capsule)
+                .glassEffectID("main", in: glass)
+        } else {
+            content
+                .glassEffect(.regular.tint(.black.opacity(0.5)), in: .capsule)
+                .glassEffectID("main", in: glass)
+        }
     }
 
     /// 编程 Agent 通知:完成(绿)/ 等你确认(琥珀),点击关闭。

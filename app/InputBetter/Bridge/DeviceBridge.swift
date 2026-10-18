@@ -20,7 +20,7 @@ final class DeviceBridge {
         var startCaptions: (AudioApp) -> Void
         /// 结束字幕(与 Mac 上的入口走同一个函数,会询问是否保存记录)。
         var stopCaptions: () -> Void
-        /// 翻译是否可用(系统翻译语言包或 AI),与 Mac 上的翻译开关一致。
+        /// 当前翻译方式是否可用(系统语言包已下载 / 在线服务已配置 / AI 已配置)。
         var canTranslate: () -> Bool
     }
 
@@ -207,8 +207,8 @@ final class DeviceBridge {
             guard isTap, !dictation.phase.isBusy else { return }
             if inCaptionsMode {
                 if subtitles.isRunning {
-                    // 和 Mac 上的翻译开关一致:翻译不可用时不能切换(提示图标此时也隐藏)。
-                    if hooks.canTranslate() { settings.subtitleTranslate.toggle() }
+                    // 和字幕条「译」菜单是同一个开关(只对本场字幕有效);当前翻译方式不可用时不能切换(提示图标此时也隐藏)。
+                    if hooks.canTranslate() { subtitles.toggleTranslation() }
                 } else {
                     cycleMode()  // 没有字幕时上键提示是"切换模式"
                 }

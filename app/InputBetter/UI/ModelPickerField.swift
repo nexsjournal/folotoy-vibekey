@@ -3,7 +3,7 @@ import SwiftUI
 /// 模型选择框(LLM 配置、云端识别配置共用):
 /// - 有可选模型时显示下拉菜单,列表来自接口(或服务商的已知模型);
 /// - 末尾的"手动输入…"切换成文本框,用于列表里没有的模型;没有任何选项时直接显示文本框;
-/// - 右侧显示获取进度 / 重新获取按钮,获取失败的原因显示在下方。
+/// - 右侧显示获取进度 / 刷新按钮,获取失败的原因显示在下方。
 /// 只负责展示和编辑绑定值,获取列表由调用方完成(传入 options / loading / error / onRefresh)。
 struct ModelPickerField: View {
     @Binding var selection: String
@@ -47,7 +47,7 @@ struct ModelPickerField: View {
                     Button(action: onRefresh) { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .help("重新获取模型列表")
+                        .help("刷新模型列表")
                 }
             }
             if let error {

@@ -40,19 +40,18 @@ final class MenuBuilder {
             ActionItem(lang.title, checked: settings.language == lang) { [app] in app.settings.language = lang }
         }))
 
-        let polish = ActionItem(String(localized: "AI 润色", bundle: .l10n), checked: settings.polishEnabled) { [app] in app.settings.polishEnabled.toggle() }
-        polish.isEnabled = settings.llmConfigured
+        // 写明是听写的润色(字幕不润色);没配置 AI 服务时说明原因,点了打开 AI 服务设置。
+        let polish = settings.llmConfigured
+            ? ActionItem(String(localized: "听写后 AI 润色", bundle: .l10n), checked: settings.polishEnabled) { [app] in app.settings.polishEnabled.toggle() }
+            : ActionItem(String(localized: "听写后 AI 润色（需要配置 AI 服务）…", bundle: .l10n)) { [app] in app.windows.showSettings(.ai) }
         menu.addItem(polish)
-        let translate = ActionItem(String(localized: "字幕翻译（\(settings.subtitleTarget.title)）", bundle: .l10n), checked: settings.subtitleTranslate) { [app] in
-            app.settings.subtitleTranslate.toggle()
-        }
-        translate.isEnabled = app.translation.isAvailable
-        menu.addItem(translate)
         if settings.subtitleLocked {
             menu.addItem(ActionItem(String(localized: "解锁字幕条", bundle: .l10n)) { [app] in app.settings.subtitleLocked = false })
         }
         // 常驻:状态条被拖到看不见的地方(或换了显示器)时总能找回来。
-        menu.addItem(ActionItem(String(localized: "状态条回到底部中央", bundle: .l10n)) { [app] in app.resetPillPosition() })
+        menu.addItem(ActionItem(String(localized: "状态条回到底部中央", bundle: .l10n), key: app.hotkeys.resetPillPositionDescription) { [app] in
+            app.resetPillPosition()
+        })
 
         menu.addItem(.separator())
         menu.addItem(.header(deviceStatus()))
@@ -71,6 +70,8 @@ final class MenuBuilder {
                 app.setCaptionsCollapsed(!collapsed)
             })
             items.append(ActionItem(String(localized: "结束字幕（\(app.subtitles.appName)）", bundle: .l10n)) { [app] in app.stopCaptions() })
+            items.append(.separator())
+            items += translationItems()
         }
         // 字幕记录:运行中或刚结束(记录还在内存里)时可以查看。
         if app.subtitles.isRunning || !app.subtitles.transcript.isEmpty {
@@ -79,6 +80,41 @@ final class MenuBuilder {
         }
         items += captionAppItems { [app] audioApp in app.startCaptions(audioApp) }
         return submenu(String(localized: "实时字幕", bundle: .l10n), items: items)
+    }
+
+    /// 本场字幕的翻译(和字幕条「译」标签是同一个开关):字幕条锁定(鼠标穿透)后标题栏出不来,从菜单里也要能开关、换语言、换方式。
+    private func translationItems() -> [NSMenuItem] {
+        let subtitles = app.subtitles, settings = app.settings, translation = app.translation
+        let toggle = ActionItem(String(localized: "翻译本场字幕", bundle: .l10n), checked: subtitles.translationEnabled) { [app] in
+            app.subtitles.toggleTranslation()
+        }
+        toggle.isEnabled = subtitles.translationEnabled || translation.isAvailable
+        if !translation.isAvailable, let reason = translation.unavailableReason(settings.subtitleTranslationMethod) {
+            toggle.title += "（\(reason)）"
+        }
+        let languages = TargetLanguage.allCases.map { language in
+            ActionItem(language == .auto ? "\(language.title)（\(TargetLanguage.autoSummary)）" : language.title,
+                       checked: settings.subtitleTarget == language) { [app] in
+                app.settings.subtitleTarget = language
+                app.subtitles.setTranslationEnabled(true)
+            }
+        }
+        var methods: [TranslationMethod] = [.system] + app.translationProviders.configured.map { .provider($0) }
+        if settings.llmConfigured { methods.append(.llm(model: "")) }
+        let methodItems = methods.map { method in
+            let item = ActionItem(method.shortLabel(model: translation.modelName(method)),
+                                  checked: settings.subtitleTranslationMethod.sameKind(as: method)) { [app] in
+                app.settings.subtitleTranslationMethod = method
+            }
+            if let reason = translation.unavailableReason(method) {
+                item.title += "（\(reason)）"
+                item.isEnabled = false
+            }
+            return item
+        }
+        return [toggle,
+                submenu(String(localized: "翻译成", bundle: .l10n), items: languages),
+                submenu(String(localized: "翻译方式", bundle: .l10n), items: methodItems)]
     }
 
     /// 字幕来源选择菜单(胶囊 ◉、开关字幕快捷键共用):列出正在运行的应用,正在出声的排在前面。

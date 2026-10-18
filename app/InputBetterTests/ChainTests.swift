@@ -127,6 +127,10 @@ nonisolated final class DeviceStateMapperTests: XCTestCase {
         XCTAssertEqual(DeviceStateMapper.state(phase: .done(.copied(.windowChanged)), dictationMode: .dictate, deviceMode: .dict, subtitlesRunning: false, subtitleApp: "").msg, "COPIED")
         XCTAssertEqual(DeviceStateMapper.state(phase: .failed(.noSpeech), dictationMode: .dictate, deviceMode: .dict, subtitlesRunning: false, subtitleApp: "").msg, "NO SPEECH")
         XCTAssertEqual(DeviceStateMapper.asciiError(.noModel), "NO MODEL")
+        XCTAssertEqual(DeviceStateMapper.asciiError(.translationUnavailable(reason: "还没有配置 AI 服务")), "NO TRANSLATE", "原因只在 Mac 上显示")
+        // 翻译 / 润色失败退回原文:设备上也不能显示成普通的 TYPED。
+        XCTAssertEqual(DeviceStateMapper.state(phase: .done(.typedUntranslated("timeout")), dictationMode: .translate, deviceMode: .dict, subtitlesRunning: false, subtitleApp: "").msg, "NOT TRANSLATED")
+        XCTAssertEqual(DeviceStateMapper.state(phase: .done(.typedUnpolished("timeout")), dictationMode: .dictate, deviceMode: .dict, subtitlesRunning: false, subtitleApp: "").msg, "NOT POLISHED")
     }
 
     @MainActor func testKeyHints() {

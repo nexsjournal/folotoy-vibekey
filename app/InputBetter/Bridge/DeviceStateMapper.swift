@@ -30,7 +30,7 @@ enum DeviceStateMapper {
         case .processing:
             return State(ui: .proc, mode: dictMode, msg: "")
         case .done(let result):
-            return State(ui: .done, mode: dictMode, msg: result == .typed ? "TYPED" : "COPIED")
+            return State(ui: .done, mode: dictMode, msg: asciiResult(result))
         case .failed(let failure):
             return State(ui: .err, mode: dictMode, msg: asciiError(failure))
         }
@@ -53,6 +53,16 @@ enum DeviceStateMapper {
         case .idle:
             if deviceMode == .sub { return Hints(ok: .play, up: .mode, down: nil) }
             return Hints(ok: .mic, up: up.deviceIcon, down: down.deviceIcon)
+        }
+    }
+
+    /// 完成页下方的文字(ASCII,最长 23 字节)。翻译 / 润色失败退回原文时说明没处理,原因在 Mac 的胶囊上看。
+    static func asciiResult(_ result: DictationResult) -> String {
+        switch result {
+        case .typed: "TYPED"
+        case .typedUntranslated: "NOT TRANSLATED"
+        case .typedUnpolished: "NOT POLISHED"
+        case .copied: "COPIED"
         }
     }
 

@@ -13,6 +13,8 @@ struct TranscriptTextView: NSViewRepresentable {
     let partial: String
     /// 新内容到达时是否自动滚到最底部。
     let followLatest: Bool
+    /// 是否显示译文(记录窗口的「译文」菜单可以隐藏)。
+    var showTranslations = true
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSTextView.scrollableTextView()
@@ -35,9 +37,10 @@ struct TranscriptTextView: NSViewRepresentable {
         guard let textView = scrollView.documentView as? NSTextView, let storage = textView.textStorage else { return }
         let coordinator = context.coordinator
         let entries = transcript.entries
-        // 换了一场会话:全部重建。
-        if coordinator.transcriptID != transcript.id {
+        // 换了一场会话,或切换了显示译文:全部重建。
+        if coordinator.transcriptID != transcript.id || coordinator.showTranslations != showTranslations {
             coordinator.transcriptID = transcript.id
+            coordinator.showTranslations = showTranslations
             coordinator.rendered = []
             coordinator.offsets = []
             storage.setAttributedString(NSAttributedString())
@@ -52,7 +55,7 @@ struct TranscriptTextView: NSViewRepresentable {
         var offsets = Array(coordinator.offsets.prefix(common))
         for entry in entries[common...] {
             offsets.append(start + tail.length)
-            tail.append(Self.render(entry, offset: transcript.offset(of: entry)))
+            tail.append(Self.render(entry, offset: transcript.offset(of: entry), showTranslation: showTranslations))
         }
         let entriesEnd = start + tail.length
         if !partial.isEmpty { tail.append(Self.renderPartial(partial)) }
@@ -73,6 +76,7 @@ struct TranscriptTextView: NSViewRepresentable {
     /// 记住已经渲染的内容,用于只更新尾部。
     final class Coordinator {
         var transcriptID: UUID?
+        var showTranslations = true
         var rendered: [CaptionTranscript.Entry] = []
         /// 每句在文本中的起始位置。
         var offsets: [Int] = []
@@ -102,7 +106,7 @@ struct TranscriptTextView: NSViewRepresentable {
     }
 
     /// 一句:`时间 ⇥ 原文`,有译文时下一行 `⇥ 译文`,句与句之间留间距。
-    static func render(_ entry: CaptionTranscript.Entry, offset: String) -> NSAttributedString {
+    static func render(_ entry: CaptionTranscript.Entry, offset: String, showTranslation: Bool = true) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let spacing = NSMutableParagraphStyle()
         spacing.setParagraphStyle(paragraph)
@@ -117,7 +121,7 @@ struct TranscriptTextView: NSViewRepresentable {
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: spacing,
         ]))
-        if let translation = entry.translation, !translation.isEmpty {
+        if showTranslation, let translation = entry.translation, !translation.isEmpty {
             result.append(NSAttributedString(string: "\t\(translation)\n", attributes: [
                 .font: NSFont.systemFont(ofSize: 13),
                 .foregroundColor: NSColor.secondaryLabelColor,

@@ -20,7 +20,8 @@ final class PillPanelController {
     /// 拖动起点:鼠标位置与窗口原点。
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
 
-    static let size = NSSize(width: 980, height: 320)
+    /// 透明窗口的大小(只有字幕条 / 胶囊所在的区域接收鼠标):高度要放得下最大字号下 3 行原文 + 5 行译文。
+    static let size = NSSize(width: 980, height: 480)
     private static let offsetKey = "pillOffset"
 
     init(content: (PillUIState, PillWindowActions) -> AnyView, settings: AppSettings) {
@@ -91,9 +92,14 @@ final class PillPanelController {
         popUp(menu, at: CGPoint(x: rect.midX, y: rect.minY - 4))
     }
 
+    /// 在按钮正上方弹出菜单:菜单底边贴着按钮顶部(`viewPoint`,窗口坐标、原点左上),水平居中,不遮住胶囊。
+    /// `NSMenu.popUp(at:)` 的位置是菜单左上角,坐标系跟随视图:SwiftUI 的托管视图是翻转坐标(y 向下),
+    /// 所以左上角 = 按钮顶部再往上一个菜单高度。按非翻转坐标算会差出一整个窗口高度(菜单离胶囊很远,或盖住胶囊)。
     func popUp(_ menu: NSMenu, at viewPoint: CGPoint) {
         guard let view = panel.contentView else { return }
-        menu.popUp(positioning: nil, at: NSPoint(x: viewPoint.x, y: view.bounds.height - viewPoint.y), in: view)
+        let size = menu.size
+        let top = view.isFlipped ? viewPoint.y - size.height : view.bounds.height - viewPoint.y + size.height
+        menu.popUp(positioning: nil, at: NSPoint(x: viewPoint.x - size.width / 2, y: top), in: view)
     }
 
     // MARK: - 拖动

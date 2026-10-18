@@ -31,9 +31,10 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - `IB_CLOUD_CONFIG=volcengine`(`CloudProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=models` 直接弹出该云端服务的配置表单;
 - `IB_TRANSCRIBE_FILE`:识别音频文件并打印耗时;
 - `IB_DOWNLOAD`:下载模型;
-- `IB_SUBTITLE_APP`:直接开字幕;
-- `IB_SHOW_TRANSCRIPT`:打开字幕记录窗口(`IB_TRANSCRIPT_TAB=summary` 打开「总结」页,`IB_SUMMARIZE_AFTER=秒` / `IB_SUMMARIZE_ALL_AFTER=秒` 定时触发一次分段 / 全文总结);
-- `IB_DEMO_CAPTIONS`:用示例双语字幕显示字幕条(不采集音频);
+- `IB_SUBTITLE_APP`:直接开字幕(`IB_SUBTITLE_TRANSLATE=1` 同时打开翻译,`IB_TRANSLATION_METHOD=system|mt.deepl|llm` 先切换字幕的翻译方式,`IB_CAPTION_TRACE=1` 打印翻译时序,排查"译文跟不上");
+- `IB_SHOW_TRANSCRIPT`:打开字幕记录窗口(`IB_TRANSCRIPT_TAB=summary` 打开「总结」页,`IB_SUMMARIZE_AFTER=秒` / `IB_SUMMARIZE_ALL_AFTER=秒` 定时触发一次分段 / 全文总结,`IB_TRANSCRIPT_TRANSLATE_AFTER=秒` 定时把字幕记录「全部重新翻译」一次并打印结果,可配合 `IB_DEMO_CAPTIONS`);
+- `IB_TRANSLATE_CONFIG=deepl`(`TranslationProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=translation` 直接弹出该在线翻译服务的配置表单;
+- `IB_DEMO_CAPTIONS`:用示例双语字幕显示字幕条(不采集音频),加 `IB_SHOW_HEADER=1` 一直显示字幕条标题栏;
 - `IB_SHOW_PILL`:显示状态条;
 - `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件。
 

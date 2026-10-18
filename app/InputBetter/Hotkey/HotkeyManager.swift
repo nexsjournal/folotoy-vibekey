@@ -10,6 +10,7 @@ final class HotkeyManager {
         var translateDown: () -> Void
         var translateUp: () -> Void
         var toggleSubtitles: () -> Void
+        var resetPillPosition: () -> Void
     }
 
     private var actions: Actions?
@@ -21,6 +22,12 @@ final class HotkeyManager {
         KeyboardShortcuts.onKeyDown(for: .translateDictate) { [weak self] in self?.actions?.translateDown() }
         KeyboardShortcuts.onKeyUp(for: .translateDictate) { [weak self] in self?.actions?.translateUp() }
         KeyboardShortcuts.onKeyDown(for: .toggleSubtitles) { [weak self] in self?.actions?.toggleSubtitles() }
+        KeyboardShortcuts.onKeyDown(for: .resetPillPosition) { [weak self] in self?.actions?.resetPillPosition() }
+    }
+
+    /// 菜单里显示的「状态条回到底部中央」快捷键;没设置时为 nil(菜单不显示提示)。
+    var resetPillPositionDescription: String? {
+        KeyboardShortcuts.getShortcut(for: .resetPillPosition)?.description
     }
 
     /// 显示在界面上的听写快捷键,如"⌥Space"。

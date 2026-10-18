@@ -128,7 +128,7 @@ final class TranscriptSummarizer {
         resetIfNewSession()
         guard fullTask == nil else { return }
         guard let config = settings.summaryLLMConfig else {
-            error = String(localized: "请先在 设置 › AI 润色与翻译 中配置服务", bundle: .l10n)
+            error = String(localized: "请先在 设置 › AI 服务 中配置", bundle: .l10n)
             return
         }
         let transcript = subtitles.transcript
@@ -213,7 +213,7 @@ final class TranscriptSummarizer {
 
     private func summarize() {
         guard let config = settings.summaryLLMConfig else {
-            error = String(localized: "请先在 设置 › AI 润色与翻译 中配置服务", bundle: .l10n)
+            error = String(localized: "请先在 设置 › AI 服务 中配置", bundle: .l10n)
             return
         }
         let transcript = subtitles.transcript

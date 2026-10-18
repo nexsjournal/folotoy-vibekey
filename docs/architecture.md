@@ -10,18 +10,19 @@ App(AppState 组合根)
  ├─ Pill ───┤ 只读状态、发意图
  ├─ Settings / Onboarding / UI
  ├─ Dictation ──→ Audio ──→ ASR ──→ LLM / Translate ──→ Support/KeySender
- ├─ Subtitles ──→ Audio(AppAudioTap)──→ ASR ──→ Translate(系统翻译 + LLM)
+ ├─ Subtitles ──→ Audio(AppAudioTap)──→ ASR ──→ Translate(系统翻译 / 在线机器翻译 / LLM,一次一种)
  ├─ Bridge(DeviceBridge / DeviceStateMapper)──→ Device(DeviceLink)
  ├─ Vibe(KeyAction / AgentNotifier / AgentHookInstaller)
  ├─ Models(ModelManager / ModelCatalog)
- ├─ Translate(TranslationService / SystemTranslator / LanguageDetector)──→ Translation 框架 + LLM
+ ├─ Translate(TranslationService / SystemTranslator / LanguageDetector / MachineTranslation / Batch)
+ │     ──→ Translation 框架 + 在线翻译服务(Support/Signing、Support/CredentialStore)+ LLM
  └─ ASR/Cloud(CloudASRStore / CloudASREngine / StreamingCloudSession + RealtimeCodec)──→ Support/CredentialStore
 ```
 
 依赖规则:
 
 - 下层不依赖上层。
-- 跨模块只通过协议或小接口:`AudioSource`、`ASREngine`、`ASRSession`、`SegmentDecoder`、`DeviceLink` 公开方法、`PillActions`、`HotkeyManager.Actions`、`DeviceBridge.Hooks`。
+- 跨模块只通过协议或小接口:`AudioSource`、`ASREngine`、`ASRSession`、`SegmentDecoder`、`MachineTranslator`、`DeviceLink` 公开方法、`PillActions`、`HotkeyManager.Actions`、`DeviceBridge.Hooks`。
 
 ## 只有一份实现的公共能力
 
@@ -34,7 +35,7 @@ App(AppState 组合根)
 | 键盘布局键码 | `KeyLayout.keyCode(for:)` | TextInserter、KeySender |
 | 识别文本处理 | `TranscriptText`(join / normalize / toSimplified / isHallucination) | SegmentedSession、AppleSpeechSession、DictationController、SubtitleController |
 | 非流式模型分段识别 | `SegmentedSession` + `VoiceActivityDetector` | SenseVoiceEngine、WhisperEngine |
-| LLM 请求 | `LLMClient.complete` | TextProcessor、LLMConfigForm(测试连接) |
+| LLM 请求(一次 / 流式) | `LLMClient.complete` / `LLMClient.stream` | TextProcessor(润色、翻译、批量、润色译文)、TranscriptSummarizer、LLMConfigForm(测试连接) |
 | 设备 ASCII 文本 | `DeviceText.ascii` | DeviceLink 发出的所有命令 |
 | 设备状态映射 | `DeviceStateMapper` | DeviceBridge |
 | esptool 调用与输出解析 | `EsptoolRunner` | FirmwareFlasher |
@@ -45,14 +46,24 @@ App(AppState 组合根)
 | 设备按键提示(图标) | `DeviceStateMapper.keyHints` → `DeviceIcon`、`KeyAction.deviceIcon`、`DeviceIcon.sfSymbol` | DeviceBridge、Passport 示意图 |
 | 按键手势识别 | `KeyPressTracker` | DeviceBridge |
 | 应用前置聚焦 | `AppSwitcher.activate` | DeviceBridge(切换应用) |
-| 密钥存储(本机 0600 文件,不用钥匙串) | `CredentialStore` | AppSettings.llmAPIKey、CloudASRStore |
+| 密钥存储(本机 0600 文件,不用钥匙串) | `CredentialStore` | AppSettings.llmAPIKey、CloudASRStore、MachineTranslationStore |
 | 云端流式会话(连接 / 缓冲 / 超时 / 重连) | `StreamingCloudSession` | 火山引擎、百炼、ElevenLabs、Soniox(各自只实现 `RealtimeCodec`) |
 | Float → PCM16 / WAV | `AudioFormats.pcm16` / `AudioFormats.wav` | StreamingCloudSession、OpenAITranscriptionDecoder |
 | gzip | `Gzip` | VolcengineCodec |
 | 云端服务创建会话 / 测试连接 | `CloudASREngine.session` / `CloudASREngine.test` | CloudASREngine.makeSession、CloudConfigSheet |
 | OpenAI 兼容接口地址 / 鉴权 / 错误信息 / 模型列表 | `OpenAICompatibleAPI` | LLMClient、OpenAITranscriptionDecoder、LLMConfigForm、CloudASREngine.fetchModels |
 | 模型下拉选择(列表 + 手动输入 + 重新获取) | `ModelPickerField` | LLMConfigForm、CloudConfigSheet |
-| 翻译(系统翻译 + LLM 组合) | `TranslationService`(translateLine / quickTranslate / translateDictation) | SubtitleController、CaptionFeed、DictationController |
+| 翻译入口(按翻译方式分派,一次一种) | `TranslationService`(translateLine / translateBatch / translateChunk / draft / refine / translateDictation) | SentenceTranslator、LiveDraft、SubtitleController、TranscriptTranslator、DictationController |
+| 翻译方式(系统 / 在线服务 / AI + 模型) | `TranslationMethod`(字幕 `AppSettings.subtitleTranslationMethod`、听写 `dictationTranslationMethod`) | 字幕条方式菜单、设置 › 翻译、字幕记录、听写 |
+| 在线机器翻译(6 家) | `MachineTranslator` 协议 + `Providers/*Translator`(makeRequest / parse)、`MachineTranslatorFactory` | TranslationService、TranslationProviderSheet(测试连接) |
+| 在线翻译凭据 | `MachineTranslationStore` | TranslationService、设置 › 翻译 |
+| 请求签名(HMAC-SHA256 / MD5) | `SigningCrypto`、`VolcengineSigner`、`TencentTC3Signer` | 火山、腾讯、百度翻译 |
+| 分块(按语言对分组、跳过同语言、按上限切块) | `BatchPlanner` + `BatchLimits` | TranslationService.translateBatch / plan |
+| 限流(并发 + QPS,字幕和记录共用) | `RequestGate` | TranslationService |
+| 整句译文去重 / 合并请求 | `SentenceTranslator` | CaptionFeed(字幕条)、SubtitleController(记录) |
+| 边说边译(片段翻译 + 尾巴重翻 + 稳定) | `LiveDraft` + `DraftSegments` + `LiveDraftPolicy` + `DraftStabilizer` | CaptionFeed |
+| 翻译方式 / 目标语言菜单项 | `TranslationMethodMenuItems`、`TargetLanguageMenuItems` | 字幕条标签、字幕记录工具条 |
+| LLM 模型列表(缓存) | `LLMModelCatalog` | 翻译方式菜单、总结页 |
 | 流式识别结果稳定化(LocalAgreement) | `CaptionSegmenter` | CaptionFeed |
 | 断句 | `SentenceSplitter` | SubtitleController(记录按句)、CaptionSegmenter |
 | 字幕条两行滚动文字 | `RollingCaptions` | CaptionFeed |
@@ -60,7 +71,8 @@ App(AppState 组合根)
 | 字幕记录分段总结 | `TranscriptSummarizer` | SummaryView |
 | 系统离线翻译 | `SystemTranslator`(Translation 框架,会话缓存) | TranslationService |
 | 语言识别 / 同语言判断 | `LanguageDetector` | TranslationService、TargetLanguage.resolved |
-| 系统翻译语言包状态与下载 | `SystemTranslationRow`(`.translationTask` → prepareTranslation) | 设置 › AI 润色与翻译、引导「翻译与 AI」 |
+| 系统翻译语言包状态与下载(按目标语言) | `SystemTranslationRow`(`.translationTask` → prepareTranslation) | 设置 › 翻译 › 系统翻译「配置」(SystemTranslationSheet)、引导「翻译与 AI」 |
+| 字幕翻译时序追踪(调试) | `CaptionTrace`(IB_CAPTION_TRACE=1) | CaptionFeed、LiveDraft |
 | 结束字幕(含询问保存) | `AppState.stopCaptions` | 字幕条 ⏹、⌃ 菜单 / 菜单栏、快捷键、设置 › 实时字幕、Passport、切换应用 |
 | 字幕记录保存成文件 | `TranscriptSaver`(`CaptionTranscript.plainText`) | AppState.stopCaptions / prepareToQuit、字幕记录窗口 |
 
@@ -71,8 +83,8 @@ KeyboardShortcuts.onKeyDown(.dictate,默认 ⌥空格)
  → HotkeyManager.Actions.dictateDown
  → DictationController.pressDown(mode:)
  → PressInterpreter.down → .start
- → DictationController.start(mode:)
-     ├─ ModelManager.isInstalled / EngineRegistry.engine(for:)
+ → DictationController.start(mode:)(正在忙时先 PressInterpreter.reset 再忽略,下一次按键不会被吞掉)
+     ├─ DictationEngineSource.dictationEngine(默认 InstalledDictationEngines → ModelManager.isInstalled / EngineRegistry.engine(for:))
      ├─ makeSource() → MicSource | PassportMicSource ── AudioSource.start
      │     MicSource: AVAudioEngine tap → AudioConverter.convert → onSamples
      │     onSamples → SampleBuffer.append(会话就绪前先缓存)
@@ -86,13 +98,19 @@ KeyboardShortcuts.onKeyUp(.dictate) → HotkeyManager.Actions.dictateUp
  → DictationController.pressUp → PressInterpreter.up → .stop
  → DictationController.stop
      → (150 ms 尾音)AudioSource.stop
-     → await sessionTask → ASRSession.finish → 文本
+     → await sessionTask → ASRSession.finish → 文本(等事件任务处理完,结束时才报的错误也能显示)
      → TranscriptText.normalize
-     → postProcess:TextProcessor.polish | TranslationService.translateDictation
-         (有 LLM 且方式允许 → TextProcessor.translate;否则 LanguageDetector → SystemTranslator)(失败退回原文)
-     → TextInserter.insert
-          → snapshot 剪贴板 → copy → KeySender.press(⌘V, KeyLayout) → 700 ms 后 restore
-     → succeed(DictationResult) / fail(DictationFailure)(类型化结果,界面用 .title 显示)→ 1.2 s 后回到 idle
+     → DictationPostProcessing.process(默认 DictationPostProcessor):TextProcessor.polish | TranslationService.translateDictation
+         (按 AppSettings.dictationTranslationMethod:AI → TextProcessor.translate;系统 / 在线服务 → translateBatch;目标 = translateTarget)
+         失败退回原文,但带上 PostProcessWarning(.untranslated / .unpolished + 原因),结果不再显示成绿色「已输入」
+         可用性:TranslationService.canTranslateDictation(按听写的方式和目标语言,系统翻译看听写语言对的语言包),
+           不可用 → fail(.translationUnavailable(reason:)),原因来自 unavailableReason
+     → TextInserting.insert(默认 TextInserter)
+          → snapshot 剪贴板 → copy → KeySender.press(⌘V, KeyLayout) → 立即返回 .pasted;
+            恢复剪贴板放独立 Task(700 ms 后,仍校验 changeCount;PendingRestore 把连续多次输入串起来、沿用第一份快照)
+     flowTask 每个 await 之后检查 Task.isCancelled:处理中取消(Passport 长按下键、退出)不再粘贴、不报「引擎未就绪」
+     → succeed(DictationResult) / fail(DictationFailure)(类型化结果,界面用 .title 显示)→ 成功 1.2 s / 失败 2 s / 带原因的警告(翻译失败已输入原文、翻译不可用)4 s 后回到 idle
+       警告和「翻译不可用」的胶囊可点击 → PillActions.openDictationSettings → 设置 › 听写
 ```
 
 识别会话内部分两种。
@@ -141,6 +159,10 @@ EngineRegistry.engine(for: "cloud-…") → CloudASREngine.makeSession → Cloud
       → VAD 分段 → 松开后整段 AudioFormats.wav → MultipartForm → POST /audio/transcriptions
 出错:会话发出 TranscriptEvent.failure → DictationController.streamError(没有文字时 fail(.other))
  / SubtitleController.streamError(字幕条红字);字幕模式断线后指数退避自动重连,断线时的中间结果先定稿
+会话层(CloudStreamPump,参数 CloudStreamTiming):就绪超时(8 秒)不再静默——报告 CloudASRError.timeout(服务名),
+ 「测试连接」因此能发现地址 / 资源 ID 错误;握手 401 / 402 / 403 → CloudASRError.rejected(status:)(isFatal,不重连);
+ 字幕模式连续 3 次(maxFailedAttempts)没能就绪就报告最近一次错误、停止重连,就绪过一次计数和退避复位;
+ 每条连接(CloudConnection)结束时 finishTasksAndInvalidate,重连前先关旧连接,迟到的消息按代号忽略
 ```
 
 ## 2. 听写(Passport OK 键)
@@ -171,7 +193,7 @@ DeviceBridge.sync(16 Hz 定时器,或连接变化时)
  dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在运行也不影响(此时设备显示字幕页,按键仍是听写模式的含义)
  sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时 Hooks.stopCaptions(= AppState.stopCaptions)
        (Mac 上正显示模态框时不响应)
-       上 / 下短按 = 字幕翻译开关(需已配置 AI,与 Mac 上一致)/ 收起展开字幕条(仅字幕运行时)
+       上 / 下短按 = 本场字幕的翻译开关(SubtitleController.toggleTranslation,当前翻译方式可用时)/ 收起展开字幕条(仅字幕运行时)
 DeviceStateMapper.state:设备临时错误(如 NO APPS,2 秒)→ 听写阶段 → 列表 → 字幕页(字幕在运行,不论模式;mode 如实上报)→ 空闲页
 DeviceStateMapper.keyHints:字幕页按模式给提示(sub:停止 / 翻译(翻译不可用时隐藏)/ 收起;dict / tr:麦克风 + vibe 动作)
 OK 键:听写进行中(含从 Mac 开始的)始终交给听写(pressDown / pressUp,记录 okDrivesDictation);
@@ -203,7 +225,7 @@ DeviceLink.onKey(key, down|long|up, ack) → DeviceBridge.handle
 ```
 DeviceBridge(见 3b 的手势结果)
  ├─ agentAck 归属 → AgentNotifier.dismiss(这次按压只用来关闭通知)
- ├─ 字幕模式:设置.subtitleTranslate.toggle | Hooks.toggleSubtitleBar → PillUIState.subtitleCollapsed
+ ├─ 字幕模式:SubtitleController.toggleTranslation | Hooks.toggleSubtitleBar → PillUIState.subtitleCollapsed
  └─ perform(KeyAction)
        → .pasteLast → DictationController.reinsertLast → TextInserter.insert
        → .nextMode  → DeviceBridge.cycleMode → sync
@@ -241,35 +263,74 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
           → TranscriptText.normalize
-          → .partial → CaptionFeed.partial(快速路径:有系统翻译或不翻译)
+          → .partial → CaptionFeed.partial(每段话开始时锁定路径,说完这段才换,避免中途换方式导致句子重复)
+              分句路径(不翻译 / 系统翻译 / 在线服务):
               → CaptionSegmenter.hypothesis(LocalAgreement-2:连续两次结果一致的词才确认,已确认文字只追加不改写)
               → SentenceSplitter.split(已确认文字,对增长稳定)→ 新确认的整句 → CaptionUnit
-              → TranslationService.quickTranslate(系统翻译,几十毫秒)→ unit.translation
+                  (LiveDraft.drafts(for:) 把这句对应片段的译文交给它先显示;对不上片段时整份暂定译文作为 heldDraft 先顶着,
+                   等到没有句子在等译文(RollingCaptions.unitsWaiting 为 false)时 CaptionFeed.advance 丢掉 heldDraft)
+              → AI 方式下分句路径不自己请求(CaptionFeed.add 跳过 LLM),定稿时 CaptionFeed.link 按文字把句子和记录关联,
+                 AI 译文由 SubtitleController 串行翻译记录后同步过来——同一句只请求一次
+              → SentenceTranslator.translate(同一句去重、60 毫秒内到达的多句合成一批)→ TranslationService.translateBatch → unit.translation
+              → 正在说的部分 → LiveDraft.update(已确认未成句文字, 全部正在说的文字)(边说边译,设置可关):
+                  DraftSegments.split(在逗号 / 句号处切,没有标点时满 14 个词硬切;已确认文字只增,切出的片段不再变)
+                  → 每段 SentenceTranslator.translate 一次(译文稳定,之后成句时同样的文字直接复用)
+                  → 不足一段的尾巴:LiveDraftPolicy 节流(系统 0.3 秒 / 在线服务 1 秒且多出 3 个词)→ TranslationService.draft
+                     → DraftStabilizer(遮住末尾 2 个词 / 3 个字、只增;新措辞连续两次一致才改写,不会冻住)
+                  → 暂定译文 = 各段译文 + 尾巴译文(新片段还在翻译时不缩短,不闪)
+                  为什么分片段:火山引擎等识别中几乎不打句号,句子要等定稿(实测 10~20 秒)才切得出;
+                  整段越来越长的文字反复重翻会让译文开头不停变化(实测暂定译文冻住 10 秒)
+              记录路径(AI 翻译):识别中不切句,原文行显示整段未定稿文字
           → .final → SentenceSplitter.split(final: true)→ 每句一条 CaptionTranscript.Entry(完整记录)
-              → CaptionFeed.final:快速路径 → CaptionSegmenter.final(用已给出部分的末尾词定位,只补没给出的句子;
-                 多段分次定稿时超出部分留给下一段抵扣);只有 AI 时 → 按记录句子生成 unit 并关联
-              → 开启翻译 → 每句 TranslationService.translateLine(前 3 句原文 + 译文作上下文):
-                 ① LanguageDetector → TargetLanguage.resolved → SystemTranslator.translate → .draft
-                 ② LLM:TextProcessor.translateSubtitle(带初稿)→ LLMClient.stream(SSE)→ 完整后 .final
-                 ③ 只有系统翻译 → 初稿即定稿;都失败 → .failed
-                 → CaptionTranscript.setTranslation(draft:)(记录窗口 / 保存文件用 AI 版)
-                 → CaptionFeed.entryTranslation(同步到关联的 unit,还没显示的句子用上更好的译文)
-          → 打开翻译 / 换目标语言(字幕条翻译菜单或设置)→ SubtitleController.translateLatest(清空并重译最新一句)
- → CaptionFeed.advance(每次新内容 + 每 0.5 秒)→ RollingCaptions.update(同传类应用的两行滚动字幕):
+              → CaptionFeed.final:分句路径 → CaptionSegmenter.final(用已给出部分的末尾词定位,只补没给出的句子;
+                 多段分次定稿时超出部分留给下一段抵扣);记录路径 → 按记录句子生成 unit 并关联
+              → 本场开启了翻译(SubtitleController.translationEnabled)→ SubtitleController.translate(记录的句子):
+                 AI → TranslationService.translateLine(前 3 句原文 + 译文作上下文)→ TextProcessor.translateSubtitle
+                    → LLMClient.stream → .streaming(暂定,同步到字幕条)→ .final
+                 系统 / 在线服务 → SentenceTranslator(与字幕条同一句共享结果,不重复请求)
+                 → CaptionTranscript.setTranslation(target:) / CaptionFeed.entryTranslation
+          → 字幕条点「译」→ SubtitleController.toggleTranslation(翻译成默认语言 AppSettings.subtitleTarget,再点关闭);
+            「译」旁 ⌄ 选语言 → subtitleTarget(同时成为默认语言)+ setTranslationEnabled(true);
+            每场 start 时重置为关闭(不持久化)
+          → 换目标语言 / 翻译方式 → AppState 监听 → SubtitleController.translationConfigChanged
+              → SentenceTranslator.reset + CaptionFeed.restartTranslation(旧译文不再显示,最新一句重译)+ 记录最新一句重译;
+              代数(translationGeneration / CaptionFeed.generation)丢弃旧设置下返回的结果
+ → CaptionFeed.advance(每次新内容 + 每 0.5 秒,同时 LiveDraft.tick 补上停顿时被节流挡住的最后一次)
+   → RollingCaptions.update(同传类应用的滚动字幕,Google 重翻译 + 稳定前缀的做法):
      原文行 = 已确认句子 + 正在说的部分(跟着语音实时走,未确认部分略暗);
-     译文行 = 按句子顺序接上的译文(接上后锁定不改;等译文超时 / 失败的句子跳过),通常比原文慢一两句;
-     起点固定、只在末尾增长(换行稳定),累计超过 420 字符才按整句移动起点
- → SubtitleSurface:原文(字号 64%)在上、译文(68%,加粗)在下,各一个最多 2 行的框(不足 2 行按实际高度),底部对齐、旧行整行滚出,左对齐;
+     译文行 = 按句子顺序:整句译文(到达后锁定)/ 还没定下的句子先用暂定译文 + 末尾接上正在说的半句的暂定译文,
+       所以只比原文慢零点几秒;前面连续定下的部分正常显示,从第一处暂定内容起略暗;
+     不丢句:一句等整句译文超过 timeout(系统 3 秒 / 在线 8 秒 / AI 15 秒)或失败 → 用暂定译文、没有就用原文顶替;
+       只有一句什么都没有时后面的才等它(translationWaiting → 「翻译中…」);
+     译文按句分段(translationLines,每句单独起一行,正在说的半句是最后一段):读者的位置总在句首,
+       一句的译文变化(暂定 → 整句)只影响它自己那一段,前面已读的句子不重排;最多保留 `RollingCaptions.maxTranslationLines`(40)句,旧句子整句滚出
+       (实测连续成段时,暂定译文替换、新行出现会让整段跳动,用户反馈"一滚动就不知道读到哪里");
+     原文行:起点固定、只在末尾增长(换行稳定),累计超过 900 字符才按整句移动起点
+ → SubtitleSurface:原文在上、译文(加粗)在下,字号各自可调(subtitleSourceFontSize / subtitleTranslationFontSize,
+     12–40;标题栏 小 / 大 两个一起调;旧版单一字号按 75% / 85% 换算);行数可调(设置 › 实时字幕:译文 2–5 行,默认 3;
+     翻译时原文 0–3 行,默认 2,0 = 只看译文;译文还没有时至少 1 行原文);不翻译时原文 2 行大字;
+     译文区 TranslationScrollView(Apple Music 歌词式):每句一段,跟随最新时底部对齐,新句子 / 某段多出约一行时
+       平滑滚到底(0.25 秒);亮度按新旧递减(最新 1.0,往上 0.82、0.68),暂定内容 0.55;
+       用户用触控板 / 滚轮往回滚 → 停止跟随(鼠标在译文区上时装 NSEvent 本地 scrollWheel 监听,scrollingDeltaY > 0 才算;
+       不从滚动位置推断——跟随时程序滚动 / 暂定译文变短引起的位置变化会误判,「回到最新」会闪一下),
+       往回看时已定句子都 0.92,右下角「回到最新」;点它、滚回最底部或停止滚动 6 秒 → 恢复跟随;保留最近 40 句;
+       原文和提示不接收鼠标事件,译文区接收(锁定字幕条时整块穿透,只能跟随);左对齐;
+     顶部淡出(被裁掉一半的旧句子渐隐,表示上面还有内容);
+     透明窗口高 480(放得下最大字号下 3 行原文 + 5 行译文),只有字幕条区域接收鼠标;
      有字幕后宽度固定(宽度变化会让换行重排);标题栏只在悬停时出现(先加宽再淡入、先淡出再收窄);
-     字幕文字 allowsHitTesting(false),不挡标题栏按钮
- → SubtitleSurface.translationMenu(「译」标签):开关译文、选择目标语言 → AppSettings.subtitleTranslate / subtitleTarget
+     字幕文字 allowsHitTesting(false),不挡标题栏按钮;翻译出错 / 当前方式不可用时在译文位置说明原因
+ → 标题栏:TranslationTargetChip(「译」/「译 · 语言」点一下开关,旁边 ⌄ 选语言)+ TranslationMethodChip(开启翻译后出现:
+     系统翻译 / 已配置的在线服务 / AI 模型列表(LLMModelCatalog)/ 添加在线翻译服务 → WindowManager.showSettings(.translation, configure:))
+     + SourceLinesChip(开启翻译后出现:「原文 N 行」/「只看译文」,菜单选 不显示 / 1 / 2 / 3 → AppSettings.subtitleSourceLines,
+       和 设置 › 实时字幕 › 翻译时原文行数 同一个设置)
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
 结束(所有入口):AppState.stopCaptions
  → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
    之前:confirmStopCaptions 时下一轮事件循环 CaptionsConfirmation.confirmStop(结束 / 取消 / 不再询问);
    Passport 上结束不确认(设备上没法回答 Mac 上的确认框)
  → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions);保存、总结由用户在窗口里处理
-正在转录时选了别的应用:AppState.startCaptions → 同样先确认 → stop → start(新的一场)
+正在转录时选了别的应用:AppState.startCaptions → 当前记录有未保存内容 → CaptionsConfirmation.confirmSwitch
+ (「切换」(破坏性)/「打开字幕记录」(不切换,先去保存)/「取消」;不受「不再询问」影响)→ stop → start(新的一场);没有未保存内容直接切换
 窗口「保存…」→ TranscriptSaver.save(in: window)→ NSSavePanel → CaptionTranscript.plainText(summary: 总结在前)→ 写 UTF-8 文本
 退出 app:AppDelegate.applicationShouldTerminate → AppState.prepareToQuit(字幕在进行时 CaptionsConfirmation.confirmQuit,取消则不退出)
 ```
@@ -277,11 +338,27 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 字幕记录(app 不保存任何历史,记录只在内存里,下次开始字幕或退出后清除):
 
 ```
-字幕条 📄 / ⌃ 菜单与菜单栏「字幕记录…」/ 设置 › 实时字幕「查看」→ WindowManager.showTranscript
+字幕条 📄 / ⌃ 菜单与菜单栏「字幕记录…」/ 结束字幕后自动打开 → WindowManager.showTranscript
  → TranscriptView(只读 SubtitleController.transcript / partial,跟随最新自动滚动)
      「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
      「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
- 正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇)
+ 正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇;showTranslations 切换时重建)
+ 「字幕」页顶部 TranscriptTranslationBar(字幕进行中或结束后都可用,不会自动开始;和字幕条一样「选语言 = 翻译」):
+     语言菜单(还没有译文时标签是「翻译」,有译文时「译文:语言」)选一个语言
+       → targetOverride(默认跟随字幕条)+ showTranslations = true + translateMissing
+         (没有译文 / 失败 / 译文不是所选语言;实时翻译 10 秒内的新句子交给它)
+     「显示译文」(有译文时才出现)→ showTranslations(拷贝 / 保存也按它)
+     方式菜单(TranslationMethodMenuItems,target = 窗口所选语言)→ methodOverride(默认跟随设置);
+       在这里添加在线服务 → 设置 › 翻译服务 的配置表单,保存后设为字幕的翻译方式(useFor: .subtitles)
+     ⋯「翻译未翻译的句子(N 句)」→ translateMissing;「全部重新翻译」→ retranslateAll;
+       「AI 润色译文」→ polish(已有本语言译文、还没润色过的句子)
+     出错行「检查配置…」→ 按出错的任务 / 当前方式直接打开对应配置(语言包 / 服务表单 / AI 服务)
+       → TranslationService.plan(BatchPlanner)→ 固定数量的工作任务(并发 = BatchLimits.maxConcurrent)
+          → translateChunk(在线服务 / 系统 / AI 编号批量 Prompts.translateBatch → NumberedLines;对不上时逐句)
+          或 refine(Prompts.refineTranslations,每块 12 句 + 前 3 句上下文)→ RequestGate
+       → ResultWriter 每 0.3 秒 → SubtitleController.applyTranslations(只写回同一场)→ CaptionTranscript.setTranslations
+       → 进度条「翻译 32/120」+「取消」;密钥 / 额度 / 时间错误停止整批并显示原因,其他错误只标记那几句失败
+     新的一场字幕 → resetIfNewSession(复位选择、取消任务)
  「总结」标签页 → SummaryView(出现 / 消失 → TranscriptSummarizer.setTabVisible)
      WindowManager.showTranscript / windowWillClose / 最小化 → setWindowVisible
      isActive = 窗口开着 && 停在总结页 && TranscriptSummarizer.enabled(每场新的字幕默认关闭);不满足 → 暂停定时检查并取消进行中的请求
@@ -307,13 +384,14 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 | --- | --- | --- |
 | 听写录音 / 处理 / 结果 | 听写形态(优先级最高) | 听写进行时字幕在后台继续采集,解码暂停(`SubtitleController.setDecodingPaused`),结束后补上 |
 | 字幕启动失败 | 字幕条(只显示原因和 ✕ 关闭) | 关闭 → `AppState.stopCaptions` |
-| 字幕运行且展开 | 字幕条 | 「译」标签菜单:开关译文、目标语言;悬停:字号、锁定、📄 字幕记录、🎤 听写、⌄ 收起、⏹ 结束 |
+| 字幕运行且展开 | 字幕条 | 「译」标签:选语言开启 / 再点当前语言关闭;翻译方式标签(开启后出现):方式与 AI 模型;原文行数标签(开启后出现):翻译时原文 0–3 行;悬停:字号、锁定、📄 字幕记录、🎤 听写、⌄ 收起、⏹ 结束 |
 | 悬停,没有字幕 | 工具条 | 🎤 听写;◉ 弹出应用列表(`MenuBuilder.captionAppsMenu`)选择后开始;⌃ 菜单 |
 | 悬停,字幕已收起 | 工具条 | ◉ 展开字幕条;结束、字幕记录在 ⌃ 菜单 |
 | 不悬停 | Agent 通知 / 细胶囊 | 字幕在后台运行时细胶囊带红点 |
 
-开始字幕的所有入口(胶囊 ◉、开关字幕快捷键、菜单栏、设置页、Passport 字幕模式)都先选择应用,然后调用 `AppState.startCaptions`(展开字幕条 → `SubtitleController.start`);不沿用上次的应用。
-正在为某个应用生成字幕时选择另一个应用:`AppState.startCaptions` 先走 `stopCaptions`(询问保存上一场),再开始新的;
+开始字幕的所有入口(胶囊 ◉、开关字幕快捷键、菜单栏、Passport 字幕模式)都先选择应用(设置页不再放应用列表),然后调用 `AppState.startCaptions`(展开字幕条 → `SubtitleController.start`);不沿用上次的应用。
+正在为某个应用生成字幕时选择另一个应用:`AppState.startCaptions` 在上一场记录有未保存内容时弹切换确认框
+(`CaptionsConfirmation.confirmSwitch`,可以选「打开字幕记录」先保存),确认后 stop → start;开始新的一场会替换上一场记录;
 选的是正在转录的同一个应用时只展开字幕条,不重新开始(不清空记录)。
 
 启动规则(`SubtitleController.start`):每次 start / stop 递增 `generation`,启动任务(加载模型 / 连接云端)完成时代数变了就丢弃会话,
@@ -321,8 +399,8 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 字幕条显示原因(`ModelManager.unavailableMessage` 区分"未下载"和"未配置"),只有 ✕ 关闭,点了走 `stopCaptions`(不询问保存)。
 设置里隐藏了状态条时,字幕运行 / 失败 / 选择字幕应用期间仍强制显示(`PillPanelController.show(force:)`),结束后恢复隐藏。
 听写进行中才开始的字幕:会话进入 running 时按 `dictation.phase` 立即暂停解码。
-同时只会有一个"保存字幕吗?"询问框(`TranscriptSaver.isAsking`);询问框显示期间 Passport 字幕模式的 OK 不响应。
-结束字幕的所有入口都调用 `AppState.stopCaptions`。字幕条锁定(穿透)后,收起 / 展开 / 结束都可以在菜单栏和 ⌃ 菜单里操作。
+结束字幕的所有入口都调用 `AppState.stopCaptions`。字幕条锁定(穿透)后,收起 / 展开 / 结束、本场翻译的开关 / 翻译成 / 翻译方式
+(`MenuBuilder.translationItems`,和字幕条「译」标签是同一个开关)都可以在菜单栏和 ⌃ 菜单里操作,不会走进死胡同。
 
 空闲胶囊:`IdleCapsule` 呼吸(Core Animation 循环,尊重"减少动态效果");`PillView.task(id: activityKey)` 计时,
 30 秒无活动 → dimmed(内芯降低亮度、玻璃换 clear 样式),任何状态 / 悬停变化立即恢复。
@@ -333,7 +411,15 @@ PillPanelController.startMouseTracking → updateHover(热区来自 PillView.rep
  → PillUIState.isHovering → PillView.updateExpanded(延迟收起)
  → PillView.pill:按 DictationController.phase 加字幕和 Agent 状态选择形态
 点击 → PillActions(AppState 注入)→ DictationController.toggle / SubtitleController / MenuBuilder.build → popUp
+  (PillPanelController.popUp:按菜单尺寸算左上角,菜单底边贴着按钮顶部、水平居中、不遮住胶囊;
+   SwiftUI 托管视图是翻转坐标(y 向下),左上角 = 按钮顶部 − 菜单高度;按非翻转坐标算会差出整个窗口高度)
 拖动 → DragGesture → PillWindowActions.dragChanged/dragEnded → PillPanelController 移动窗口并保存偏移
+回到底部中央:菜单「状态条回到底部中央」/ 快捷键(KeyboardShortcuts .resetPillPosition,默认未设置,设置 › 快捷键 录制)
+  → HotkeyManager.Actions.resetPillPosition → AppState.resetPillPosition → PillPanelController.resetPosition(清除偏移,放到鼠标所在屏幕)
+菜单栏图标:StatusMenuController(NSStatusItem.menu 常驻,系统负责在被点的那块屏上定位)
+  → 打开前 NSMenuDelegate.menuNeedsUpdate → MenuBuilder.build(和 ⌃ 菜单同一份内容)→ 菜单项搬进常驻菜单
+  (macOS 27 多显示器已知系统问题:图标在另一块屏被收进 `<<` 溢出区时,在那块屏点一下再回原屏点图标,
+   系统按过期的状态项窗口位置弹菜单而偏离图标;同样收在溢出区的其他应用也一样,不在 app 里自行计算位置)
 ```
 
 ## 7. Agent 通知(vibe coding)
@@ -376,23 +462,71 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
  → ModelManager.state(cloud-…) == .installed(配置齐全即"可用")→ 可选为听写模型 / 字幕模型
 听写和字幕各自选模型:AppSettings.dictationModelID / subtitleModelID(字幕选项里列出所有可用模型,含云端)
 密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
-旧版本存在钥匙串里的 LLM Key 在启动时静默迁移一次(不弹授权框),之后删除钥匙串条目
+旧版本存在钥匙串里的 LLM Key 在首次启动时静默迁移一次(不弹授权框,UserDefaults 标记只跑一次),之后删除钥匙串条目
 ```
 
-翻译方式(`TranslationEngine`,默认 `hybrid`):hybrid = 系统翻译初稿 + AI 润色替换;system = 仅系统翻译;llm = 仅 AI。
-`TranslationService.isAvailable`(系统语言包已下载 或 配置了 AI,按方式判断)决定字幕条「译」菜单、设置开关、菜单栏、Passport 上键能否打开翻译。
+## 8b. 翻译方式与在线翻译服务
+
+翻译在两种场景里工作,各自一个翻译方式(`TranslationMethod`,每种场景一次只用一种):
+实时字幕(及字幕记录窗口的默认值)= `AppSettings.subtitleTranslationMethod`;听写翻译 = `dictationTranslationMethod`。
+`system` = 系统翻译;`provider(…)` = 在线机器翻译(DeepL / Google / 微软 / 火山引擎 / 腾讯云 / 百度);`llm(model:)` = AI(模型为空跟随设置)。
+迁移:上一版共用的 `translationMethod`、更早的 `translationEngine`(hybrid / system → system,llm → llm)作为两个场景的初始值,
+立即保存新键并删除旧键;全局开关 `subtitleTranslate` 删除。
+`TranslationService.isAvailable(method, target:)` / `unavailableReason`:系统 = 该目标语言对的语言包已下载
+(`systemStatuses` 按字幕和听写的目标语言各查一次;还没查完的「正在检查语言包…」先算不可用,翻译前 `ensureSystemStatus` 会先查一次);
+在线服务 = 密钥齐全;AI = LLM 已配置。
+AI 实时翻译和批量 / 润色一样经 `RequestGate`(并发 2);一次定稿的几句由 SubtitleController 串行翻译(后一句的上下文里才有前一句的译文)。
+在线服务超时按请求规模(10 + 字符数 / 500 秒,最多 30 秒);限流按 `Retry-After` 等待后重试一次。
+翻译中途出错(额度用完、密钥失效):`CaptionFeed.translationError` 在字幕条译文区下方常驻说明,翻译方式标签显示 ⚠,下一次成功后清除。
+目标是简体中文时译文统一转简体(`TranslationService.normalized`,系统翻译偶尔混出繁体字)。
+
+```
+设置按"用户在哪个场景想到它"组织(SettingsView.Pane):通用 / 听写 / 实时字幕 / 识别模型 / 翻译服务 / AI 服务 / 快捷键 / 词汇表 / Passport / Vibe
+ 设置 › 听写(DictationPane):「AI 润色」开关 + 润色模型(LLMModelMenuItems → AppSettings.polishModel);
+   「听写翻译」TranslationMethodSettingRow(.dictation,按听写目标语言判断可用性)+ TargetLanguageSettingRow;
+   说明文字里的「快捷键」「词汇表」是应用内链接(inputbetter-settings://<pane>,View.settingsLinks)→ 跳到对应设置页
+ 设置 › 实时字幕(SubtitlesPane):显示(译文字号、原文字号、译文行数、翻译时原文行数、锁定)/
+   「翻译」TranslationMethodSettingRow(.subtitles)+ 默认翻译成 + 边说边译 / 字幕记录
+   两个场景的「翻译方式」都用 TranslationMethodMenuItems(和字幕条同一个菜单);当前方式不可用时在该行橙色说明原因
+ 设置 › 翻译服务(TranslationPane):只负责配置,每行常驻「配置」,标出「实时字幕在用」「听写在用」:
+   系统翻译「配置」→ SystemTranslationSheet(字幕 / 听写目标语言的语言包各一行,SystemTranslationRow)
+   在线服务「配置」→ TranslationProviderSheet;AI「配置」→ 设置 › AI 服务
+   跨页入口统一走 SettingsNavigation.configure(provider, useFor:) / configureSystemTranslation()
+入口:服务列表「配置」/ 场景方式菜单「添加在线翻译服务」/ 字幕条方式菜单「添加在线翻译服务」
+   (WindowManager.showSettings(.translation, configure:, useFor: .subtitles))/ 字幕记录方式菜单;
+   系统翻译语言包没下载时,各方式菜单里显示「系统翻译(离线)· 下载语言包…」→ showSettings(.translation, systemTranslation: true)
+ → TranslationProviderSheet:按 TranslationProvider.fields 填写(Key / Secret / 区域)
+     → 「测试连接」MachineTranslatorFactory.test(把一句话译成用户主语言,显示译文)
+     → 「使用此服务:☐ 实时字幕 ☐ 听写翻译」(默认勾上正在用它的场景 + 从哪个场景进来的 SettingsNavigation.providerUse)
+     → 「保存」MachineTranslationStore.update → CredentialStore("translate.<服务>.key / secret")+ UserDefaults(区域)
+        → 按勾选设置两个场景的方式;取消勾选正在用它的场景 → 退回系统翻译;「移除配置」后正在使用的场景退回系统翻译
+调用:TranslationService.translateBatch → BatchPlanner(本机识别源语言 → TargetLanguage.resolvedTarget → 同语言跳过 → 按语言对分组切块)
+ → translateChunk → MachineTranslatorFactory.make → RequestGate(各服务一个,并发 + QPS)
+ → *Translator.makeRequest(ProviderLanguageCodes;DeepL / Google / 微软:Key 放请求头(Google 用 X-goog-api-key,不进 URL);火山:VolcengineSigner;
+     腾讯:TencentTC3Signer;百度:MD5 签名,多句用换行拼接、按 src 回配拆行 / 吞行的结果)
+ → MTHTTP.send(超时按请求规模;网络错误 → transient;读 Retry-After)→ parse(结果条数校验 + 错误归类)
+ → 限流 / 临时故障重试一次;密钥 / 额度 / 时间错误(abortsBatch)直接报给调用方
+调试:IB_SETTINGS_PANE=translation IB_TRANSLATE_CONFIG=<服务> 直接弹出配置表单
+```
+
 语言包:`TranslationService.refreshSystemStatus`(启动、目标语言变化、app 重新激活时)→ `SystemTranslator.status`;
 下载:`SystemTranslationRow`「下载」→ `.translationTask` → `prepareTranslation()`(系统弹窗确认)→ `systemDownloadFinished`;
-或「在系统设置中管理」→ 系统设置 › 通用 › 语言与地区 › 翻译语言。字幕条「译」菜单在不可用时提供「打开翻译设置…」→ `WindowManager.showSettings(.ai)`。
+或「在系统设置中管理」→ 系统设置 › 通用 › 语言与地区 › 翻译语言。
 
 翻译目标语言(`TargetLanguage`,听写和字幕各一个,默认 `auto`):
-`auto` → `Prompts.target` → `TargetLanguage.autoPair`(系统首选语言 P + 另一种语言:英语,P 是英语时取第二首选语言或简体中文)
-→ 提示词"译成 P;原文已经是 P 就译成另一种语言"。
+`auto` → `TargetLanguage.autoPair`(系统首选语言 P + 另一种语言:英语,P 是英语时取第二首选语言或简体中文)
+→ AI:`Prompts.target` 提示词"译成 P;原文已经是 P 就译成另一种语言";
+   系统 / 在线服务:按句识别源语言 → `resolvedTarget`(原文是 P 译成另一种语言,否则译成 P)→ 各家语言代码。
 
-## 8b. LLM 配置
+## 8c. AI 服务(LLM 配置)
+
+接口和 Key 只在一处配置(设置 › AI 服务),各功能各选模型:听写润色 `polishModel`、AI 翻译 `.llm(model:)`、
+字幕总结 `summaryModel`;空 = 默认模型 `llmModel`。模型菜单统一用 `LLMModelMenuItems`(LLMModelCatalog 提供列表)。
+设置 › AI 服务(AIPane)下方列出使用它的功能、各自的模型,「前往」跳到该功能的设置。
+菜单栏 / ⌃ 菜单「听写后 AI 润色」(写明是听写;没配置 AI 服务时显示「…（需要配置 AI 服务）…」并打开 AI 服务设置)。
 
 ```
-设置 › AI / 引导 AI 页 → LLMConfigForm
+设置 › AI 服务 / 引导 AI 页 → LLMConfigForm
  → 服务商预设 → AppSettings.llmBaseURL / llmModel
  → 地址或 Key 变化 → .task(id:) 停顿 0.6 秒 → OpenAICompatibleAPI.listModels(GET /models)
      → ModelPickerField 下拉选择(当前值不在列表里也保留显示;"手动输入…"切换成文本框;失败时显示原因并可手动输入)
@@ -451,7 +585,7 @@ LanguagePicker(设置 › 通用 / 欢迎页)→ LanguageState.set(即时生效,
 ## 10a. 窗口显示(设置 / 引导 / 字幕记录)
 
 ```
-菜单「设置…」/ 字幕条「翻译设置…」/ 总结页「设置」→ WindowManager.showSettings(pane) → present
+菜单「设置…」/ 字幕条「翻译设置…」(.translation)/ 总结页「设置」(.ai)→ WindowManager.showSettings(pane, configure:) → present
  → NSApp.setActivationPolicy(.regular)(菜单栏应用在 macOS 14+ 协作式激活下单纯 activate 偶尔不前置)
  → 下一轮事件循环(等菜单关闭)→ NSApp.activate → makeKeyAndOrderFront + orderFrontRegardless
 windowWillClose → restoreMenuBarMode(没有其他打开 / 最小化的窗口时切回 .accessory)
@@ -464,7 +598,10 @@ AppSettings(didSet 写 UserDefaults;API Key 写 CredentialStore)
  → AppState.observeSettings(observeChanges)
      showPill → PillPanelController.show/hide
      deviceBluetooth → AppState.updateBluetooth → DeviceLink.bluetoothEnabled
-     dictationModelID → EngineRegistry.unloadAll / preload
+     dictationModelID / subtitleModelID → EngineRegistry.unloadAll / preload(换字幕模型也回收旧引擎)
      language → ModelManager.languageChanged
+     subtitleTarget / subtitleTranslationMethod → SubtitleController.translationConfigChanged(翻译中才重译最新一句;
+         和上次翻译时的设置相同则不动,「译」菜单选语言先写设置再开翻译不会翻两次)
      subtitles.status → PillUIState.subtitleCollapsed 复位 / PillPanelController.show
+     dictation.phase → SubtitleController.setDecodingPaused(听写优先,字幕暂停解码)
 ```

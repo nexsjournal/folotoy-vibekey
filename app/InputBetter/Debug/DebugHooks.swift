@@ -6,15 +6,18 @@ import AVFoundation
 /// - IB_DOWNLOAD=id1,id2       启动后下载这些模型;
 /// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
 /// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
-/// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕;
+/// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕(IB_SUBTITLE_TRANSLATE=1 同时打开翻译,
+///   IB_TRANSLATION_METHOD=system / mt.deepl / llm 先切换翻译方式,会写入设置;IB_CAPTION_TRACE=1 打印翻译时序);
 /// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口(IB_TRANSCRIPT_TAB=summary 打开「总结」页);
 /// - IB_SUMMARIZE_AFTER=秒      启动后过这么多秒触发一次「立即总结」;
+/// - IB_TRANSCRIPT_TRANSLATE_AFTER=秒  启动后过这么多秒在字幕记录里「全部重新翻译」一次,打印结果(配合 IB_DEMO_CAPTIONS);
 /// - IB_SUMMARIZE_ALL_AFTER=秒  启动后过这么多秒触发一次「总结全文」;
-/// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;
+/// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;加 IB_SHOW_HEADER=1 一直显示标题栏;
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 /// - IB_FIRMWARE_MANIFEST=url  从这个地址获取 Passport 固件清单(代替官网,测试新固件用)。
 /// - IB_FLASH_FIRMWARE=1       Passport 通过 USB 连上后自动刷一次固件(验证「下载 → 写入」整条链路)。
 /// - IB_CLOUD_CONFIG=provider  (在 ModelList 里读取)模型列表出现时直接弹出该云端服务的配置表单,如 volcengine,配合 IB_SETTINGS_PANE=models。
+/// - IB_TRANSLATE_CONFIG=provider(在 SettingsNavigation 里读取)直接弹出该在线翻译服务的配置表单,如 deepl,配合 IB_SETTINGS_PANE=translation。
 @MainActor
 enum DebugHooks {
     static var env: [String: String] { ProcessInfo.processInfo.environment }
@@ -42,7 +45,15 @@ enum DebugHooks {
         }
         if let bid = env["IB_SUBTITLE_APP"] {
             let name = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bid }?.localizedName ?? bid
+            if let method = env["IB_TRANSLATION_METHOD"].flatMap(TranslationMethod.init(storage:)) { app.settings.subtitleTranslationMethod = method }
             app.startCaptions(AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
+            // IB_SUBTITLE_TRANSLATE=1:开始后立即打开本场翻译(检查翻译时序)。
+            if env["IB_SUBTITLE_TRANSLATE"] != nil {
+                Task {
+                    while !app.subtitles.isRunning { try? await Task.sleep(for: .milliseconds(200)) }
+                    app.subtitles.setTranslationEnabled(true)
+                }
+            }
         }
         if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
         if env["IB_FLASH_FIRMWARE"] != nil {
@@ -69,6 +80,18 @@ enum DebugHooks {
                 app.summarizer.summarizeAll()
             }
         }
+        if let seconds = env["IB_TRANSCRIPT_TRANSLATE_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.transcriptTranslator.retranslateAll()
+                // 等任务结束再打印结果,自动化检查用。
+                while app.transcriptTranslator.job != nil { try? await Task.sleep(for: .milliseconds(200)) }
+                let entries = app.subtitles.transcript.entries
+                print("[IB_TRANSCRIPT_TRANSLATE] done \(entries.filter { $0.translation != nil }.count)/\(entries.count) error=\(app.transcriptTranslator.error ?? "nil")")
+                entries.forEach { print("[IB_TRANSCRIPT_TRANSLATE] \($0.text) → \($0.translation ?? "nil")") }
+                fflush(stdout)
+            }
+        }
         if let seconds = env["IB_SUMMARIZE_AFTER"].flatMap(Double.init) {
             Task {
                 try? await Task.sleep(for: .seconds(seconds))
@@ -91,7 +114,6 @@ enum DebugHooks {
             let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(Double(150 + i * 4)), text: line.0, translation: line.1)
             sample.append(entry)
         }
-        app.settings.subtitleTranslate = true
         app.subtitles.debugShow(sample, partial: "Constraint, constraint")
     }
 

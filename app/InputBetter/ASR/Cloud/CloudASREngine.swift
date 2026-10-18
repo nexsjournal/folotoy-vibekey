@@ -29,21 +29,22 @@ final class CloudASREngine: ASREngine {
     /// 根据配置创建会话(也用于设置页的"测试连接")。
     static func session(provider: CloudProvider, config: CloudConfig, options: ASROptions) -> ASRSession {
         let key = config.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = provider.displayName
         switch provider {
         case .volcengine:
-            return StreamingCloudSession(purpose: options.purpose) {
+            return StreamingCloudSession(purpose: options.purpose, serviceName: name) {
                 VolcengineCodec(apiKey: key, resourceID: config.model, options: options)
             }
         case .bailian:
-            return StreamingCloudSession(purpose: options.purpose) {
+            return StreamingCloudSession(purpose: options.purpose, serviceName: name) {
                 BailianCodec(apiKey: key, model: config.model, region: config.region, options: options)
             }
         case .elevenlabs:
-            return StreamingCloudSession(purpose: options.purpose) {
+            return StreamingCloudSession(purpose: options.purpose, serviceName: name) {
                 ElevenLabsCodec(apiKey: key, model: config.model, options: options)
             }
         case .soniox:
-            return StreamingCloudSession(purpose: options.purpose) {
+            return StreamingCloudSession(purpose: options.purpose, serviceName: name) {
                 SonioxCodec(apiKey: key, model: config.model, options: options)
             }
         case .openAICompatible:
@@ -75,6 +76,7 @@ final class CloudASREngine: ASREngine {
     }
 
     /// 测试连接:送 1.5 秒近乎静音的音频并结束,没有收到错误即视为可用。返回错误说明,nil 表示正常。
+    /// 流式服务一直没就绪时,会话在结束时报告超时(CloudASRError.timeout),这里同样能拿到。
     static func test(provider: CloudProvider, config: CloudConfig) async -> String? {
         let options = ASROptions(purpose: .dictation, language: .auto, vocabulary: [])
         // 静音里加一点极小的噪声,避免部分服务把纯零数据判为"空音频"错误。

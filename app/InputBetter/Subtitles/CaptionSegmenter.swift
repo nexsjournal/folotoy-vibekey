@@ -26,6 +26,13 @@ nonisolated struct CaptionSegmenter: Equatable, Sendable {
 
     mutating func reset() { self = CaptionSegmenter() }
 
+    /// 已确认、但还没作为句子给出的文字(只在末尾增长,边说边译按它切片段)。
+    var pendingConfirmed: String {
+        let tokens = Self.tokenize(confirmedText)
+        guard emittedTokens < tokens.count else { return "" }
+        return String(confirmedText[tokens[emittedTokens].range.lowerBound...]).trimmingCharacters(in: .whitespaces)
+    }
+
     /// 识别中的结果。返回新确认的完整句子(按顺序)和还在变化 / 还没成句的部分(界面暗色显示)。
     mutating func hypothesis(_ text: String) -> (sentences: [String], live: String) {
         guard !text.isEmpty else { return ([], "") }

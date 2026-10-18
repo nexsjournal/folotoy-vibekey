@@ -13,13 +13,19 @@ final class AppState {
     let cloudASR: CloudASRStore
     let engines: EngineRegistry
     let processor: TextProcessor
-    /// 翻译入口(系统翻译 + LLM,字幕和听写共用)。
+    /// 在线翻译服务的凭据(密钥存本机凭据文件)。
+    let translationProviders: MachineTranslationStore
+    /// 翻译入口(系统翻译 / 在线服务 / AI,字幕、字幕记录和听写共用)。
     let translation: TranslationService
+    /// LLM 服务的模型列表(翻译方式、总结里快速选模型)。
+    let llmModels: LLMModelCatalog
     let deviceLink: DeviceLink
     let dictation: DictationController
     let subtitles: SubtitleController
     /// 字幕记录的分段总结(字幕记录窗口「总结」页)。
     let summarizer: TranscriptSummarizer
+    /// 字幕记录窗口里的批量翻译 / AI 润色。
+    let transcriptTranslator: TranscriptTranslator
     let agent: AgentNotifier
     let firmware: FirmwareFlasher
     let passportSetup: PassportSetupModel
@@ -28,7 +34,7 @@ final class AppState {
     @ObservationIgnored private var pill: PillPanelController!
     @ObservationIgnored private var bridge: DeviceBridge!
     @ObservationIgnored private var menus: MenuBuilder!
-    @ObservationIgnored private var statusItem: NSStatusItem?
+    @ObservationIgnored private var statusMenu: StatusMenuController?
 
     /// Passport 固件清单地址:正式版固定用官网;调试构建可用 IB_FIRMWARE_MANIFEST 指向本机测试服务器。
     private static var firmwareManifestURL: URL {
@@ -39,15 +45,19 @@ final class AppState {
     }
 
     init() {
-        let settings = AppSettings()
+        // 本机凭据文件只有这一个实例,注入给所有需要 API Key 的模块(各自缓存会互相覆盖)。
+        let credentials = CredentialStore()
+        let settings = AppSettings(credentials: credentials)
         self.settings = settings
         permissions = Permissions()
         inputDevices = InputDevices()
-        cloudASR = CloudASRStore()
+        cloudASR = CloudASRStore(credentials: credentials)
         models = ModelManager(settings: settings, cloud: cloudASR)
         engines = EngineRegistry(cloud: cloudASR)
         processor = TextProcessor(settings: settings)
-        translation = TranslationService(settings: settings, processor: processor)
+        translationProviders = MachineTranslationStore(credentials: credentials)
+        translation = TranslationService(settings: settings, processor: processor, providers: translationProviders)
+        llmModels = LLMModelCatalog(settings: settings)
         deviceLink = DeviceLink()
         agent = AgentNotifier()
         firmware = FirmwareFlasher(link: deviceLink, downloader: FirmwareDownloader(manifestURL: Self.firmwareManifestURL))
@@ -55,12 +65,14 @@ final class AppState {
         hotkeys = HotkeyManager()
         subtitles = SubtitleController(settings: settings, models: models, engines: engines, translation: translation)
         summarizer = TranscriptSummarizer(settings: settings, subtitles: subtitles)
+        transcriptTranslator = TranscriptTranslator(settings: settings, subtitles: subtitles, translation: translation)
 
         // 音源工厂:选了 Passport 且已连接时用设备麦克风,否则用系统输入设备。
         let link = deviceLink
         let inputDevices = inputDevices
         dictation = DictationController(
-            settings: settings, models: models, engines: engines, processor: processor, translation: translation,
+            settings: settings, engines: InstalledDictationEngines(models: models, engines: engines),
+            postProcessor: DictationPostProcessor(settings: settings, processor: processor, translation: translation),
             inserter: TextInserter(), sounds: SoundEffects(settings: settings),
             makeSource: {
                 if settings.micID == AppSettings.passportMicID, link.connection != .disconnected {
@@ -78,7 +90,7 @@ final class AppState {
         menus = MenuBuilder(app: self)
         pill = PillPanelController(content: { [unowned self] ui, window in
             AnyView(LocalizedRoot(language: language) { PillView(
-                dictation: dictation, subtitles: subtitles, agent: agent, translation: translation, ui: ui,
+                dictation: dictation, subtitles: subtitles, agent: agent, translation: translation, catalog: llmModels, ui: ui,
                 settings: settings, permissions: permissions,
                 hotkeyHint: { [unowned self] in hotkeys.dictateDescription },
                 actions: pillActions, window: window) })
@@ -100,11 +112,13 @@ final class AppState {
             dictateUp: { [unowned self] in dictation.pressUp() },
             translateDown: { [unowned self] in dictation.pressDown(mode: .translate) },
             translateUp: { [unowned self] in dictation.pressUp() },
-            toggleSubtitles: { [unowned self] in toggleCaptionsFromShortcut() }))
+            toggleSubtitles: { [unowned self] in toggleCaptionsFromShortcut() },
+            resetPillPosition: { [unowned self] in resetPillPosition() }))
 
         installStatusItem()
         observeSettings()
         Task { await translation.refreshSystemStatus() }
+        llmModels.loadIfNeeded()
 
         #if DEBUG
         // 调试用:IB_SETTINGS_PANE 打开设置窗口,IB_ONBOARDING_STEP 打开引导。
@@ -161,7 +175,14 @@ final class AppState {
             collapseCaptions: { [unowned self] in setCaptionsCollapsed(true) },
             stopCaptions: { [unowned self] in stopCaptions() },
             showTranscript: { [unowned self] in windows.showTranscript() },
-            openTranslationSettings: { [unowned self] in windows.showSettings(.ai) },
+            // 字幕条上的「翻译设置…」:字幕的翻译方式在 设置 › 实时字幕 里选。
+            openTranslationSettings: { [unowned self] in windows.showSettings(.subtitles) },
+            configureTranslationProvider: { [unowned self] provider in
+                windows.showSettings(.translation, configure: provider, useFor: .subtitles)
+            },
+            openSystemTranslation: { [unowned self] in windows.showSettings(.translation, systemTranslation: true) },
+            openLLMSettings: { [unowned self] in windows.showSettings(.ai) },
+            openDictationSettings: { [unowned self] in windows.showSettings(.dictation) },
             showMenu: { [unowned self] point in pill.popUp(menus.build(), at: point) },
             cancel: { [unowned self] in dictation.cancel() },
             confirm: { [unowned self] in dictation.stop() },
@@ -176,18 +197,30 @@ final class AppState {
     }
 
     /// 开始为某个应用生成字幕(所有入口都走这里):字幕条默认展开。
-    /// 正在为别的应用生成字幕时,先确认结束上一场(开始新的一场会清掉上一场的记录)。
+    /// 正在为别的应用生成字幕时:开始新的一场会替换上一场的记录。记录里还有没保存的内容就先确认
+    /// (可以选择先打开字幕记录去保存);没有要保存的内容就直接切换。
     func startCaptions(_ app: AudioApp) {
         pill.ui.subtitleCollapsed = false
         // 已经在为这个应用生成字幕:只展开字幕条,不重新开始(否则会清掉当前记录)。
         if subtitles.isRunning, subtitles.appBundleID == app.bundleID { return }
-        guard subtitles.isRunning else {
-            subtitles.start(app: app)
+        guard subtitles.isRunning, subtitles.transcript.hasUnsavedEntries else {
+            subtitles.start(app: app)  // start 内部会先结束正在进行的一场
             return
         }
-        confirmThen { [unowned self] in
-            subtitles.stop()
-            subtitles.start(app: app)
+        let oldApp = subtitles.appName, sentences = subtitles.transcript.entries.count
+        let session = subtitles.transcript.id
+        // 放到下一轮事件循环再弹框(避免在菜单 / 按钮的事件处理中弹出模态框);确认后再检查一次还是同一场字幕。
+        Task { @MainActor [unowned self] in
+            guard subtitles.isRunning, subtitles.transcript.id == session else { return }
+            switch CaptionsConfirmation.confirmSwitch(from: oldApp, to: app.name, sentences: sentences) {
+            case .switchApp:
+                guard subtitles.isRunning, subtitles.transcript.id == session else { return }
+                subtitles.start(app: app)
+            case .openTranscript:
+                windows.showTranscript(tab: .captions, activate: true)
+            case .cancel:
+                break
+            }
         }
     }
 
@@ -242,18 +275,7 @@ final class AppState {
     // MARK: - 菜单栏
 
     private func installStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "InputBetter")
-        item.button?.target = self
-        item.button?.action = #selector(statusItemClicked)
-        statusItem = item
-    }
-
-    @objc private func statusItemClicked() {
-        guard let item = statusItem else { return }
-        item.menu = menus.build()
-        item.button?.performClick(nil)
-        item.menu = nil
+        statusMenu = StatusMenuController { [unowned self] in menus.build() }
     }
 
     // MARK: - 设置联动
@@ -265,14 +287,15 @@ final class AppState {
         observeChanges({ [unowned self] in _ = settings.deviceBluetooth }) { [unowned self] in
             updateBluetooth()
         }
-        observeChanges({ [unowned self] in _ = settings.dictationModelID }) { [unowned self] in
+        // 换听写或字幕模型:卸载不再使用的引擎(释放内存),预加载听写模型。
+        observeChanges({ [unowned self] in _ = (settings.dictationModelID, settings.subtitleModelID) }) { [unowned self] in
             engines.unloadAll(except: [settings.dictationModelID, settings.effectiveSubtitleModelID])
             engines.preload(settings.dictationModelID)
         }
         observeChanges({ [unowned self] in _ = settings.language }) { [unowned self] in models.languageChanged() }
-        // 打开翻译或换目标语言:重新翻译最新一句。
-        observeChanges({ [unowned self] in _ = (settings.subtitleTranslate, settings.subtitleTarget) }) { [unowned self] in
-            subtitles.translateLatest()
+        // 换目标语言或翻译方式:翻译中的话重新翻译最新一句(开关本身由 SubtitleController 处理)。
+        observeChanges({ [unowned self] in _ = (settings.subtitleTarget, settings.subtitleTranslationMethod) }) { [unowned self] in
+            subtitles.translationConfigChanged()
         }
         observeChanges({ [unowned self] in _ = subtitles.status }) { [unowned self] in
             // 字幕停止后复位"收起"状态。

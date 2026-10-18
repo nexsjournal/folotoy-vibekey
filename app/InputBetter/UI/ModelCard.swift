@@ -93,7 +93,7 @@ struct ModelCard: View {
             }
         case .notInstalled:
             if let onConfigure {
-                Button("配置", action: onConfigure).buttonStyle(SecondaryButtonStyle())
+                Button("配置…", action: onConfigure).buttonStyle(SecondaryButtonStyle())
             } else {
                 Button(model.engine == .appleSpeech ? LocalizedStringKey("安装") : LocalizedStringKey("下载"), action: onDownload)
                     .buttonStyle(SecondaryButtonStyle())

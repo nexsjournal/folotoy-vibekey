@@ -8,4 +8,6 @@ extension KeyboardShortcuts.Name {
     static let translateDictate = Self("translateDictate", initial: .init(.space, modifiers: [.option, .shift]))
     /// 开关实时字幕。
     static let toggleSubtitles = Self("toggleSubtitles", initial: .init(.s, modifiers: [.option, .shift]))
+    /// 状态条回到底部中央(拖丢了或换了显示器时找回来)。默认不设,避免和其他应用的快捷键冲突,由用户自己录制。
+    static let resetPillPosition = Self("resetPillPosition")
 }

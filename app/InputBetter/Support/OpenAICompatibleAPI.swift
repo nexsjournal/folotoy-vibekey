@@ -61,7 +61,7 @@ nonisolated enum OpenAICompatibleAPI {
 
         var errorDescription: String? {
             switch self {
-            case .badURL: String(localized: "API 地址无效", bundle: .l10n)
+            case .badURL: String(localized: "接口地址无效", bundle: .l10n)
             case .unexpectedResponse: String(localized: "接口没有返回模型列表", bundle: .l10n)
             case .server(let message): message
             }

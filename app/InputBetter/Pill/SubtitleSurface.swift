@@ -1,14 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// 字幕条:胶囊展开后的形态,采用同传类应用的两行滚动字幕:
-/// - 原文行跟着语音实时走,译文行按句接上(通常比原文慢一两句),见 CaptionFeed / RollingCaptions;
-/// - 平时只有字幕文字;鼠标悬停时上方出现标题栏(直播标记、应用名、翻译菜单、工具按钮)。
+/// 字幕条:胶囊展开后的形态,采用同传类应用的滚动字幕:
+/// - 原文行跟着语音实时走;译文行按句接上,末尾是正在说的半句的暂定译文(略暗),见 CaptionFeed / RollingCaptions;
+/// - 平时只有字幕文字;鼠标悬停时上方出现标题栏(直播标记、应用名、「译」开关 + 语言、翻译方式菜单、工具按钮)。
 /// 背景玻璃由 PillView 统一加,以便和胶囊之间做变形动画。
 struct SubtitleSurface: View {
     let controller: SubtitleController
-    /// 翻译是否可用(系统翻译语言包已下载,或配置了 AI)。
     let translation: TranslationService
+    /// LLM 服务的模型列表(翻译方式菜单里快速选模型)。
+    let catalog: LLMModelCatalog
     @Bindable var settings: AppSettings
     let permissions: Permissions
     let hovering: Bool
@@ -16,12 +17,20 @@ struct SubtitleSurface: View {
     let onDictate: () -> Void
     /// 打开字幕记录窗口(查看前面的全部字幕)。
     let onTranscript: () -> Void
-    /// 打开翻译设置(翻译不可用时引导去下载系统翻译语言或配置 AI)。
+    /// 打开 设置 › 实时字幕。
     let onTranslationSettings: () -> Void
+    /// 配置某个在线翻译服务(弹出配置表单)。
+    let onConfigureProvider: (TranslationProvider) -> Void
+    /// 系统翻译的配置(下载语言包)。
+    let onConfigureSystem: () -> Void
+    /// 打开 设置 › AI 服务(配置 LLM 接口)。
+    let onConfigureLLM: () -> Void
     let onCollapse: () -> Void
     let onStop: () -> Void
 
-    private var fontSize: CGFloat { settings.subtitleFontSize }
+    /// 原文 / 译文字号(设置 › 实时字幕 分别调;标题栏的 小 / 大 两个一起调)。
+    private var sourceSize: CGFloat { settings.subtitleSourceFontSize }
+    private var translationSize: CGFloat { settings.subtitleTranslationFontSize }
 
     /// 标题栏是否显示,和"宽度是否按标题栏留出"分开控制,做成两步动画:
     /// 移开时先淡出标题栏、再收窄;移入时先加宽、再淡入标题栏——按钮不会跟着宽度变化漂移。
@@ -69,20 +78,26 @@ struct SubtitleSurface: View {
     /// 标题栏(应用名、翻译菜单、工具)只在悬停时显示;启动失败时一直显示(需要关闭按钮)。
     private var wantsHeader: Bool {
         if case .failed = controller.status { return true }
+        #if DEBUG
+        // 调试用:IB_SHOW_HEADER=1 一直显示标题栏(检查翻译标签的排版,不用移动鼠标)。
+        if ProcessInfo.processInfo.environment["IB_SHOW_HEADER"] != nil { return true }
+        #endif
         return hovering
     }
 
     private var showsHeader: Bool { headerShown }
 
     /// 最宽:随字号变化,最多 940。
-    private var maxWidth: CGFloat { min(max(fontSize * 30, 540), 940) }
+    private var maxWidth: CGFloat { min(max(max(sourceSize, translationSize) * 30, 540), 940) }
 
     /// 字幕条宽度:有字幕后固定为最大宽度——滚动字幕的换行位置依赖宽度,宽度一变整段就会重排跳动;
     /// 还没有字幕时用紧凑宽度。悬停时至少放得下标题栏。
     private var surfaceWidth: CGFloat {
         let hasText = controller.feed.captions.hasSource
         let content: CGFloat = controller.status == .running && hasText && !controller.silentTooLong ? maxWidth : 420
-        return min(max(content, headerWidth ? 500 : 200), maxWidth)
+        // 标题栏多了翻译方式、原文行数两个标签时需要更宽一点。
+        let headerMin: CGFloat = controller.translationEnabled ? 680 : 500
+        return min(max(content, headerWidth ? headerMin : 200), maxWidth)
     }
 
     // MARK: - 顶部
@@ -94,15 +109,23 @@ struct SubtitleSurface: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.55))
                 .lineLimit(1)
-            translationMenu
+            TranslationTargetChip(controller: controller, settings: settings, onSettings: onTranslationSettings)
+            if controller.translationEnabled {
+                TranslationMethodChip(translation: translation, catalog: catalog, settings: settings,
+                                      error: controller.feed.translationError,
+                                      onConfigure: onConfigureProvider, onConfigureSystem: onConfigureSystem,
+                                      onConfigureLLM: onConfigureLLM,
+                                      onSettings: onTranslationSettings)
+                SourceLinesChip(settings: settings)
+            }
             Spacer(minLength: 12)
             if case .failed = controller.status {
                 // 启动失败:没有可结束的字幕,只提供关闭(其他工具都没有意义)。
                 tool("xmark", help: String(localized: "关闭", bundle: .l10n), action: onStop)
             } else {
                 HStack(spacing: 2) {
-                    tool("textformat.size.smaller", help: String(localized: "缩小字号", bundle: .l10n)) { settings.subtitleFontSize = max(14, fontSize - 2) }
-                    tool("textformat.size.larger", help: String(localized: "放大字号", bundle: .l10n)) { settings.subtitleFontSize = min(44, fontSize + 2) }
+                    tool("textformat.size.smaller", help: String(localized: "缩小字号（原文和译文一起）", bundle: .l10n)) { adjustFontSize(by: -2) }
+                    tool("textformat.size.larger", help: String(localized: "放大字号（原文和译文一起）", bundle: .l10n)) { adjustFontSize(by: 2) }
                     tool("lock", help: String(localized: "锁定（鼠标穿透，可在菜单里解锁）", bundle: .l10n)) { settings.subtitleLocked = true }
                     tool("text.page", help: String(localized: "字幕记录", bundle: .l10n), action: onTranscript)
                     Divider().frame(height: 14).padding(.horizontal, 4)
@@ -114,45 +137,6 @@ struct SubtitleSurface: View {
             }
         }
         .frame(height: 20)
-    }
-
-    /// 翻译菜单(标签样式):开关译文、直接选择目标语言,不用去设置里改。
-    /// 关闭翻译时显示暗色的「译」,打开时显示「译 · 目标语言」。
-    private var translationMenu: some View {
-        Menu {
-            if translation.isAvailable {
-                Toggle("显示译文", isOn: $settings.subtitleTranslate)
-                Divider()
-                // 选了目标语言就是要看译文:同时打开「显示译文」,不用再单独勾一次。
-                Picker("翻译成", selection: Binding(
-                    get: { settings.subtitleTarget },
-                    set: { settings.subtitleTarget = $0; settings.subtitleTranslate = true })) {
-                    ForEach(TargetLanguage.allCases) { language in
-                        Text(language == .auto ? "\(language.title)（\(TargetLanguage.autoSummary)）" : language.title).tag(language)
-                    }
-                }
-                .pickerStyle(.inline)
-            } else {
-                Text("翻译需要下载系统翻译语言或配置 AI")
-                Button("打开翻译设置…", action: onTranslationSettings)
-            }
-            if translation.isAvailable {
-                Divider()
-                Button("翻译设置…", action: onTranslationSettings)
-            }
-        } label: {
-            Text(settings.subtitleTranslate ? "译 · \(settings.subtitleTarget.title)" : "译")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(settings.subtitleTranslate ? 0.75 : 0.4))
-                .padding(.horizontal, 6).padding(.vertical, 1)
-                .background(Capsule().strokeBorder(.white.opacity(settings.subtitleTranslate ? 0.3 : 0.15)))
-                .contentShape(Capsule())
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(translation.isAvailable ? String(localized: "翻译设置", bundle: .l10n) : String(localized: "翻译需要下载系统翻译语言或配置 AI", bundle: .l10n))
     }
 
     // MARK: - 正文
@@ -190,53 +174,93 @@ struct SubtitleSurface: View {
         }
     }
 
-    /// 字幕正文:两行滚动字幕(见 RollingCaptions)。翻译时原文(小、略暗)在上,跟着语音实时走;
-    /// 译文(大、亮)在下,按句接上。各一个最多 2 行高的框,底部对齐,写满后最旧的一行整行滚出。
+    /// 字幕正文:滚动字幕(见 RollingCaptions)。翻译时原文(小、略暗)在上,跟着语音实时走;
+    /// 译文(大、亮)在下,按句接上,还没定下来的暂定译文略暗。各一个固定最大行数的框(原文 0–3 行、译文 2–5 行,
+    /// 设置 › 实时字幕 可调;行数多,一句译文停留得久,读得完),底部对齐,写满后最旧的一行整行滚出。
+    /// 不翻译时原文 2 行大字。
     /// 左对齐:滚动字幕居中时每次增长整行都会左右移动,左对齐才稳定。
-    /// 文字不接收鼠标事件(超出框被裁掉的文字也不会挡住标题栏按钮)。
+    /// 原文和提示不接收鼠标事件(超出框被裁掉的文字也不会挡住标题栏按钮);译文区可以滚动往回看(TranslationScrollView)。
     private var transcript: some View {
-        let captions = controller.feed.captions
-        let translating = controller.feed.translating
-        return VStack(alignment: .leading, spacing: translating ? 4 : 0) {
+        let feed = controller.feed
+        let captions = feed.captions
+        let translating = feed.translating
+        return VStack(alignment: .leading, spacing: translating || feed.unavailableReason != nil ? 4 : 0) {
             if !captions.hasSource {
                 Text("等待声音…")
                     .font(.system(size: smallSize, weight: .medium))
                     .foregroundStyle(.white.opacity(0.45))
+                    .allowsHitTesting(false)
             } else if translating {
-                rollingBox(Text(captions.sourceFinal).foregroundStyle(.white.opacity(0.6))
-                           + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.4)),
-                           size: smallSize, weight: .medium)
-                if captions.translation.isEmpty {
+                // 原文行数可设(0 = 不显示);译文还一个字都没有时,至少显示 1 行原文,字幕条不会空着。
+                let sourceLines = captions.translation.isEmpty ? max(settings.subtitleSourceLines, 1) : settings.subtitleSourceLines
+                if sourceLines > 0 {
+                    rollingBox(Text(captions.sourceFinal).foregroundStyle(.white.opacity(0.6))
+                               + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.4)),
+                               size: sourceSize, weight: .medium, lines: sourceLines)
+                        .allowsHitTesting(false)
+                }
+                if !captions.translationLines.isEmpty {
+                    // 译文区可以往回滚动(Apple Music 歌词式),所以接收鼠标事件。
+                    // 原文区不显示时,原文已是目标语言的句子也在这里显示,不然这句就没了。
+                    TranslationScrollView(lines: captions.translationLines, fontSize: translationSize,
+                                          maxLines: settings.subtitleTranslationLines,
+                                          showSameLanguage: sourceLines == 0)
+                    // 翻译中途出错(额度用完、密钥失效):译文区还有内容,但后面的句子只会用原文顶上,
+                    // 必须常驻说明原因,直到下一次翻译成功。
+                    if let error = feed.translationError {
+                        statusLine(String(localized: "翻译出错：\(error)。可在标题栏的翻译方式菜单里换一种方式。", bundle: .l10n),
+                                   symbol: "exclamationmark.triangle.fill")
+                    }
+                } else if let error = feed.translationError {
+                    statusLine(error, symbol: "exclamationmark.triangle.fill")
+                } else if captions.translationWaiting {
                     Text("翻译中…")
                         .font(.system(size: smallSize, weight: .medium))
                         .foregroundStyle(.white.opacity(0.35))
-                } else {
-                    rollingBox(Text(captions.translation).foregroundStyle(.white), size: translationSize, weight: .semibold)
                 }
             } else {
                 rollingBox(Text(captions.sourceFinal).foregroundStyle(.white)
                            + Text(captions.sourceLive).foregroundStyle(.white.opacity(0.75)),
-                           size: fontSize, weight: .semibold)
+                           size: sourceSize, weight: .semibold, lines: 2)
+                    .allowsHitTesting(false)
+                // 打开了翻译但当前方式用不了(如语言包没下载、服务没配置):说明原因,在方式菜单里换一种即可。
+                if let reason = feed.unavailableReason {
+                    statusLine(String(localized: "无法翻译：\(reason)。把鼠标移到字幕条上，点翻译方式菜单即可配置或更换。", bundle: .l10n),
+                               symbol: "exclamationmark.triangle.fill")
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-        .allowsHitTesting(false)
     }
 
-    /// 原文字号(小)和译文字号:译文不用全字号,两行能放下更多内容,读者更容易跟上。
-    private var smallSize: CGFloat { fontSize * 0.64 }
-    private var translationSize: CGFloat { fontSize * 0.68 }
+    /// 译文位置上的一行提示(出错、不可用)。
+    private func statusLine(_ text: String, symbol: String) -> some View {
+        Label { Text(verbatim: text) } icon: { Image(systemName: symbol).foregroundStyle(DS.warning) }
+            .font(.system(size: smallSize * 0.85, weight: .medium))
+            .foregroundStyle(.white.opacity(0.6))
+            .lineLimit(2)
+    }
 
-    /// 最多 2 行高的滚动框:文字按宽度自然换行,不足 2 行时按实际行数(刚开始不留空白),
-    /// 超过 2 行时底部对齐、裁掉顶部多出的行。
-    private func rollingBox(_ text: Text, size: CGFloat, weight: Font.Weight) -> some View {
+    /// 提示文字("等待声音…""翻译中…")的字号。
+    private var smallSize: CGFloat { min(sourceSize, translationSize) * 0.9 }
+
+    /// 原文和译文字号一起调,各自夹在范围内(一个到了边界,另一个还能继续调)。
+    private func adjustFontSize(by delta: Double) {
+        let range = AppSettings.subtitleFontRange
+        settings.subtitleSourceFontSize = min(max(settings.subtitleSourceFontSize + delta, range.lowerBound), range.upperBound)
+        settings.subtitleTranslationFontSize = min(max(settings.subtitleTranslationFontSize + delta, range.lowerBound), range.upperBound)
+    }
+
+    /// 最多 `lines` 行高的滚动框:文字按宽度自然换行,不足时按实际行数(刚开始不留空白),
+    /// 超过时底部对齐、裁掉顶部多出的行。
+    private func rollingBox(_ text: Text, size: CGFloat, weight: Font.Weight, lines: Int) -> some View {
         text
             .font(.system(size: size, weight: weight))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxHeight: Self.lineHeight(size: size, weight: weight) * 2, alignment: .bottom)
-            // 不给高度提议,框就按文字的实际高度(最多 2 行),而不是撑满最大高度留出空白。
+            .frame(maxHeight: Self.lineHeight(size: size, weight: weight) * CGFloat(lines), alignment: .bottom)
+            // 不给高度提议,框就按文字的实际高度(不超过最大行数),而不是撑满最大高度留出空白。
             .fixedSize(horizontal: false, vertical: true)
             .clipped()
     }

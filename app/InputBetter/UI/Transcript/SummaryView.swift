@@ -5,17 +5,17 @@ import SwiftUI
 /// 只有这一页显示着、并且打开了「自动总结」时才会总结(见 TranscriptSummarizer);切走或关窗口即暂停。
 ///
 /// 布局(内容为主、控件退后):
-/// - 顶部一行控制条:自动总结开关、间隔;右侧是接口 · 模型菜单(接口来自设置)和「设置」;
+/// - 顶部一行控制条:自动总结开关、间隔;右侧是接口 · 模型菜单(接口来自设置),未配置 AI 服务时换成「配置 AI 服务…」;
 /// - 中间:空状态给出说明和操作;有总结后按时间线排列,每段一个时间点 + 要点列表;
 /// - 底部:状态、立即总结、拷贝。
 struct SummaryView: View {
     let summarizer: TranscriptSummarizer
     @Bindable var settings: AppSettings
-    /// 打开 设置 › AI 润色与翻译(接口只能在设置里配置)。
+    /// 设置里那个接口提供的模型(LLMModelCatalog 统一拉取和缓存)。
+    let catalog: LLMModelCatalog
+    /// 打开 设置 › AI 服务(接口只能在设置里配置)。
     let onOpenSettings: () -> Void
     @State private var copied = false
-    /// 设置里那个接口提供的模型(GET /models)。
-    @State private var models: [String] = []
 
     private static let intervals = [1, 2, 5, 10]
 
@@ -34,7 +34,7 @@ struct SummaryView: View {
         }
         .onAppear { summarizer.setTabVisible(true) }
         .onDisappear { summarizer.setTabVisible(false) }
-        .task(id: "\(settings.llmBaseURL)|\(settings.llmAPIKey)") { await loadModels() }
+        .onAppear { catalog.loadIfNeeded() }
     }
 
     // MARK: - 控制条
@@ -58,14 +58,15 @@ struct SummaryView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             Spacer(minLength: DS.Space.m)
+            // 配置好之后只显示模型菜单(接口在设置里改,这里不再常驻跳转按钮);
+            // 未配置时给出去配置的入口,底部状态栏同时显示「未配置 AI 服务」。
             if settings.llmConfigured {
                 modelMenu
             } else {
-                Text("未配置 AI 服务").font(.system(size: 12)).foregroundStyle(.secondary)
+                Button("配置 AI 服务…", action: onOpenSettings)
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 12))
             }
-            Button("设置", action: onOpenSettings)
-                .buttonStyle(.borderless)
-                .font(.system(size: 12))
         }
         .padding(.horizontal, DS.Space.l)
         .padding(.vertical, 10)
@@ -75,17 +76,7 @@ struct SummaryView: View {
     private var modelMenu: some View {
         Menu {
             Section(String(localized: "接口：\(host(settings.llmBaseURL))", bundle: .l10n)) {
-                Toggle("跟随 AI 设置（\(settings.llmModel)）", isOn: choice($settings.summaryModel, ""))
-                if !settings.summaryModel.isEmpty, !models.contains(settings.summaryModel) {
-                    Toggle(settings.summaryModel, isOn: choice($settings.summaryModel, settings.summaryModel))
-                }
-            }
-            if !models.isEmpty {
-                Section(String(localized: "可用模型", bundle: .l10n)) {
-                    ForEach(models, id: \.self) { model in
-                        Toggle(model, isOn: choice($settings.summaryModel, model))
-                    }
-                }
+                LLMModelMenuItems(selected: settings.summaryModel, catalog: catalog, settings: settings) { settings.summaryModel = $0 }
             }
         } label: {
             HStack(spacing: 4) {
@@ -99,7 +90,7 @@ struct SummaryView: View {
         .menuStyle(.borderlessButton)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: 260, alignment: .trailing)
-        .help("总结使用 设置 › AI 润色与翻译 里配置的接口，模型可以另选")
+        .help("总结使用 设置 › AI 服务 里配置的接口，模型可以另选")
     }
 
     // MARK: - 空状态
@@ -114,7 +105,7 @@ struct SummaryView: View {
             Text("AI 总结").font(.system(size: 15, weight: .semibold))
             Text(summarizer.isConfigured
                  ? String(localized: "打开上方的「自动总结」，每隔 \(settings.summaryInterval) 分钟总结一次刚才的内容，要点按时间排列在这里。", bundle: .l10n)
-                 : String(localized: "总结使用 设置 › AI 润色与翻译 里配置的服务，请先配置。", bundle: .l10n))
+                 : String(localized: "总结使用 设置 › AI 服务 里配置的服务，请先配置。", bundle: .l10n))
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -289,7 +280,7 @@ struct SummaryView: View {
     }
 
     private var statusText: String {
-        if !summarizer.isConfigured { return String(localized: "未配置模型", bundle: .l10n) }
+        if !summarizer.isConfigured { return String(localized: "未配置 AI 服务", bundle: .l10n) }
         if summarizer.isSummarizingAll { return String(localized: "正在总结全文…", bundle: .l10n) }
         if summarizer.isGenerating { return String(localized: "正在总结…", bundle: .l10n) }
         if !summarizer.enabled { return String(localized: "自动总结已关闭", bundle: .l10n) }
@@ -311,12 +302,6 @@ struct SummaryView: View {
     /// 菜单里单选项的勾选状态:当前值等于 `value` 时打勾,点它就选它。
     private func choice<T: Equatable>(_ selection: Binding<T>, _ value: T) -> Binding<Bool> {
         Binding(get: { selection.wrappedValue == value }, set: { if $0 { selection.wrappedValue = value } })
-    }
-
-    /// 拉取设置里那个接口的模型列表(失败时只保留"跟随 AI 设置")。
-    private func loadModels() async {
-        guard settings.llmConfigured else { return }
-        models = (try? await OpenAICompatibleAPI.listModels(baseURL: settings.llmBaseURL, apiKey: settings.llmAPIKey)) ?? []
     }
 
     private func host(_ baseURL: String) -> String {

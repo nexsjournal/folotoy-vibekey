@@ -262,7 +262,7 @@ nonisolated final class CloudASRTests: XCTestCase {
     }
 }
 
-/// 链:LLMConfigForm / CloudConfigSheet → OpenAICompatibleAPI(地址拼接、模型列表解析)→ CloudASREngine.transcriptionModels。
+/// 链:LLMConfigForm → LLMModelCatalog.refresh → OpenAICompatibleAPI.listModels;CloudConfigSheet → OpenAICompatibleAPI(地址拼接、模型列表解析)→ CloudASREngine.transcriptionModels。
 nonisolated final class ModelListTests: XCTestCase {
     func testEndpointTrimsSlashesAndRejectsBadURL() {
         XCTAssertEqual(OpenAICompatibleAPI.endpoint(" https://api.openai.com/v1// ", "models")?.absoluteString, "https://api.openai.com/v1/models")
@@ -304,7 +304,7 @@ nonisolated final class CaptionTranscriptTests: XCTestCase {
         let first = CaptionTranscript.Entry(time: start.addingTimeInterval(5), text: "Hello")
         transcript.append(first)
         transcript.append(.init(time: start.addingTimeInterval(3_725), text: "World"))
-        transcript.setTranslation("你好", for: first.id)
+        transcript.setTranslation("你好", for: first.id, target: .zhHans)
         XCTAssertEqual(transcript.offset(of: transcript.entries[1]), "01:02:05")
         let text = transcript.plainText()
         XCTAssertTrue(text.hasPrefix("Chrome\n"))
@@ -343,7 +343,8 @@ nonisolated final class CaptionTranscriptTests: XCTestCase {
     }
 }
 
-/// 链:SubtitleController.translate → TextProcessor.translateSubtitle → LLMClient.stream(SSE 解析);Prompts.target → TargetLanguage.autoPair。
+/// 链:SubtitleController.translate → TranslationService.translateLine → TextProcessor.translateSubtitle → LLMClient.stream(SSE 解析);
+/// Prompts.target → TargetLanguage.autoPair。
 nonisolated final class TranslationDisplayTests: XCTestCase {
     func testStreamLineParsing() {
         XCTAssertEqual(LLMClient.parseStreamLine(#"data: {"choices":[{"delta":{"content":"你好"}}]}"#), "你好")
@@ -418,9 +419,8 @@ nonisolated final class SystemTranslationTests: XCTestCase {
         XCTAssertEqual(toEnglish.source.minimalIdentifier, "zh")
     }
 
-    func testPromptIncludesMachineDraft() {
-        let user = Prompts.subtitleUser(current: "Hello", context: [], draft: "你好")
-        XCTAssertEqual(user, "CURRENT: Hello\nMACHINE DRAFT: 你好")
+    func testSubtitlePromptHasNoMachineDraft() {
+        XCTAssertEqual(Prompts.subtitleUser(current: "Hello", context: []), "CURRENT: Hello", "去掉混合模式后不再附带机翻初稿")
     }
 }
 
@@ -521,13 +521,16 @@ nonisolated final class CaptionPipelineTests: XCTestCase {
         XCTAssertEqual(captions.translation, "第一句已经完整。第二句等待翻译。")
     }
 
-    func testRollingSkipsSentencesWhoseTranslationTimesOut() {
+    func testRollingNeverDropsSentenceWhoseTranslationTimesOut() {
         let now = Date()
         var captions = RollingCaptions()
         var units = [unit("Stuck sentence without translation.", nil, age: 5, now: now),
                      unit("Next sentence translated fine.", "下一句。", now: now)]
         captions.update(&units, live: "", translating: true, timeout: 4, now: now)
-        XCTAssertEqual(captions.translation, "下一句。", "超时的句子跳过,后面的不再等")
+        XCTAssertEqual(captions.translationFinal, "", "顶替的内容按暂定样式显示")
+        XCTAssertTrue(captions.translationLive.contains("Stuck sentence without translation."), "等不到译文时用原文顶替,不丢句")
+        XCTAssertTrue(captions.translationLive.hasSuffix("下一句。"), "后面的句子照常接上")
+        XCTAssertFalse(captions.translationWaiting)
     }
 
     func testRollingTrimsWholeSentencesOccasionally() {
@@ -568,7 +571,8 @@ nonisolated final class SummaryTests: XCTestCase {
     }
 }
 
-/// 链:AppState.stopCaptions → TranscriptSaver.askOnEnd → TranscriptSummarizer.summarizeAll(chunks → summaryNotes → summarizeAll)。
+/// 链:字幕记录窗口「总结」页 SummaryView「总结全文」→ TranscriptSummarizer.summarizeAll → runAll(chunks → Prompts.summaryNotes → Prompts.summarizeAll);
+/// 保存:TranscriptSaver.save → CaptionTranscript.plainText(summary:)(总结写在字幕前面)。
 nonisolated final class FullSummaryTests: XCTestCase {
     func testChunksKeepLinesWhole() {
         let text = (0..<10).map { "Line number \($0) with some words." }.joined(separator: "\n")

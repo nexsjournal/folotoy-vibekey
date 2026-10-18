@@ -3,13 +3,21 @@ import SwiftUI
 
 /// 字幕记录窗口:两个标签页——「字幕」显示本次(或刚结束的那次)字幕会话的全部内容,可以拷贝或保存成文件;
 /// 「总结」由 AI 每隔一段时间总结一次(SummaryView)。
+/// 「字幕」页顶部有翻译工具条(TranscriptTranslationBar),字幕进行中或结束后都可以单独翻译、AI 润色。
 /// 只读 SubtitleController 的状态;保存 / 拷贝通过闭包交给外部(WindowManager)。
 struct TranscriptView: View {
     let controller: SubtitleController
     let summarizer: TranscriptSummarizer
+    let translator: TranscriptTranslator
+    let translation: TranslationService
+    let catalog: LLMModelCatalog
     let settings: AppSettings
-    /// 打开 设置 › AI 润色与翻译。
+    /// 打开 设置 › AI 服务(总结用的 LLM 服务)。
     let onOpenSettings: () -> Void
+    /// 打开 设置 › 翻译服务(可带上要配置的在线服务)。
+    let onOpenTranslationSettings: (TranslationProvider?) -> Void
+    /// 打开系统翻译的配置(下载语言包)。
+    let onOpenSystemTranslation: () -> Void
     /// 固定在屏幕右侧(置顶、半透明)。
     let pin: TranscriptPinController
     /// 保存成文件(由 WindowManager 在本窗口上弹出保存面板)。
@@ -32,12 +40,18 @@ struct TranscriptView: View {
                 if transcript.isEmpty && controller.partial.isEmpty {
                     empty
                 } else {
+                    TranscriptTranslationBar(translator: translator, translation: translation, catalog: catalog, settings: settings,
+                                             onConfigure: { onOpenTranslationSettings($0) },
+                                             onConfigureSystem: onOpenSystemTranslation,
+                                             onConfigureLLM: onOpenSettings,
+                                             onSettings: { onOpenTranslationSettings(nil) })
+                    Divider()
                     list
                 }
                 Divider()
                 footer
             case .summary:
-                SummaryView(summarizer: summarizer, settings: settings, onOpenSettings: onOpenSettings)
+                SummaryView(summarizer: summarizer, settings: settings, catalog: catalog, onOpenSettings: onOpenSettings)
             }
         }
         .frame(minWidth: 360, minHeight: 360)
@@ -111,7 +125,8 @@ struct TranscriptView: View {
     private var list: some View {
         TranscriptTextView(transcript: transcript,
                            partial: controller.isRunning ? controller.partial : "",
-                           followLatest: followLatest)
+                           followLatest: followLatest,
+                           showTranslations: translator.showTranslations)
     }
 
     private var empty: some View {
@@ -146,7 +161,7 @@ struct TranscriptView: View {
 
     private func copyAll() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(transcript.plainText(), forType: .string)
+        NSPasteboard.general.setString(transcript.plainText(includeTranslation: translator.showTranslations), forType: .string)
         copied = true
         Task {
             try? await Task.sleep(for: .seconds(1.5))

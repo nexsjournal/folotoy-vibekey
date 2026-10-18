@@ -38,24 +38,61 @@ nonisolated enum Prompts {
         2. If the CURRENT line is a fragment continuing the previous line, translate it so it reads naturally as the continuation; \
         translate only the CURRENT line's content, without repeating the previous translation.
         3. Write a fluent, idiomatic, concise subtitle a professional translator would produce. Keep names, numbers and technical terms accurate.
-        If a MACHINE DRAFT is given, it is a quick literal machine translation of the CURRENT line: keep what is right, \
-        fix mistranslations, recognition errors and awkward wording.
         Output only the translation of the CURRENT line — no quotes, notes or explanations.
         \(vocabularyBlock(vocabulary))
         """
     }
 
-    static func subtitleUser(current: String, context: [(source: String, translation: String?)], draft: String? = nil) -> String {
-        var message = ""
-        if !context.isEmpty {
-            let previous = context.map { line in
-                line.translation.map { "\(line.source)\n  → \($0)" } ?? line.source
-            }
-            message = "PREVIOUS:\n" + previous.joined(separator: "\n") + "\n\n"
+    static func subtitleUser(current: String, context: [(source: String, translation: String?)]) -> String {
+        contextBlock(context) + "CURRENT: \(current)"
+    }
+
+    /// 批量翻译字幕记录:输入是带编号的若干行,要求逐行对应输出,编号不变。
+    static func translateBatch(to target: TargetLanguage, vocabulary: [String]) -> String {
+        """
+        You translate a transcript of live speech \(Self.target(target)).
+        The lines come from real-time speech recognition, so they may contain misheard words, homophones and sentences split across lines.
+        The user message may contain PREVIOUS lines for context, then LINES to translate, one per line as "[n] text".
+        Use the surrounding lines to understand the speaker and correct recognition errors; keep names, numbers and technical terms accurate.
+        Translate every line into a fluent, idiomatic subtitle. Keep exactly one output line per input line, \
+        in the same order and with the same "[n]" number, even for short fragments. Do not merge, split, skip or add lines.
+        Output only the numbered translations, nothing else.
+        \(vocabularyBlock(vocabulary))
+        """
+    }
+
+    /// 润色已有译文:给出原文和当前译文,输出改进后的译文(逐行对应)。
+    static func refineTranslations(to target: TargetLanguage, vocabulary: [String]) -> String {
+        """
+        You are a professional subtitle editor. Each numbered item has a SOURCE line from real-time speech recognition \
+        and its current TRANSLATION \(Self.target(target)) (often a literal machine translation).
+        Using the surrounding lines for context, rewrite each translation so it is accurate, natural and consistent: \
+        fix recognition errors in the source, mistranslations, awkward wording and inconsistent terminology. \
+        If a translation is already good, keep it.
+        Keep exactly one output line per item, as "[n] improved translation", in the same order. Do not merge, split, skip or add items.
+        Output only the numbered translations, nothing else.
+        \(vocabularyBlock(vocabulary))
+        """
+    }
+
+    static func numberedUser(_ lines: [String], context: [(source: String, translation: String?)]) -> String {
+        contextBlock(context) + "LINES:\n" + NumberedLines.format(lines)
+    }
+
+    static func refineUser(_ items: [(source: String, translation: String)], context: [(source: String, translation: String?)]) -> String {
+        let body = items.enumerated().map { index, item in
+            "[\(index + 1)] SOURCE: \(item.source.replacingOccurrences(of: "\n", with: " "))\n    TRANSLATION: \(item.translation.replacingOccurrences(of: "\n", with: " "))"
         }
-        message += "CURRENT: \(current)"
-        if let draft, !draft.isEmpty { message += "\nMACHINE DRAFT: \(draft)" }
-        return message
+        return contextBlock(context) + "ITEMS:\n" + body.joined(separator: "\n")
+    }
+
+    /// 上下文:前几句原文(有译文时附上译文,保持术语一致)。
+    private static func contextBlock(_ context: [(source: String, translation: String?)]) -> String {
+        guard !context.isEmpty else { return "" }
+        let previous = context.map { line in
+            line.translation.flatMap { $0.isEmpty ? nil : "\(line.source)\n  → \($0)" } ?? line.source
+        }
+        return "PREVIOUS:\n" + previous.joined(separator: "\n") + "\n\n"
     }
 
     /// 字幕记录分段总结:只总结 NEW 部分,PREVIOUS SUMMARY 用于衔接上下文、避免重复。

@@ -66,7 +66,7 @@
 
 ### DONE
 - 绿色圆环 300 ms 内画满,随后对勾描边动画,再加 12 个白色粒子向外迸散后淡出(绿色只用于圆环与对勾)。
-- 下方显示 `TYPED`,或 Mac 下发的 `msg`(如 `COPIED`)。
+- 下方显示 `TYPED`,或 Mac 下发的 `msg`(如 `COPIED`;翻译 / 润色失败但已输入原文时为 `NOT TRANSLATED` / `NOT POLISHED`,由 `DeviceStateMapper.asciiResult` 给出)。
 
 ### ERR
 - 红色 X,左右抖动 3 次(每次 60 ms),下方显示 `msg`。

@@ -139,9 +139,9 @@ nonisolated enum LLMError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .badURL: String(localized: "API 地址无效", bundle: .l10n)
+        case .badURL: String(localized: "接口地址无效", bundle: .l10n)
         case .empty: String(localized: "模型没有返回内容", bundle: .l10n)
-        case .notConfigured: String(localized: "尚未配置 LLM", bundle: .l10n)
+        case .notConfigured: String(localized: "尚未配置 AI 服务", bundle: .l10n)
         case .server(let message): message
         }
     }

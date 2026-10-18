@@ -6,17 +6,18 @@ import UniformTypeIdentifiers
 @MainActor
 enum TranscriptSaver {
     /// 在窗口上以表单(sheet)形式弹出保存面板,不阻塞其他窗口。
-    static func save(_ transcript: CaptionTranscript, summary: String, in window: NSWindow) async -> Bool {
+    /// - Parameter includeTranslation: 是否带上译文(记录窗口隐藏了译文时不带)。
+    static func save(_ transcript: CaptionTranscript, summary: String, includeTranslation: Bool = true, in window: NSWindow) async -> Bool {
         let panel = makePanel(for: transcript)
         guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return false }
-        return write(transcript, summary: summary, to: url, window: window)
+        return write(transcript, summary: summary, includeTranslation: includeTranslation, to: url, window: window)
     }
 
     // MARK: - 内部
 
     private static func makePanel(for transcript: CaptionTranscript) -> NSSavePanel {
         let panel = NSSavePanel()
-        panel.title = String(localized: "保存字幕", bundle: .l10n)
+        panel.title = String(localized: "保存字幕记录", bundle: .l10n)
         panel.nameFieldStringValue = transcript.suggestedFileName
         panel.allowedContentTypes = [.plainText]
         panel.canCreateDirectories = true
@@ -25,9 +26,10 @@ enum TranscriptSaver {
     }
 
     /// 原子写入;失败时用系统错误提示框说明原因。
-    private static func write(_ transcript: CaptionTranscript, summary: String, to url: URL, window: NSWindow?) -> Bool {
+    private static func write(_ transcript: CaptionTranscript, summary: String, includeTranslation: Bool,
+                              to url: URL, window: NSWindow?) -> Bool {
         do {
-            try transcript.plainText(summary: summary).write(to: url, atomically: true, encoding: .utf8)
+            try transcript.plainText(includeTranslation: includeTranslation, summary: summary).write(to: url, atomically: true, encoding: .utf8)
             return true
         } catch {
             let alert = NSAlert(error: error)

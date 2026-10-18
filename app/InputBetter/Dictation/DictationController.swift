@@ -3,8 +3,10 @@ import AppKit
 /// 听写流程的状态机:录音 → 识别 → (润色 / 翻译)→ 输入。
 /// 只负责编排,具体能力通过注入的依赖完成:
 /// - `makeSource`:按设置创建音源(系统麦克风或 Passport);
-/// - `engines` / `models`:识别引擎与模型状态;
-/// - `processor`:LLM 后处理;`inserter`:把文本输入到焦点窗口。
+/// - `engines`:按模型 ID 拿可用的识别引擎;
+/// - `postProcessor`:润色 / 翻译;`inserter`:把文本输入到焦点窗口。
+/// 取消约定:`cancel()` 之后,进行中的流程在每个 `await` 返回时检查 `Task.isCancelled` 并直接退出,
+/// 不再改状态、不再粘贴,也不报错(用户主动放弃不是失败)。
 @MainActor @Observable
 final class DictationController {
     enum Mode: Equatable, Sendable {
@@ -42,12 +44,10 @@ final class DictationController {
     var isHandsFree: Bool { interpreter.isHandsFree }
 
     @ObservationIgnored private let settings: AppSettings
-    @ObservationIgnored private let models: ModelManager
-    @ObservationIgnored private let engines: EngineRegistry
-    @ObservationIgnored private let processor: TextProcessor
-    /// 听写翻译(LLM 或系统翻译)。
-    @ObservationIgnored private let translation: TranslationService
-    @ObservationIgnored private let inserter: TextInserter
+    @ObservationIgnored private let engines: DictationEngineSource
+    /// 润色 / 听写翻译。
+    @ObservationIgnored private let postProcessor: DictationPostProcessing
+    @ObservationIgnored private let inserter: TextInserting
     @ObservationIgnored private let sounds: SoundEffects
     @ObservationIgnored private let makeSource: () -> AudioSource
 
@@ -65,14 +65,11 @@ final class DictationController {
     @ObservationIgnored private var target: NSRunningApplication?
     @ObservationIgnored private var startedAt = Date()
 
-    init(settings: AppSettings, models: ModelManager, engines: EngineRegistry, processor: TextProcessor,
-         translation: TranslationService,
-         inserter: TextInserter, sounds: SoundEffects, makeSource: @escaping () -> AudioSource) {
-        self.translation = translation
+    init(settings: AppSettings, engines: DictationEngineSource, postProcessor: DictationPostProcessing,
+         inserter: TextInserting, sounds: SoundEffects, makeSource: @escaping () -> AudioSource) {
         self.settings = settings
-        self.models = models
         self.engines = engines
-        self.processor = processor
+        self.postProcessor = postProcessor
         self.inserter = inserter
         self.sounds = sounds
         self.makeSource = makeSource
@@ -107,15 +104,19 @@ final class DictationController {
     // MARK: - 流程
 
     private func start(mode: Mode) {
-        guard !phase.isBusy else { return }
+        guard !phase.isBusy else {
+            // 上一次还在处理:这次按下不开始录音,也要把按键状态复位,
+            // 否则 PressInterpreter 以为在录音,下一次按下会被当成"结束"吞掉。
+            interpreter.reset()
+            return
+        }
         resetTask?.cancel()
-        let modelID = settings.dictationModelID
-        guard models.isInstalled(modelID), let engine = engines.engine(for: modelID) else {
+        guard let engine = engines.dictationEngine(for: settings.dictationModelID) else {
             fail(.noModel)
             return
         }
-        if mode == .translate, !translation.canTranslateDictation {
-            fail(.translationUnavailable)
+        if mode == .translate, let reason = postProcessor.translationUnavailableReason {
+            fail(.translationUnavailable(reason: reason))
             return
         }
 
@@ -151,15 +152,18 @@ final class DictationController {
         sessionTask = Task { [weak self] () -> ASRSession? in
             do {
                 let session = try await engine.makeSession(options)
-                guard !Task.isCancelled else { session.cancel(); return nil }
+                // 等待期间被取消(✕):丢弃会话,不碰状态(此时可能已经开始了新的一次听写)。
+                guard !Task.isCancelled, let self else { session.cancel(); return nil }
                 buffer.attach(session)
-                self?.sessionReady = true
-                if let self, self.phase == .starting { self.phase = .recording }
-                self?.eventsTask = Task { [weak self] in
+                sessionReady = true
+                if phase == .starting { phase = .recording }
+                eventsTask = Task { [weak self] in
                     for await event in session.events { self?.handle(event) }
                 }
                 return session
             } catch {
+                // 取消引起的错误(CancellationError 等)不是失败:cancel() 已经复位了状态,这里什么都不做。
+                guard !Task.isCancelled, !(error is CancellationError) else { return nil }
                 source.stop()
                 self?.source = nil
                 self?.fail(.other(error.localizedDescription))
@@ -179,13 +183,19 @@ final class DictationController {
         level = 0
         sounds.stop()
 
+        let sessionTask = self.sessionTask
+        // 每个 await 之后都检查取消:cancel() 已经把状态复位(甚至可能开始了新的一次听写),
+        // 这里不能再改状态、粘贴或报错。
         flowTask = Task {
             // 松开后多录 150 ms,避免吃掉最后一个字。
             try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
             source?.stop()
             self.source = nil
             if !sessionReady { phase = .processing(.loadingModel) }
-            guard let session = await sessionTask?.value else {
+            let session = await sessionTask?.value
+            guard !Task.isCancelled else { return }
+            guard let session else {
                 if case .failed = phase { return }
                 fail(.engineNotReady)
                 return
@@ -193,8 +203,11 @@ final class DictationController {
             phase = .processing(.recognizing)
             let started = Date()
             var text = await session.finish()
-            eventsTask?.cancel()
-            sessionTask = nil
+            // 会话结束时会关闭事件流:等事件任务把剩下的事件(如结束时才报告的超时错误)处理完。
+            await self.eventsTask?.value
+            guard !Task.isCancelled else { return }
+            self.sessionTask = nil
+            self.eventsTask = nil
             Log.dictation.info("ASR finished in \(Date().timeIntervalSince(started), format: .fixed(precision: 2))s for \(duration, format: .fixed(precision: 1))s audio")
 
             text = TranscriptText.normalize(text)
@@ -206,12 +219,17 @@ final class DictationController {
                 return
             }
 
-            text = await postProcess(text, mode: mode)
+            if let step = postProcessor.step(for: mode) { phase = .processing(step) }
+            let processed = await postProcessor.process(text, mode: mode)
+            guard !Task.isCancelled else { return }
+            text = processed.text
             lastText = text
             let outcome = await inserter.insert(text, target: target)
+            guard !Task.isCancelled else { return }
             Log.dictation.info("inserted \(text.count, privacy: .public) chars: \(String(describing: outcome), privacy: .public)")
             switch outcome {
-            case .pasted: succeed(.typed)
+            // 退回原文时用警告结果,不显示绿色「已输入」。只复制到剪贴板时优先说明复制原因(用户得自己粘贴)。
+            case .pasted: succeed(.typed(warning: processed.warning))
             case .copied(let reason): succeed(.copied(reason))
             }
         }
@@ -228,7 +246,9 @@ final class DictationController {
         guard phase.isBusy else { return }
         interpreter.reset()
         flowTask?.cancel()
+        flowTask = nil
         eventsTask?.cancel()
+        eventsTask = nil
         source?.stop()
         source = nil
         if let task = sessionTask {
@@ -242,25 +262,6 @@ final class DictationController {
     }
 
     // MARK: - 内部
-
-    private func postProcess(_ text: String, mode: Mode) async -> String {
-        do {
-            switch mode {
-            case .translate:
-                phase = .processing(.translating)
-                return try await translation.translateDictation(text)
-            case .dictate where settings.polishEnabled && processor.isAvailable:
-                phase = .processing(.polishing)
-                return try await processor.polish(text)
-            default:
-                return text
-            }
-        } catch {
-            // LLM 失败时退回原文,不丢用户说的话。
-            Log.llm.error("post-process failed: \(error.localizedDescription, privacy: .public)")
-            return text
-        }
-    }
 
     private func handle(_ event: TranscriptEvent) {
         switch event {
@@ -285,14 +286,16 @@ final class DictationController {
 
     private func succeed(_ result: DictationResult) {
         phase = .done(result)
-        scheduleReset(after: 1.2)
+        // 警告结果(翻译 / 润色失败)多停留一会儿:用户要看清原因,也可能点击胶囊打开设置。
+        scheduleReset(after: result.isWarning ? 4.0 : 1.2)
     }
 
     private func fail(_ failure: DictationFailure) {
         interpreter.reset()
         phase = .failed(failure)
         sounds.error()
-        scheduleReset(after: 2.0)  // 与 Passport 固件的错误页停留时长(ERR_HOLD_MS)一致
+        // 与 Passport 固件的错误页停留时长(ERR_HOLD_MS)一致;可以点击去设置的失败多停留一会儿。
+        if case .translationUnavailable = failure { scheduleReset(after: 4.0) } else { scheduleReset(after: 2.0) }
     }
 
     private func finishSilently() {

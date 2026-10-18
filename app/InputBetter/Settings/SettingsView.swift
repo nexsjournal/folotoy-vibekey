@@ -7,15 +7,17 @@ struct SettingsView: View {
     @Bindable var navigation: SettingsNavigation
 
     enum Pane: String, CaseIterable, Identifiable {
-        case general, models, shortcuts, ai, subtitles, passport, vibe, vocabulary
+        case general, dictation, subtitles, models, translation, ai, shortcuts, vocabulary, passport, vibe
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .general: String(localized: "通用", bundle: .l10n)
+            case .dictation: String(localized: "听写", bundle: .l10n)
             case .models: String(localized: "识别模型", bundle: .l10n)
             case .shortcuts: String(localized: "快捷键", bundle: .l10n)
-            case .ai: String(localized: "AI 润色与翻译", bundle: .l10n)
+            case .translation: String(localized: "翻译服务", bundle: .l10n)
+            case .ai: String(localized: "AI 服务", bundle: .l10n)
             case .subtitles: String(localized: "实时字幕", bundle: .l10n)
             case .passport: String(localized: "Passport", bundle: .l10n)
             case .vibe: String(localized: "Vibe Coding", bundle: .l10n)
@@ -26,8 +28,10 @@ struct SettingsView: View {
         var symbol: String {
             switch self {
             case .general: "gearshape.fill"
+            case .dictation: "mic.fill"
             case .models: "waveform"
             case .shortcuts: "command"
+            case .translation: "translate"
             case .ai: "sparkles"
             case .subtitles: "captions.bubble.fill"
             case .passport: "keyboard.badge.ellipsis"
@@ -78,10 +82,12 @@ struct SettingsView: View {
     private var detail: some View {
         switch pane {
         case .general: GeneralPane(app: app)
+        case .dictation: DictationPane(app: app, navigation: navigation)
         case .models: ModelsPane(app: app)
         case .shortcuts: ShortcutsPane(app: app)
-        case .ai: AIPane(app: app)
-        case .subtitles: SubtitlesPane(app: app)
+        case .translation: TranslationPane(app: app, navigation: navigation)
+        case .ai: AIPane(app: app, navigation: navigation)
+        case .subtitles: SubtitlesPane(app: app, navigation: navigation)
         case .passport: PassportPane(app: app)
         case .vibe: VibePane(app: app)
         case .vocabulary: VocabularyPane(settings: app.settings)
@@ -136,6 +142,25 @@ struct SettingRow<Control: View>: View {
 @MainActor @Observable
 final class SettingsNavigation {
     var pane: SettingsView.Pane = SettingsNavigation.initialPane
+    /// 正在配置的在线翻译服务(翻译页弹出配置表单;字幕条「添加在线翻译服务」会直接设置它)。
+    var configuringProvider: TranslationProvider? = SettingsNavigation.initialProvider
+    /// 从哪个场景的方式菜单进来配置(配置表单里「使用此服务」默认勾上这个场景)。
+    var providerUse: TranslationScenario?
+    /// 显示系统翻译的配置(语言包)。
+    var showingSystemTranslation = false
+
+    /// 去 翻译服务 页配置某个在线服务(从任何场景的方式菜单「添加在线翻译服务」进来,都走这里)。
+    func configure(_ provider: TranslationProvider, useFor scenario: TranslationScenario?) {
+        pane = .translation
+        providerUse = scenario
+        configuringProvider = provider
+    }
+
+    /// 去 翻译服务 页打开系统翻译的配置(下载语言包)。
+    func configureSystemTranslation() {
+        pane = .translation
+        showingSystemTranslation = true
+    }
 
     /// 调试用:环境变量 IB_SETTINGS_PANE=<rawValue> 打开指定分类。
     private static var initialPane: SettingsView.Pane {
@@ -143,5 +168,13 @@ final class SettingsNavigation {
         if let raw = ProcessInfo.processInfo.environment["IB_SETTINGS_PANE"], let p = SettingsView.Pane(rawValue: raw) { return p }
         #endif
         return .general
+    }
+
+    /// 调试用:IB_TRANSLATE_CONFIG=<TranslationProvider.rawValue>(配合 IB_SETTINGS_PANE=translation)直接弹出配置表单。
+    private static var initialProvider: TranslationProvider? {
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["IB_TRANSLATE_CONFIG"] { return TranslationProvider(rawValue: raw) }
+        #endif
+        return nil
     }
 }

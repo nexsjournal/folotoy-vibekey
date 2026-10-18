@@ -4,6 +4,7 @@ import Foundation
 /// - 火山引擎豆包流式识别 2.0:普通话准确率最好,国内可用;
 /// - 阿里云百炼 Fun-ASR 实时识别:方言覆盖最广,国内(北京)和国际(新加坡)都可用;
 /// - ElevenLabs Scribe v2 Realtime:国际可用,中文 / 粤语高准确率档;
+/// - Soniox 实时识别:国际可用,约 60 种语言,中英混说好、延迟低,可传入上下文词汇;
 /// - OpenAI 兼容转写接口:按句上传,兼容 OpenAI、Groq 等任何 `/audio/transcriptions` 服务。
 /// 都采用"用户自带密钥"模式,密钥只存在本机(CredentialStore)。
 nonisolated enum CloudProvider: String, CaseIterable, Identifiable, Sendable {

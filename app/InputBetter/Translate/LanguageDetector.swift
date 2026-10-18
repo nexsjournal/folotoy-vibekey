@@ -37,11 +37,14 @@ extension TargetLanguage {
     /// 确定实际的目标语言:固定语言直接用;自动模式下原文是主语言就译成另一种语言,否则译成主语言
     /// (与 `Prompts.target` 给 LLM 的规则一致)。
     nonisolated func resolved(source: Locale.Language?, preferred: [String] = Locale.preferredLanguages) -> Locale.Language {
-        if let fixed = localeLanguage { return fixed }
+        resolvedTarget(source: source, preferred: preferred).localeLanguage ?? Locale.Language(identifier: "en")
+    }
+
+    /// 同 `resolved`,返回具体的 TargetLanguage(不会是 .auto),在线服务按它查语言代码。
+    nonisolated func resolvedTarget(source: Locale.Language?, preferred: [String] = Locale.preferredLanguages) -> TargetLanguage {
+        guard self == .auto else { return self }
         let pair = TargetLanguage.autoPair(preferred: preferred)
-        let primary = pair.primary.localeLanguage ?? Locale.Language(identifier: "en")
-        let other = pair.other.localeLanguage ?? Locale.Language(identifier: "en")
-        if let source, LanguageDetector.same(source, primary) { return other }
-        return primary
+        if let source, let primary = pair.primary.localeLanguage, LanguageDetector.same(source, primary) { return pair.other }
+        return pair.primary
     }
 }

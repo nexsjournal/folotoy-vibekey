@@ -97,7 +97,9 @@ struct OnboardingView: View {
         case .permissions: permissionsStep
         case .model:
             ScrollView {
-                ModelList(models: app.models, cloud: app.cloudASR, selection: Bindable(app.settings).dictationModelID)
+                // 只列本地模型:这一步的说明是"所有识别都在本机完成",云端识别留到 设置 › 识别模型 里再配置。
+                ModelList(models: app.models, cloud: app.cloudASR, selection: Bindable(app.settings).dictationModelID,
+                          items: ModelCatalog.all.filter { $0.cloudProvider == nil })
                     .padding(.horizontal, DS.Space.xl)
                     .padding(.bottom, DS.Space.m)
             }
@@ -108,12 +110,12 @@ struct OnboardingView: View {
         case .ai:
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Space.m) {
-                    Card { SystemTranslationRow(translation: app.translation) }
+                    Card { SystemTranslationRows(translation: app.translation, settings: app.settings) }
                     Text("AI（OpenAI 兼容接口）")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(.top, DS.Space.s)
-                    LLMConfigForm(settings: app.settings)
+                    LLMConfigForm(settings: app.settings, catalog: app.llmModels)
                     Toggle("听写后自动润色（去口水词、补标点、修正错字）", isOn: Bindable(app.settings).polishEnabled)
                         .font(.system(size: 12.5))
                         .disabled(!app.settings.llmConfigured)

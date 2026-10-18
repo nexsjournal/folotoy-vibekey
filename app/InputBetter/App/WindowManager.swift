@@ -10,7 +10,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private var transcriptWindow: NSWindow?
     /// 设置窗口当前分类(可从外部直接打开某个分类)。
     private let settingsNavigation = SettingsNavigation()
-    /// 字幕记录窗口的固定状态(固定在左侧、置顶)。
+    /// 字幕记录窗口的固定状态(固定在屏幕右侧、置顶)。
     private let transcriptPin = TranscriptPinController(autosaveName: WindowManager.transcriptAutosaveName)
     /// 字幕记录窗口当前的标签页(可从外部切换)。
     private let transcriptNavigation = TranscriptNavigation()
@@ -28,8 +28,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
 
     /// 打开设置窗口;传入分类时切换到该分类。
-    func showSettings(_ pane: SettingsView.Pane? = nil) {
+    /// - Parameters:
+    ///   - configure: 同时弹出某个在线翻译服务的配置表单(字幕条 / 字幕记录「添加在线翻译服务」);
+    ///   - useFor: 配置表单里「使用此服务」默认勾上的场景;
+    ///   - systemTranslation: 同时弹出系统翻译的配置(语言包)。
+    func showSettings(_ pane: SettingsView.Pane? = nil, configure provider: TranslationProvider? = nil,
+                      useFor scenario: TranslationScenario? = nil, systemTranslation: Bool = false) {
         if let pane { settingsNavigation.pane = pane }
+        if let provider { settingsNavigation.configure(provider, useFor: scenario) }
+        if systemTranslation { settingsNavigation.configureSystemTranslation() }
         if settingsWindow == nil {
             settingsWindow = makeWindow(title: String(localized: "InputBetter 设置", bundle: .l10n), size: NSSize(width: 940, height: 700),
                                         resizable: .init(minSize: NSSize(width: 820, height: 560), autosaveName: "InputBetterSettings"),
@@ -42,9 +49,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if onboardingWindow == nil {
             onboardingWindow = makeWindow(title: String(localized: "欢迎使用 InputBetter", bundle: .l10n), size: NSSize(width: 680, height: 560),
                                           content: LocalizedRoot(language: app.language) {
+                                              // 完成时只关窗口:finishOnboarding 统一在 windowWillClose 里调用一次
+                                              // (用户直接关掉引导窗口也走同一条路)。
                                               OnboardingView(app: self.app) { [weak self] in
                                                   self?.onboardingWindow?.close()
-                                                  self?.app.finishOnboarding()
                                               }
                                           })
         }
@@ -60,8 +68,24 @@ final class WindowManager: NSObject, NSWindowDelegate {
                                           resizable: .init(minSize: NSSize(width: 360, height: 360), autosaveName: Self.transcriptAutosaveName),
                                           content: LocalizedRoot(language: app.language) {
                                               TranscriptView(controller: self.app.subtitles, summarizer: self.app.summarizer,
+                                                             translator: self.app.transcriptTranslator,
+                                                             translation: self.app.translation,
+                                                             catalog: self.app.llmModels,
                                                              settings: self.app.settings,
                                                              onOpenSettings: { [weak self] in self?.showSettings(.ai) },
+                                                             // 「翻译设置…」打开 设置 › 实时字幕(字幕记录的翻译方式在那里);
+                                                             // 配置某个在线服务时打开 设置 › 翻译服务 并弹出它的表单;保存后设为字幕的翻译方式
+                                                             // (记录窗口默认跟随它,和从字幕条添加一致)。
+                                                             onOpenTranslationSettings: { [weak self] provider in
+                                                                 if let provider {
+                                                                     self?.showSettings(.translation, configure: provider, useFor: .subtitles)
+                                                                 } else {
+                                                                     self?.showSettings(.subtitles)
+                                                                 }
+                                                             },
+                                                             onOpenSystemTranslation: { [weak self] in
+                                                                 self?.showSettings(.translation, systemTranslation: true)
+                                                             },
                                                              pin: self.transcriptPin,
                                                              onSave: { [weak self] in self?.saveTranscriptFromWindow() },
                                                              navigation: self.transcriptNavigation)
@@ -84,7 +108,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
         guard let window = transcriptWindow else { return }
         let transcript = app.subtitles.transcript
         Task {
-            if await TranscriptSaver.save(transcript, summary: app.summarizer.plainText, in: window) {
+            if await TranscriptSaver.save(transcript, summary: app.summarizer.plainText,
+                                          includeTranslation: app.transcriptTranslator.showTranslations, in: window) {
                 app.subtitles.markTranscriptSaved(transcript)
             }
         }
@@ -159,7 +184,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if window === transcriptWindow { app.summarizer.setWindowVisible(false) }
         if window === onboardingWindow {
             onboardingWindow = nil
-            // 直接关掉引导窗口也视为完成,避免下次启动又弹出。
+            // 完成引导和直接关掉引导窗口都走这里(直接关掉也视为完成,避免下次启动又弹出)。
             if !app.settings.onboardingDone { app.finishOnboarding() }
         }
     }

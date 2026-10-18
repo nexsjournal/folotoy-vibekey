@@ -111,7 +111,8 @@ struct PassportSetupView: View {
             }
         case .failed(let message):
             VStack(alignment: .leading, spacing: 6) {
-                Label(LocalizedStringKey(message), systemImage: "xmark.octagon.fill")
+                // message 已是本地化好的错误文字(或系统 / 工具输出),用 String 重载原样显示,不再当键查找。
+                Label(message, systemImage: "xmark.octagon.fill")
                     .font(.system(size: 12)).foregroundStyle(DS.danger)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("重试") { model.flashFirmware() }.buttonStyle(SecondaryButtonStyle())

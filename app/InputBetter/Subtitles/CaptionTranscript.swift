@@ -13,8 +13,10 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         var translation: String?
         /// 翻译请求失败(超时 / 出错),不再等待译文。
         var translationFailed = false
-        /// 当前译文是系统翻译的初稿,AI 润色版还在路上(界面上略暗)。
-        var translationIsDraft = false
+        /// 译文是按哪个目标语言翻译的(字幕记录窗口据此判断换了语言后哪些句子需要重新翻译)。
+        var translationTarget: TargetLanguage?
+        /// 译文已经过 AI 润色。
+        var translationPolished = false
 
         /// 翻译已有结果(成功或失败)。
         var translationSettled: Bool { translation != nil || translationFailed }
@@ -59,11 +61,29 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
     }
 
     /// 译文异步到达后补到对应的句子上。空字符串表示原文已是目标语言、不需要译文。
-    mutating func setTranslation(_ translation: String, for id: UUID, draft: Bool = false) {
+    mutating func setTranslation(_ translation: String, for id: UUID, target: TargetLanguage) {
         guard let index = entries.lastIndex(where: { $0.id == id }) else { return }
         entries[index].translation = translation
-        entries[index].translationIsDraft = draft
+        entries[index].translationTarget = target
         entries[index].translationFailed = false
+        entries[index].translationPolished = false
+    }
+
+    /// 批量写入译文(字幕记录窗口的批量翻译 / AI 润色):先建索引再写,长记录也是线性时间。
+    mutating func setTranslations(_ translations: [UUID: String], failed: Set<UUID> = [], target: TargetLanguage, polished: Bool = false) {
+        guard !translations.isEmpty || !failed.isEmpty else { return }
+        let index = Dictionary(entries.indices.map { (entries[$0].id, $0) }, uniquingKeysWith: { _, last in last })
+        for (id, translation) in translations {
+            guard let i = index[id] else { continue }
+            entries[i].translation = translation
+            entries[i].translationTarget = target
+            entries[i].translationFailed = false
+            entries[i].translationPolished = polished
+        }
+        for id in failed {
+            guard let i = index[id], entries[i].translation == nil else { continue }
+            entries[i].translationFailed = true
+        }
     }
 
     mutating func setTranslationFailed(for id: UUID) {
@@ -75,7 +95,8 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
     mutating func clearTranslation(for id: UUID) {
         guard let index = entries.lastIndex(where: { $0.id == id }) else { return }
         entries[index].translation = nil
-        entries[index].translationIsDraft = false
+        entries[index].translationTarget = nil
+        entries[index].translationPolished = false
         entries[index].translationFailed = false
     }
 
