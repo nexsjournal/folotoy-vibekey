@@ -5,6 +5,10 @@
 //   enter   页面变为可见:重置动画起点
 //   update  页面可见期间 mode / msg 变化
 //   frame   约 30 fps 的逐帧回调:推进动画状态并 invalidate 需要重绘的自绘控件
+//
+// 页面切换默认是 fade-through(淡出旧页、淡入新页)。主体是点阵的页面(IDLE / REC / PROC / DONE / ERR / SUB)
+// 之间改为"直切":旧页立即隐藏、新页立即不透明,由新页面接着上一页的最后一帧让点重排(ib_ui_dots),
+// 整个听写过程看起来是同一批点在变形,而不是在翻页。
 #pragma once
 
 #include "ib_ui.h"
@@ -22,6 +26,8 @@
 #define IB_UI_CONTENT_W (IB_UI_W - IB_HINT_COL_W)
 #define IB_UI_CX        (IB_UI_CONTENT_W / 2)
 #define IB_UI_TEXT_MAX 24
+// ib_ui_ctx_t.prev_screen 的"不是直切而来"(普通淡入淡出切换)。
+#define IB_UI_SCREEN_NONE IB_UI_SCREEN_COUNT
 
 // 页面共享的显示上下文,由 ib_ui.c 维护。
 typedef struct {
@@ -34,6 +40,7 @@ typedef struct {
     int32_t level_smooth;   // 平滑后的电平,0..1000(每帧向目标靠近 35%)
     bool ok_held;
     uint32_t enter_ms;      // 当前页面进入时刻(lv_tick)
+    ib_ui_screen_t prev_screen;  // 直切而来时为上一页(页面据此播放变形动画),普通切换为 IB_UI_SCREEN_NONE
     uint32_t now_ms;        // 本帧时刻
     ib_ui_list_t list;      // 列表页内容
 } ib_ui_ctx_t;

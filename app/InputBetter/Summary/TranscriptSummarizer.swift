@@ -133,7 +133,7 @@ final class TranscriptSummarizer {
         }
         let transcript = subtitles.transcript
         guard let first = transcript.entries.first, let last = transcript.entries.last else { return }
-        let range = "\(startOffset(before: first, in: transcript)) – \(transcript.offset(of: last))"
+        let range = Self.range(from: first, to: last, in: transcript)
         fullSummary = Section(range: range, text: "", generating: true)
         error = nil
         let text = transcript.entries.map(\.text).joined(separator: "\n")
@@ -222,7 +222,7 @@ final class TranscriptSummarizer {
         var text = pending.map(\.text).joined(separator: "\n")
         if text.count > Self.maxCharacters { text = String(text.suffix(Self.maxCharacters)) }
         let previous = sections.last { !$0.generating }?.text
-        let section = Section(range: "\(startOffset(before: first, in: transcript)) – \(transcript.offset(of: last))", text: "", generating: true)
+        let section = Section(range: Self.range(from: first, to: last, in: transcript), text: "", generating: true)
         sections.append(section)
         error = nil
         let client = LLMClient(config: config)
@@ -257,11 +257,10 @@ final class TranscriptSummarizer {
         task = nil
     }
 
-    /// 一段的开始时间。句子记的是定稿时刻(这句说完的时候),所以开始时间取上一句的定稿时刻
-    /// (第一句从 00:00:00 开始),各段时间首尾相连,不会出现中间空了一截的错觉。
-    private func startOffset(before entry: CaptionTranscript.Entry, in transcript: CaptionTranscript) -> String {
-        guard let index = transcript.entries.firstIndex(where: { $0.id == entry.id }), index > 0 else { return "00:00:00" }
-        return transcript.offset(of: transcript.entries[index - 1])
+    /// 一段总结覆盖的时间:第一句开始说的时刻 – 最后一句定稿的时刻(这段话说完的时候)。
+    private static func range(from first: CaptionTranscript.Entry, to last: CaptionTranscript.Entry,
+                              in transcript: CaptionTranscript) -> String {
+        "\(transcript.offset(of: first)) – \(transcript.offset(at: last.finalizedAt))"
     }
 
     private func setText(_ text: String, for id: UUID, generating: Bool) {

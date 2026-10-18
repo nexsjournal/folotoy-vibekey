@@ -9,7 +9,7 @@
   - 每场字幕默认不翻译。鼠标悬停时显示工具栏:点「译」就翻译成默认语言(设置 › 实时字幕 › 默认翻译成),再点一次关闭;「译」旁的箭头可以换语言;旁边的翻译方式标签可以随时切换系统翻译、在线翻译服务或 AI 模型;「原文 N 行」标签可以快速调整翻译时原文显示几行(或只看译文)。原文和译文字号分别可调。字幕条锁定(鼠标穿透)后,翻译的开关、语言和方式也可以在菜单栏 / 状态条 ⌃ 菜单的「实时字幕」里操作。翻译中途出错(如额度用完)会在字幕条上常驻说明原因。
   - 字幕记录窗口(进行中或结束后)可以单独翻译:在「翻译」菜单里选一个语言就开始翻译;⋯ 里可以全部重新翻译、用 AI 润色译文,也可以隐藏译文。
   - 字幕条上的「字幕记录」可以查看本场的全部字幕,拷贝或保存成文本文件;记录窗口可以固定在屏幕右侧,半透明并始终置顶。记录窗口的「总结」页可以让 AI 每隔几分钟总结一次刚才的内容(接口用设置里配置的服务,模型可另选;只在显示这一页并打开开关时总结,关窗口自动暂停)。
-  - 结束字幕前确认一次(可关闭),结束后自动打开字幕记录窗口,可以在那里查看、总结(分段 / 全文)和保存。app 不保存字幕历史,记录只在内存里。
+  - 结束字幕前在字幕条的 ⏹ 上弹出小气泡确认一次(可关闭,不弹模态框),结束后自动打开字幕记录窗口,可以在那里查看、总结(分段 / 全文)和保存。app 不保存字幕历史,记录只在内存里。
 - **Passport 硬件**(右侧从上到下:上键 / 下键 / OK 键,屏幕右边的提示贴着对应按键):
   - 按住 OK 说话;
   - 上键回车,下键 Esc(默认值;可在 设置 › Passport › 按键 改成 ⌫ 退格、⌦ Delete、⌘Z 撤销、Tab 等,说错了可以直接在设备上回退删除);
@@ -18,13 +18,14 @@
 
   Claude Code / Codex 完成或需要确认时,设备会响铃提醒。专为 vibe coding 设计。
 - **界面语言**:简体中文 / English / 跟随系统(设置 › 通用),切换即时生效。
+- **检查更新**:官网版每天自动检查一次新版本(设置 › 通用 › 关于与更新,或菜单「检查更新…」);开源版可配置自己的更新接口,见「官网版与开源版」。
 - **翻译**:实时字幕和听写翻译各自选择翻译方式和目标语言(设置 › 实时字幕 / 设置 › 听写;服务在 设置 › 翻译服务 里配置),可选:
   - 系统翻译:macOS 自带的离线翻译,免费、最快,语言包可在引导或设置里一键下载;
   - 在线机器翻译:DeepL、Google 翻译、微软翻译、火山引擎、腾讯云、百度翻译(填自己的密钥,各家都有免费额度);
   - AI 大模型:结合上下文修正识别错误,译文最通顺,可以在字幕条上直接换模型。
   - 目标语言默认「自动」(中文用户:中文 → English,其他语言 → 中文)。
 - **AI 服务**(可选,任意 OpenAI 兼容接口,设置 › AI 服务):接口和 Key 配置一次,听写后润色、AI 翻译、字幕总结各自选模型。填好地址和 Key 后自动拉取模型列表供选择。
-- **设置按场景组织**:听写(润色、听写翻译)、实时字幕(显示、行数、翻译、字幕记录)、翻译服务(语言包与在线服务密钥)、AI 服务(LLM 接口)。
+- **设置按场景组织**:听写(润色、听写翻译)、实时字幕(字幕用的识别模型、显示、行数、翻译、字幕记录)、识别模型(下载与云端识别配置)、翻译服务(语言包与在线服务密钥)、AI 服务(LLM 接口)。
 
 ## 识别模型
 
@@ -62,6 +63,7 @@
 | 路径 | 内容 |
 | --- | --- |
 | `app/` | macOS app,Swift 6 / SwiftUI,用 XcodeGen 生成工程,要求 macOS 26+ |
+| `app/Packages/AppUpdateKit/` | 检查更新(独立 Swift 包,可复用),见下文「官网版与开源版」 |
 | `firmware/` | Passport 固件,ESP-IDF 5.5.3 / LVGL 9,见 `firmware/README.md` |
 | `docs/protocol.md` | 设备通信协议 |
 | `docs/device-ui.md` | 设备界面与交互设计 |
@@ -86,6 +88,8 @@ cd app
 open build/InputBetter.app
 ```
 
+有 Developer ID 证书时,`./scripts/install.sh` 会编译签名公证正式版、替换 `/Applications/InputBetter.app` 并启动(自测用,凭据配置见 [docs/website.md](docs/website.md))。
+
 第一次启动会进入引导,依次是:
 
 1. 授予麦克风与辅助功能权限
@@ -94,6 +98,56 @@ open build/InputBetter.app
 4. 翻译与 AI(可选,可一键下载系统翻译语言、连接 AI)
 5. 连接 Passport(可选,可一键刷固件、设置 Passport 麦克风)
 6. 试一试
+
+## 官网版与开源版(检查更新)
+
+两者的代码完全相同,区别只在本机配置:
+
+| | 官网下载的版本 | 自行编译的开源版 |
+| --- | --- | --- |
+| 检查更新 | 每天自动检查一次,也可在 设置 › 通用 › 关于与更新 或菜单「检查更新…」手动检查;有新版本时弹窗显示更新内容,点「下载并安装」在 app 内完成更新(Sparkle);发布方可要求低于某个版本的必须更新 | 默认没有配置更新接口,不检查更新,也不显示检查入口 |
+| 更新接口 | 官网的接口(地址只在发布者本机配置,不在仓库里) | 可以配置自己的接口 |
+
+检查更新的逻辑在本地 Swift 包 `app/Packages/AppUpdateKit`(与 InputBetter 无关,可以拷到其他 app 复用):`AppUpdateKit` 负责版本比较、每 24 小时检查一次、跳过此版本 / 稍后提醒、强制更新,以及解析 JSON 更新数据的 `JSONUpdateFeed`;`AppUpdateInstaller` 用 [Sparkle 2](https://sparkle-project.org)(macOS 官网分发 app 的业内标准)下载、校验签名并安装,进度显示在 app 自己的更新窗口里。
+
+**给开源版配置自己的更新接口**:新建 `app/Config/Update.local.xcconfig`(已在 .gitignore 中),写入
+
+```
+IB_UPDATE_FEED_URL = https:/$()/example.com/inputbetter/update.json
+IB_UPDATE_APP_ID = inputbetter    // 可选,作为 X-App-ID 请求头发送
+```
+
+(xcconfig 里 `//` 是注释,URL 的双斜杠要写成 `/$()/`。)重新编译后生效。app 会 GET 这个地址(自动加上 `?platform=macos`),返回如下 JSON;可以是任何服务器接口,也可以直接放一个静态文件:
+
+```json
+{
+  "latest": {
+    "version": "1.2.0",
+    "build": "42",
+    "notes": {"zh": "- 新增……", "en": "- New…"},
+    "url": "https://example.com/InputBetter-1.2.0.dmg"
+  },
+  "requiredAtOrBelow": "1.0.3"
+}
+```
+
+- `latest` 为 `null` 表示没有可用版本;`build`、`notes`、`requiredAtOrBelow` 可省略;`url` 必须是 HTTPS,「下载更新」会在浏览器里打开它。
+- 当前版本 ≤ `requiredAtOrBelow` 时必须更新(提示窗口只能下载或退出)。
+- 调试构建可以用 `IB_UPDATE_DEMO=available|required` 查看更新提示的界面(不联网),`IB_UPDATE_FEED=<url>` 临时换接口。
+
+**在 app 内下载安装(可选,Sparkle 2)**:只配置上面的接口时,「下载更新」会在浏览器里打开安装包、由用户手动替换。想像官网版一样在 app 内下载、校验并自动安装重启,再配置 Sparkle 的 appcast 和 EdDSA 公钥:
+
+1. 用 Sparkle 自带的工具生成密钥(私钥存进本机钥匙串,公钥打印出来;编译过一次后工具在 `app/build/**/artifacts/sparkle/Sparkle/bin/`):`generate_keys`,并用 `generate_keys -x <文件>` 备份私钥。
+2. 在 `Update.local.xcconfig` 里加上:
+
+   ```
+   IB_UPDATE_APPCAST_URL = https:/$()/example.com/inputbetter/appcast.xml
+   IB_UPDATE_PUBLIC_ED_KEY = <generate_keys 打印的公钥>
+   ```
+
+3. 发版时用 `sign_update <dmg>` 得到 `sparkle:edSignature` 和 `length`,写进 appcast(格式见 [Sparkle 文档](https://sparkle-project.org/documentation/publishing/);`sparkle:version` 填构建号 CFBundleVersion)。`release.sh` 会自动签名并把结果写进 `build/release/*.sparkle`。
+
+Sparkle 会校验下载文件的 EdDSA 签名和新 app 的代码签名,两者都通过才安装。
 
 ## 烧录 Passport 固件
 
@@ -105,7 +159,7 @@ app 不内置固件,刷写时从官网下载最新固件([input.0os.io/firmware/
 - `build.sh` 会用 `scripts/bundle-device-assets.sh` 把烧录工具 esptool 打包进 app。
 - 第一次刷某台设备前,app 会把整片 Flash 备份到 `~/Library/Application Support/InputBetter/Backups/`。
 
-**在官网用浏览器刷入**:用电脑上的 Chrome / Edge 打开 [input.0os.io](https://input.0os.io/#firmware),先退出 InputBetter app,点「连接并刷入」。可选先把整片 Flash 备份下载到本机。网页会检查芯片、Flash 大小和 `cardid` 分区,不是 Passport 就停止。
+**在官网用浏览器刷入**:用电脑上的 Chrome / Edge 打开 [input.0os.io/passport/](https://input.0os.io/passport/#firmware),先退出 InputBetter app,点「连接并刷入」。可选先把整片 Flash 备份下载到本机。网页会检查芯片、Flash 大小和 `cardid` 分区,不是 Passport 就停止。
 
 也可以用命令行:
 

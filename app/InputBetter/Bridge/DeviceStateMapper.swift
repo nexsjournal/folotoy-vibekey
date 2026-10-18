@@ -42,7 +42,11 @@ enum DeviceStateMapper {
         case .rec:
             // 按住说话时 OK 仍是麦克风(松开结束);免提时 OK 是停止。长按下键取消。
             return Hints(ok: handsFree ? .stop : .mic, up: nil, down: .cancel)
-        case .proc, .done, .err:
+        case .proc:
+            // 上一句还在处理:OK 暂不可用。仍显示麦克风,设备在 PROC 页把提示列画成禁用色,
+            // 按下时给出"不可用"反馈(见 docs/device-ui.md),让用户知道这时说话不会被录下。
+            return Hints(ok: .mic, up: nil, down: nil)
+        case .done, .err:
             return Hints(ok: nil, up: nil, down: nil)
         case .sub:
             // 字幕模式:OK 结束字幕、上键开关翻译、下键收起字幕条;听写 / 翻译模式:OK 说话,上下键是 vibe 动作。

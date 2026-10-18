@@ -317,12 +317,12 @@
         }
       }
     },
-    "Apple Speech 与云端流式服务的字幕延迟最低；其他本地模型按句识别，准确率更高。": {
+    "Apple Speech 与云端流式服务的字幕延迟最低；其他本地模型按句识别，准确率更高。模型在[识别模型](inputbetter-settings://models)里下载，云端服务也在那里配置。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple Speech and cloud streaming services give the lowest caption latency. Other local models transcribe sentence by sentence for higher accuracy."
+            "value": "Apple Speech and cloud streaming services give the lowest caption latency. Other local models transcribe sentence by sentence for higher accuracy. Download models and set up cloud services in [Speech Models](inputbetter-settings://models)."
           }
         }
       }
@@ -393,12 +393,32 @@
     "InputBetter": {
       "shouldTranslate": false
     },
+    "InputBetter %@ 是目前的最新版本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter %@ is the latest version."
+          }
+        }
+      }
+    },
     "InputBetter 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 %@ 打开。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "InputBetter doesn't keep caption history: the transcript lives only in memory and is cleared when you start new captions or quit. After you end captions, the Transcript window opens so you can review, translate, summarize and save it; while captions are running, click %@ on the caption bar to open it."
+          }
+        }
+      }
+    },
+    "InputBetter 有新版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new version of InputBetter is available"
           }
         }
       }
@@ -782,6 +802,16 @@
         }
       }
     },
+    "上次检查：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last checked: %@"
+          }
+        }
+      }
+    },
     "上键": {
       "localizations": {
         "en": {
@@ -802,12 +832,32 @@
         }
       }
     },
+    "下载后打开安装包，把 InputBetter 拖到「应用程序」替换旧版即可，设置和模型都会保留。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After downloading, open the disk image and drag InputBetter to Applications to replace the old version. Your settings and models are kept."
+          }
+        }
+      }
+    },
     "下载失败（HTTP %lld）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Download failed (HTTP %lld)"
+          }
+        }
+      }
+    },
+    "下载更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download Update"
           }
         }
       }
@@ -1042,6 +1092,16 @@
         }
       }
     },
+    "从 %@ 更新到 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update from %1$@ to %2$@"
+          }
+        }
+      }
+    },
     "从列表选择": {
       "localizations": {
         "en": {
@@ -1212,12 +1272,12 @@
         }
       }
     },
-    "关于": {
+    "关于与更新": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "About"
+            "value": "About & Updates"
           }
         }
       }
@@ -1488,6 +1548,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Removes filler words, adds punctuation and fixes misheard words"
+          }
+        }
+      }
+    },
+    "发布于 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %@"
           }
         }
       }
@@ -1902,6 +1972,16 @@
         }
       }
     },
+    "好": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
     "如 eastasia；全局资源留空": {
       "localizations": {
         "en": {
@@ -2018,6 +2098,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Full version with the broadest language coverage."
+          }
+        }
+      }
+    },
+    "官网": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Website"
           }
         }
       }
@@ -2262,6 +2352,16 @@
         }
       }
     },
+    "已在浏览器中下载。下载完成后打开安装包，把 InputBetter 拖到「应用程序」替换旧版，再重新打开。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading in your browser. When it finishes, open the disk image, drag InputBetter to Applications to replace the old version, then open it again."
+          }
+        }
+      }
+    },
     "已拷贝": {
       "localizations": {
         "en": {
@@ -2288,6 +2388,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Firmware is up to date"
+          }
+        }
+      }
+    },
+    "已是最新版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're Up to Date"
           }
         }
       }
@@ -2378,6 +2488,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Get Started"
+          }
+        }
+      }
+    },
+    "当前版本已停止支持，更新后才能继续使用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This version is no longer supported. Update to keep using InputBetter."
           }
         }
       }
@@ -2538,16 +2658,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open Transcript"
-          }
-        }
-      }
-    },
-    "打开隐私设置": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Privacy Settings"
           }
         }
       }
@@ -2832,6 +2942,16 @@
         }
       }
     },
+    "支持与反馈": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support & Feedback"
+          }
+        }
+      }
+    },
     "支持所有 OpenAI 兼容接口（OpenAI、DeepSeek、通义千问、OpenRouter、Ollama 等）。API Key 只保存在本机配置文件中（仅当前用户可读）。这里的模型是默认模型，各功能可以另选。": {
       "localizations": {
         "en": {
@@ -2882,6 +3002,16 @@
         }
       }
     },
+    "新版本已经发布，建议更新以获得最新功能和修复。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new version is out. Update to get the latest features and fixes."
+          }
+        }
+      }
+    },
     "方言覆盖最广（粤语、吴语、闽南语等），中英文都好；有中国大陆和国际两个区域。": {
       "localizations": {
         "en": {
@@ -2918,6 +3048,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't open %@: %@"
+          }
+        }
+      }
+    },
+    "无法检查更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't Check for Updates"
           }
         }
       }
@@ -3072,6 +3212,16 @@
         }
       }
     },
+    "更新内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What's New"
+          }
+        }
+      }
+    },
     "更新固件": {
       "localizations": {
         "en": {
@@ -3108,6 +3258,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Update Available"
+          }
+        }
+      }
+    },
+    "有新版本 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ available"
           }
         }
       }
@@ -3282,6 +3442,16 @@
         }
       }
     },
+    "查看": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
     "查看和下载系统翻译语言包": {
       "localizations": {
         "en": {
@@ -3308,6 +3478,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Invalid checksum: %@"
+          }
+        }
+      }
+    },
+    "检查录音权限": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Recording Permission"
+          }
+        }
+      }
+    },
+    "检查更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Now"
+          }
+        }
+      }
+    },
+    "检查更新…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
           }
         }
       }
@@ -3502,6 +3702,16 @@
         }
       }
     },
+    "正在检查更新…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking for updates…"
+          }
+        }
+      }
+    },
     "正在检查语言包…": {
       "localizations": {
         "en": {
@@ -3612,6 +3822,16 @@
         }
       }
     },
+    "每天自动检查一次是否有新版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checks for a new version once a day"
+          }
+        }
+      }
+    },
     "每月 200 万字符免费": {
       "localizations": {
         "en": {
@@ -3702,12 +3922,12 @@
         }
       }
     },
-    "没有收到声音。请确认 %@ 正在播放，并允许 InputBetter 录制系统音频。": {
+    "没有收到 %@ 的声音": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No audio received. Make sure %@ is playing and that InputBetter is allowed to record system audio."
+            "value": "No audio from %@"
           }
         }
       }
@@ -3872,6 +4092,16 @@
         }
       }
     },
+    "版本 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        }
+      }
+    },
     "状态条回到底部中央": {
       "localizations": {
         "en": {
@@ -4028,6 +4258,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Later"
+          }
+        }
+      }
+    },
+    "稍后提醒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remind Me Later"
           }
         }
       }
@@ -4672,6 +4912,16 @@
         }
       }
     },
+    "自动检查更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for updates automatically"
+          }
+        }
+      }
+    },
     "自动检测": {
       "localizations": {
         "en": {
@@ -4828,6 +5078,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Set Your Talk Shortcut"
+          }
+        }
+      }
+    },
+    "识别": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speech Recognition"
           }
         }
       }
@@ -5052,6 +5312,16 @@
         }
       }
     },
+    "请检查网络连接后再试。(%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check your internet connection and try again. (%@)"
+          }
+        }
+      }
+    },
     "请求参数无效": {
       "localizations": {
         "en": {
@@ -5068,6 +5338,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Too many requests. Try again later"
+          }
+        }
+      }
+    },
+    "请确认它正在播放，并在系统设置里允许 InputBetter 录制系统音频": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make sure it is playing, and allow InputBetter to record system audio in System Settings"
           }
         }
       }
@@ -5152,6 +5432,26 @@
         }
       }
     },
+    "跳过此版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip This Version"
+          }
+        }
+      }
+    },
+    "软件更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Software Update"
+          }
+        }
+      }
+    },
     "辅助功能": {
       "localizations": {
         "en": {
@@ -5218,6 +5518,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No key configured yet"
+          }
+        }
+      }
+    },
+    "这个版本没有配置检查更新的接口（自行编译的开源版默认如此），新版本请到官网或 GitHub 查看。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build has no update feed configured (the default for self-built open-source builds). Check the website or GitHub for new versions."
           }
         }
       }
@@ -5452,6 +5762,16 @@
         }
       }
     },
+    "重新下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download Again"
+          }
+        }
+      }
+    },
     "重新刷入": {
       "localizations": {
         "en": {
@@ -5588,6 +5908,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "InputBetter Firmware Needed"
+          }
+        }
+      }
+    },
+    "需要更新 InputBetter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InputBetter Needs an Update"
+          }
+        }
+      }
+    },
+    "需要更新到 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update to %@ required"
           }
         }
       }

@@ -3,5 +3,9 @@ input.0os.io {
 	import tls_0os_io
 	import common
 	header Strict-Transport-Security "max-age=31536000"
-	reverse_proxy inputbetter-web:8080
+	# @private-routes:部署时替换为本机 website/deploy/private/routes.caddy 的内容(不在仓库里),
+	# 例如把官网留言 /api/support、检查更新 /api/update、/api/appcast.xml 转给后台;没有该文件时这些接口返回 404。
+	handle {
+		reverse_proxy inputbetter-web:8080
+	}
 }

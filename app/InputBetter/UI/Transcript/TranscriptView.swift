@@ -37,7 +37,7 @@ struct TranscriptView: View {
             Divider()
             switch navigation.tab {
             case .captions:
-                if transcript.isEmpty && controller.partial.isEmpty {
+                if transcript.isEmpty && controller.live == nil {
                     empty
                 } else {
                     TranscriptTranslationBar(translator: translator, translation: translation, catalog: catalog, settings: settings,
@@ -71,19 +71,24 @@ struct TranscriptView: View {
 
     // MARK: - 顶部
 
+    /// 左边标题、中间标签页切换、右边按钮。左右两侧各占同样宽度(maxWidth: .infinity),
+    /// 切换控件因此始终在正中——右侧的按钮随标签页增减(「跟随最新」只在字幕页有)时不会把它挤偏。
     private var header: some View {
         HStack(spacing: DS.Space.s) {
-            Circle()
-                .fill(controller.isRunning ? Color.red : Color.secondary.opacity(0.5))
-                .frame(width: 7, height: 7)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(transcript.appName.isEmpty ? String(localized: "字幕记录", bundle: .l10n) : transcript.appName)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(statusText)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+            HStack(spacing: DS.Space.s) {
+                Circle()
+                    .fill(controller.isRunning ? Color.red : Color.secondary.opacity(0.5))
+                    .frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(transcript.appName.isEmpty ? String(localized: "字幕记录", bundle: .l10n) : transcript.appName)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(statusText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
             Picker("", selection: $navigation.tab) {
                 Text("字幕").tag(TranscriptNavigation.Tab.captions)
                 Text("总结").tag(TranscriptNavigation.Tab.summary)
@@ -91,19 +96,22 @@ struct TranscriptView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            Spacer()
-            Button { pin.toggle() } label: {
-                Image(systemName: pin.isPinned ? "pin.fill" : "pin")
-                    .foregroundStyle(pin.isPinned ? AnyShapeStyle(DS.accent) : AnyShapeStyle(.secondary))
+            HStack(spacing: DS.Space.s) {
+                Button { pin.toggle() } label: {
+                    Image(systemName: pin.isPinned ? "pin.fill" : "pin")
+                        .foregroundStyle(pin.isPinned ? AnyShapeStyle(DS.accent) : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain)
+                .help(pin.isPinned ? "取消固定" : "固定在屏幕右侧（始终在最前面，半透明）")
+                .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕右侧")
+                if navigation.tab == .captions {
+                    Toggle("跟随最新", isOn: $followLatest)
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 12))
+                        .fixedSize()
+                }
             }
-            .buttonStyle(.plain)
-            .help(pin.isPinned ? "取消固定" : "固定在屏幕右侧（始终在最前面，半透明）")
-            .accessibilityLabel(pin.isPinned ? "取消固定" : "固定在屏幕右侧")
-            if navigation.tab == .captions {
-                Toggle("跟随最新", isOn: $followLatest)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 12))
-            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, DS.Space.l)
         .padding(.top, DS.Space.xs)  // 内容已从透明标题栏下方开始,只留一点间距
@@ -124,7 +132,7 @@ struct TranscriptView: View {
     /// 正文用 NSTextView 显示(见 TranscriptTextView:可跨行选择,避免 LazyVStack 的颠倒渲染问题)。
     private var list: some View {
         TranscriptTextView(transcript: transcript,
-                           partial: controller.isRunning ? controller.partial : "",
+                           live: controller.isRunning ? controller.live : nil,
                            followLatest: followLatest,
                            showTranslations: translator.showTranslations)
     }

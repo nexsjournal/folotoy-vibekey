@@ -1,7 +1,7 @@
 import ServiceManagement
 import SwiftUI
 
-/// 通用:权限状态、麦克风、识别语言、状态条与提示音、开机启动。
+/// 通用:关于与更新(版本、检查更新)、权限状态、麦克风、识别语言、状态条与提示音、开机启动。
 struct GeneralPane: View {
     let app: AppState
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -9,6 +9,9 @@ struct GeneralPane: View {
     var body: some View {
         @Bindable var settings = app.settings
         VStack(alignment: .leading, spacing: 0) {
+            // 版本与检查更新放在最上面,一打开设置就能看到。
+            AboutSection(app: app)
+
             SettingsSection(title: "权限") {
                 VStack(spacing: DS.Space.s) {
                     PermissionRow(symbol: "mic.fill",
@@ -71,17 +74,6 @@ struct GeneralPane: View {
                                     }
                                 }
                         }
-                    }
-                }
-            }
-
-            SettingsSection(title: "关于") {
-                Card {
-                    HStack {
-                        Text(verbatim: "InputBetter \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
-                            .font(.system(size: 13))
-                        Spacer()
-                        Button("重新运行引导") { app.windows.showOnboarding() }.buttonStyle(SecondaryButtonStyle())
                     }
                 }
             }

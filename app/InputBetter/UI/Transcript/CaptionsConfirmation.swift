@@ -1,32 +1,12 @@
 import AppKit
 
-/// 结束字幕 / 换应用 / 退出 app 时的确认框(模态提示框,标准 macOS 做法)。
-/// 结束时只确认"是否结束";保存、总结由用户在字幕记录窗口里自己处理,结束时不再追问。
+/// 换应用 / 退出 app 时的确认框(模态提示框,标准 macOS 做法):这两种操作会丢掉当前记录,值得打断一次。
 /// 换应用会清掉当前记录,所以有未保存内容时单独说明并给出"先打开字幕记录"的选择。
+/// 结束字幕的确认不在这里:它是字幕条 ⏹ 上方的气泡(StopCaptionsBubble),用户顺手就能点。
 @MainActor
 enum CaptionsConfirmation {
     /// 是否正在显示确认框(避免叠加多个模态框)。
     private(set) static var isAsking = false
-
-    /// 确认结束字幕。勾选"不再询问"会关闭 `confirmStopCaptions`,之后可在 设置 › 实时字幕 里重新打开。
-    /// - Returns: 用户是否确认结束。
-    static func confirmStop(appName: String, sentences: Int, settings: AppSettings) -> Bool {
-        guard !isAsking else { return false }
-        isAsking = true
-        defer { isAsking = false }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "结束字幕？", bundle: .l10n)
-        alert.informativeText = String(localized: "\(appName) · \(sentences) 句。结束后可以在字幕记录窗口里查看、总结和保存。", bundle: .l10n)
-        alert.addButton(withTitle: String(localized: "结束", bundle: .l10n))
-        alert.addButton(withTitle: String(localized: "取消", bundle: .l10n))
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = String(localized: "不再询问", bundle: .l10n)
-        // 菜单栏应用需要先激活,提示框才会出现在最前面并获得键盘焦点。
-        NSApp.activate()
-        let confirmed = alert.runModal() == .alertFirstButtonReturn
-        if confirmed, alert.suppressionButton?.state == .on { settings.confirmStopCaptions = false }
-        return confirmed
-    }
 
     /// 换应用时的选择。
     enum SwitchChoice {

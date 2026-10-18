@@ -1,12 +1,13 @@
 // main/ib_ui_agent.c: Agent 通知层实现(见 ib_ui_agent.h)。
 //
-// 时间线(从出现起):
-//   done   0~450 ms 对勾图标从 0 放大到 1.15 倍再回弹到 1(ease-out-back);150 ms 与 650 ms 各发出一圈
-//          光环,1.1 s 内从 r=40 扩散到 r=112 并淡出;之后静止,不再重绘。
-//   input  光环 2.4 s 周期呼吸;"!" 每 3 s 摇摆一次(持续 1.4 s,±12 度,首尾平滑)。
+// 全屏通知(时间线从出现起):主体是大号点阵(对勾 / 感叹号),点从屏幕外一圈飞入拼成(约 450 ms);
+//   done 之后静止不再重绘;input 整体亮度 2.4 s 周期呼吸。标题 DONE / YOUR TURN、来源名;
+//   只有 input(需要用户动作)显示 "press any key"。
+// 录音中的横幅:小圆形图标(实心圆 + 对勾 / "!",input 每 3 s 摇摆一次)+ 来源名。
 // "出现"指黑色背景铺满之后(全屏)或横幅开始淡入时。
 #include "ib_ui_agent.h"
 
+#include "ib_ui_dots.h"
 #include "ib_ui_gfx.h"
 #include "ib_ui_page.h"
 
@@ -20,9 +21,7 @@
 #define FX_Y         20
 #define FX_H         200
 #define ICON_R       38
-#define POP_MS       450
-#define RING_MS      1100
-#define DONE_STILL_MS (650 + RING_MS + 50)
+#define DONE_STILL_MS 600         // 大点阵飞入拼好(最右列 8 ms x 10 + 360 ms)之后静止
 #define BREATH_MS    2400
 #define WIGGLE_EVERY_MS 3000
 #define WIGGLE_MS    1400
@@ -37,6 +36,7 @@ static lv_obj_t *s_source;
 static lv_obj_t *s_banner;
 static lv_obj_t *s_banner_icon;
 static lv_obj_t *s_banner_text;
+static lv_obj_t *s_hint;                // "press any key":只有 input(需要用户动作)才显示,done 15 s 自动关闭
 
 static ib_ui_agent_t s_kind;
 static bool s_visible;
@@ -47,26 +47,12 @@ static char s_source_text[IB_UI_TEXT_MAX];
 static char s_banner_buf[40];
 
 // 逐帧计算、绘制回调读取的几何参数。
-static int32_t s_pop = IB_P_ONE;        // 图标缩放
-static int32_t s_ring_r[2];
-static lv_opa_t s_ring_opa[2];
 static int32_t s_breath;
 static int32_t s_tilt;                  // "!" 倾角(0.1 度)
 
 static uint32_t kind_color(void)
 {
     return s_kind == IB_UI_AGENT_DONE ? IB_COLOR_DONE : IB_COLOR_AGENT;
-}
-
-// ease-out-back:先冲过 1 再回落,c1 = 1.70158。
-static int32_t ease_out_back(int32_t p)
-{
-    if (p >= IB_P_ONE) return IB_P_ONE;
-    if (p <= 0) return 0;
-    int64_t q = p - IB_P_ONE;                                   // -1..0(x1024)
-    int64_t q2 = q * q / IB_P_ONE;
-    int64_t q3 = q2 * q / IB_P_ONE;
-    return (int32_t)(IB_P_ONE + q3 * 2702 / 1000 + q2 * 1702 / 1000);
 }
 
 // 以 (cx, cy) 为中心、按 s_tilt 旋转并按 scale 缩放一个相对坐标。
@@ -110,24 +96,43 @@ static void draw_icon(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int3
     }
 }
 
+// 全屏通知的主体:与界面同一种点阵语言,只是更大(节距 12、点 7 px)。done = 对勾,input = 感叹号。
+// 出现时每颗点从屏幕外一圈(沿它相对中心的方向)飞进来拼成字形:按列错峰 8 ms,单颗 360 ms ease-out。
+// input 期间整体亮度随呼吸在 65% ~ 100% 之间变化(彩色与黑混合,不涉及灰色偏色)。
+#define BIG_PITCH   12
+#define BIG_DOT     7
+#define FLY_IN_MS   360
+#define FLY_STAGGER 8
+
 static void fx_draw(lv_event_t *e)
 {
     ib_fx_t fx;
     ib_fx_begin(&fx, e);
     int32_t cx = fx.w / 2, cy = fx.h / 2;
-    lv_color_t col = IB_C(kind_color());
-    if (s_kind == IB_UI_AGENT_DONE) {
-        for (int i = 0; i < 2; i++) {
-            if (s_ring_opa[i] > 2) ib_fx_ring(&fx, cx, cy, s_ring_r[i], 3, col, s_ring_opa[i]);
-        }
-        ib_fx_ring(&fx, cx, cy, ICON_R + 8, 4, col, ib_opa_scale(50, s_pop));
-    } else {
-        int32_t r = ICON_R + 8 + s_breath * 10 / IB_P_ONE;
-        ib_fx_ring(&fx, cx, cy, r + 6, 8, ib_gray(0x10 * s_breath / IB_P_ONE), LV_OPA_COVER);
-        ib_fx_ring(&fx, cx, cy, r, 3, col, (lv_opa_t)(70 + s_breath * 90 / IB_P_ONE));
+    ib_dots_t g;
+    ib_dots_glyph(&g, s_kind == IB_UI_AGENT_DONE ? IB_DOTS_CHECK : IB_DOTS_BANG, IB_DOT_WHITE);
+    if (g.n == 0) return;
+    // 字形的网格包围盒中心,作为大点阵的中心。
+    int32_t c0 = g.d[0].c, c1 = c0, r0 = g.d[0].r, r1 = r0;
+    for (int i = 1; i < g.n; i++) {
+        c0 = LV_MIN(c0, g.d[i].c); c1 = LV_MAX(c1, g.d[i].c);
+        r0 = LV_MIN(r0, g.d[i].r); r1 = LV_MAX(r1, g.d[i].r);
     }
-    ib_fx_circle(&fx, cx, cy, ICON_R * s_pop / IB_P_ONE + 10, ib_gray(0x10), LV_OPA_COVER);   // 极淡灰色光晕
-    draw_icon(&fx, cx, cy, ICON_R, s_pop);
+    uint32_t t = lv_tick_get() - s_show_ms;
+    if ((int32_t)t < 0) t = 0;
+    lv_color_t col = IB_C(kind_color());
+    if (s_kind != IB_UI_AGENT_DONE) col = lv_color_mix(col, IB_C(IB_COLOR_BG), (uint8_t)(166 + s_breath * 89 / IB_P_ONE));
+    for (int i = 0; i < g.n; i++) {
+        // 目标位置(相对中心,x2 避免半格误差)。
+        int32_t tx = ((g.d[i].c - c0) * 2 - (c1 - c0)) * BIG_PITCH / 2;
+        int32_t ty = ((g.d[i].r - r0) * 2 - (r1 - r0)) * BIG_PITCH / 2;
+        int32_t p = ib_ease_out_cubic(ib_progress(t, (uint32_t)(FLY_STAGGER * (g.d[i].c - c0)), FLY_IN_MS));
+        // 起点:沿目标方向推到半径约 170 px 的圆外(正中心的点从正上方进来)。
+        int32_t len = lv_sqrt32((uint32_t)(tx * tx + ty * ty));
+        int32_t sx = len > 0 ? tx * 170 / len : 0, sy = len > 0 ? ty * 170 / len : -170;
+        int32_t x = cx + ib_lerp(sx, tx, p), y = cy + ib_lerp(sy, ty, p);
+        ib_fx_rect(&fx, x - BIG_DOT / 2, y - BIG_DOT / 2, BIG_DOT, BIG_DOT, BIG_DOT / 2, col, LV_OPA_COVER);
+    }
 }
 
 static void banner_icon_draw(lv_event_t *e)
@@ -216,8 +221,8 @@ void ib_agent_create(lv_obj_t *screen)
     s_title = ib_label_create(s_full, &lv_font_montserrat_28, IB_COLOR_TEXT, 222, IB_UI_W);
     s_source = ib_label_create(s_full, &lv_font_montserrat_20, IB_COLOR_TEXT, 262, IB_UI_W - 16);
     lv_label_set_text_static(s_source, s_source_text);
-    lv_obj_t *hint = ib_label_create(s_full, &lv_font_montserrat_12, IB_COLOR_TEXT_DIM, 298, IB_UI_W);
-    lv_label_set_text_static(hint, "press any key");
+    s_hint = ib_caption_create(s_full, IB_COLOR_RING, 298, IB_UI_W, 1);
+    lv_label_set_text_static(s_hint, "press any key");
 
     // 横幅只占左侧内容区,不遮挡右侧按键提示列。
     s_banner = ib_box_create(s_root, 8, BANNER_Y, IB_UI_CONTENT_W - 12, BANNER_H);
@@ -245,9 +250,10 @@ void ib_agent_show(ib_ui_agent_t kind, const char *source, bool banner, uint32_t
     bool was_visible = s_visible && !s_hiding;
     bool was_banner = s_is_banner;
     s_kind = kind;
+    if (kind == IB_UI_AGENT_INPUT) lv_obj_remove_flag(s_hint, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_hint, LV_OBJ_FLAG_HIDDEN);
     s_is_banner = banner;
     s_show_ms = now_ms;
-    s_pop = 0;
     const char *title = kind == IB_UI_AGENT_DONE ? "DONE" : "YOUR TURN";
     lv_label_set_text_static(s_title, title);
     lv_label_set_text_static(s_source, s_source_text);
@@ -312,29 +318,19 @@ void ib_agent_frame(uint32_t now_ms)
     // 背景还没铺满时 s_show_ms 在未来:动画停在起点。
     uint32_t t = (int32_t)(now_ms - s_show_ms) > 0 ? now_ms - s_show_ms : 0;
     if (s_is_banner) {
-        if (s_kind == IB_UI_AGENT_INPUT) lv_obj_invalidate(s_banner_icon);
+        if (s_kind == IB_UI_AGENT_INPUT) {
+            // 横幅里的 "!" 每 3 s 摇摆一次(1.4 s,±12°,首尾平滑)。
+            uint32_t w = t % WIGGLE_EVERY_MS;
+            int32_t env = w < WIGGLE_MS ? ib_sin10((int32_t)(w * 1800U / WIGGLE_MS)) : 0;
+            s_tilt = (int32_t)((int64_t)120 * ib_sin10((int32_t)(w * 3600U / 350U)) / 32768 * env / 32768);
+            lv_obj_invalidate(s_banner_icon);
+        }
         return;
     }
     if (s_kind == IB_UI_AGENT_DONE) {
-        if (t > DONE_STILL_MS && s_pop == IB_P_ONE) return;    // 动画结束,保持静止
-        s_pop = ease_out_back(ib_progress(now_ms, s_show_ms, POP_MS));
-        for (int i = 0; i < 2; i++) {
-            int32_t p = ib_progress(now_ms, s_show_ms + 150 + (uint32_t)i * 500, RING_MS);
-            int32_t fade = IB_P_ONE - p;
-            s_ring_r[i] = 40 + ib_ease_out_cubic(p) * 72 / IB_P_ONE;
-            s_ring_opa[i] = (p == 0) ? 0 : ib_opa_scale(170, (int32_t)((int64_t)fade * fade / IB_P_ONE));
-        }
-        s_tilt = 0;
+        if (t > DONE_STILL_MS) return;                          // 点阵拼好后保持静止
     } else {
-        s_pop = ease_out_back(ib_progress(now_ms, s_show_ms, POP_MS));
         s_breath = ib_ease_in_out_sine(ib_breath(t, BREATH_MS));
-        uint32_t w = t % WIGGLE_EVERY_MS;
-        if (w < WIGGLE_MS) {
-            int32_t env = ib_sin10((int32_t)(w * 1800U / WIGGLE_MS));          // 0 → 1 → 0
-            s_tilt = (int32_t)((int64_t)120 * ib_sin10((int32_t)(w * 3600U / 350U)) / 32768 * env / 32768);
-        } else {
-            s_tilt = 0;
-        }
     }
     lv_obj_invalidate(s_fx);
 }

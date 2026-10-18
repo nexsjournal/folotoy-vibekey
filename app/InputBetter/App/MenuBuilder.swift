@@ -56,6 +56,9 @@ final class MenuBuilder {
         menu.addItem(.separator())
         menu.addItem(.header(deviceStatus()))
         menu.addItem(ActionItem(String(localized: "设置…", bundle: .l10n), key: "⌘,") { [app] in app.windows.showSettings() })
+        if let updates = app.updates {
+            menu.addItem(ActionItem(String(localized: "检查更新…", bundle: .l10n)) { updates.checkNow() })
+        }
         menu.addItem(ActionItem(String(localized: "退出 InputBetter", bundle: .l10n), key: "⌘Q") { NSApp.terminate(nil) })
         return menu
     }

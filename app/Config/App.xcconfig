@@ -1,0 +1,19 @@
+// 工程级配置(project.yml 的 configFiles)。
+// 签名身份见 Signing.xcconfig;检查更新的接口见下方。
+
+#include "Signing.xcconfig"
+
+// 检查更新的接口(JSON 格式见 Packages/AppUpdateKit 的 JSONUpdateFeed)。默认留空:不检查更新,
+// 设置和菜单里也不显示「检查更新」。要启用时新建同目录的 Update.local.xcconfig(已在 .gitignore 中),写入
+//   IB_UPDATE_FEED_URL = https:/$()/example.com/api/update
+//   IB_UPDATE_APP_ID = yourapp            // 可选,作为 X-App-ID 请求头发送
+// 想在 app 内下载安装(Sparkle 2,EdDSA 签名校验)再加上 appcast 地址和公钥(生成方法见 README):
+//   IB_UPDATE_APPCAST_URL = https:/$()/example.com/appcast.xml
+//   IB_UPDATE_PUBLIC_ED_KEY = <generate_keys 输出的公钥>
+// 注意 xcconfig 里 // 是注释,URL 的双斜杠要写成 /$()/。
+IB_UPDATE_FEED_URL =
+IB_UPDATE_APP_ID =
+IB_UPDATE_APPCAST_URL =
+IB_UPDATE_PUBLIC_ED_KEY =
+
+#include? "Update.local.xcconfig"

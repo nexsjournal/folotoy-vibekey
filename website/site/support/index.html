@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>支持 — InputBetter</title>
+<meta name="description" content="InputBetter 常见问题：权限、模型下载、Passport 连接与刷写、云端识别的隐私、更新；提交问题或留言。">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="支持 — InputBetter">
+<meta property="og:description" content="常见问题与留言。">
+<meta property="og:image" content="/assets/icon.png">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/support.css">
+</head>
+<body class="support">
+
+<header class="nav">
+  <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
+  <nav class="nav-links" aria-label="站点导航">
+    <a href="/passport/" data-i18n="nav.passport">Passport</a>
+    <a href="/support/" aria-current="page" data-i18n="nav.support">支持</a>
+    <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    <button class="lang" type="button" aria-label="Switch language">EN</button>
+  </nav>
+</header>
+
+<main class="page wrap">
+  <section class="sp-hero">
+    <h1 class="sp-title" data-i18n="sp.title">遇到问题？</h1>
+    <p class="sp-lead" data-i18n="sp.lead">有问题直接留言；下面也整理了常见问题。</p>
+  </section>
+
+  <!-- 留言:POST /api/support(相对路径,由服务器转发到后台),JSON {email, message},201 返回 {"id"} -->
+  <section class="section" id="contact">
+    <div class="contact">
+      <div class="contact-copy reveal">
+        <h2 data-i18n="ct.title">留言</h2>
+        <p class="ct-lead" data-i18n="ct.lead">会送到开发者那里，不会公开；留下邮箱我们才能回复你。</p>
+      </div>
+
+      <form class="contact-form card reveal" id="supportForm" novalidate data-delay="120">
+        <div class="form-body" id="formBody">
+          <label class="field">
+            <span class="field-label"><span data-i18n="ct.email">邮箱</span><em data-i18n="ct.optional">可选</em></span>
+            <input type="email" name="email" id="email" autocomplete="email" inputmode="email" spellcheck="false" maxlength="254" placeholder="you@example.com">
+                        <small class="field-err" id="emailErr" role="alert"></small>
+          </label>
+          <label class="field">
+            <span class="field-label"><span data-i18n="ct.message">留言</span><span class="count" aria-live="off"><b id="count">0</b> / 4000</span></span>
+            <textarea name="message" id="message" rows="7" maxlength="4000" required data-i18n-attr="placeholder:ct.placeholder" placeholder="遇到了什么问题？在哪一步、看到了什么、macOS 和 InputBetter 的版本……"></textarea>
+            <small class="field-err" id="messageErr" role="alert"></small>
+          </label>
+          <!-- 蜜罐字段:对人隐藏(移出屏幕、读屏跳过、Tab 跳过),自动填表的机器人会填上,填了就假装成功、不发请求 -->
+          <div class="hp" aria-hidden="true">
+            <label>Website <input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></label>
+          </div>
+          <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
+          <div class="form-foot">
+            <a class="gh-link" href="https://github.com/racall/InputBetter/issues/new" target="_blank" rel="noopener" data-i18n="ct.gh">代码问题也可以去 GitHub 提 issue →</a>
+            <button class="btn primary" id="submit" type="submit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>
+              <span id="sendLabel" data-i18n="ct.send">发送</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 发送成功后替换表单内容 -->
+        <div class="form-done" id="formDone" hidden tabindex="-1">
+          <i class="done-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></i>
+          <h3 data-i18n="ct.done.t">已收到，谢谢！</h3>
+          <p class="done-lead" id="doneLead"></p>
+          <div class="ref">
+            <span data-i18n="ct.done.ref">编号</span>
+            <code class="mono" id="doneId">—</code>
+            <button class="copy" type="button" id="copyId" data-i18n="ct.copy">复制</button>
+          </div>
+          <button class="btn ghost" type="button" id="again" data-i18n="ct.again">再写一条</button>
+        </div>
+      </form>
+    </div>
+  </section>
+  <!-- 常见问题:答案都对照过 app 代码与 README -->
+  <section class="section" id="faq">
+    <div class="section-head reveal">
+      <h2 data-i18n="faq.title">常见问题</h2>
+    </div>
+    <div class="faq reveal">
+      <details class="qa">
+        <summary><span data-i18n="q1">需要哪些系统权限？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a1.1">两项：麦克风用来听你说话，录音只在按下快捷键时进行；辅助功能用来监听快捷键，并把文字粘贴到当前光标处（听写通过写入剪贴板再模拟 ⌘V 输入，之后会恢复原来的剪贴板内容）。</p>
+          <p data-i18n="a1.2">开启实时字幕、第一次采集某个应用的声音时，macOS 会弹出系统音频录制的授权请求。这个权限没有公开的查询接口，所以 app 不会提前检查它。</p>
+          <p data-i18n="a1.3">如果听写后文字没有出现，多半是辅助功能权限没给，或目标输入框不接受粘贴——这时文字会留在剪贴板里，状态条会显示「已复制」，手动粘贴即可。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q2">模型下载很慢或失败怎么办？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a2.1">模型从 Hugging Face 下载，一个源失败会自动换到镜像（hf-mirror），全部失败才报错，重试即可；也可以在 设置 › 识别模型 里改为优先使用镜像。</p>
+          <p data-i18n="a2.2">想先用起来：Apple Speech 不用下载；SenseVoice Small 只有约 240 MB，中文极快；默认的 Whisper Large v3 Turbo 压缩版约 650 MB。</p>
+          <p data-i18n="a2.3">第一次加载 Whisper 时，CoreML 要为本机芯片优化模型，约需 2–3 分钟，之后每次加载约 1.6 秒。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q3">Passport 连不上 Mac？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a3.1">长按电源键开机，用支持数据传输的 USB-C 线连接（不少线只能充电）。USB 连接优先；拔掉线后会自动转到蓝牙，广播名 InputBetter，不需要配对，蓝牙可以在 设置 › Passport 里关闭。</p>
+          <p data-i18n="a3.2">设备上运行的不是 InputBetter 固件时，app 会在 设置 › Passport 提示你刷入。一台 Mac 上同一时间只能有一个程序打开串口，先退出其他串口工具或 Passport 的其他配套 app。</p>
+          <p data-i18n="a3.3">没有连上 Mac 时设备显示时钟，按键只用于点亮屏幕，不会有反应。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q4">刷写固件安全吗？能恢复原来的固件吗？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a4.1">app 内刷入、网页刷入和命令行脚本三种方式都只写 bootloader、分区表和应用三段，不擦除整片 Flash，也不写设备的身份分区（cardid）。</p>
+          <p data-i18n="a4.2">app 第一次刷某台设备前，会把整片 8 MB Flash 备份到 ~/Library/Application Support/InputBetter/Backups/；网页刷写可以勾选先把备份下载到本机（passport-&lt;MAC&gt;-flash.bin）。备份里含设备身份数据，请妥善保管，不要分享。</p>
+          <p data-i18n="a4.3">网页刷写需要电脑上的 Chrome 或 Edge（Web Serial）；刷之前先退出 InputBetter app，它会占用串口。刷写过程中请不要拔线或关闭页面。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q5">云端识别和 AI 服务会上传什么？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a5.1">默认所有识别都在本机完成，声音不离开 Mac。只有当你在 设置 › 识别模型 里选择了云端识别模型（火山引擎、阿里云百炼、ElevenLabs、Soniox 或 OpenAI 兼容接口），录音才会发送到对应的服务商。</p>
+          <p data-i18n="a5.2">AI 润色、AI 翻译和字幕总结会把文字发给你自己配置的 AI 服务（任意 OpenAI 兼容接口）；在线机器翻译（DeepL、Google、微软、火山引擎、腾讯云、百度）同理。系统翻译在本机离线完成。</p>
+          <p data-i18n="a5.3">所有 API Key 只保存在本机 ~/Library/Application Support/InputBetter/credentials.json（权限 600），不会上传。字幕记录只在内存里，app 不保存历史。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q6">系统要求与价格？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a6.1">macOS 26 或更新、Apple 芯片的 Mac。安装包已签名并经 Apple 公证，下载后直接拖进「应用程序」。</p>
+          <p data-i18n="a6.2">InputBetter 和 Passport 固件都以 MIT 协议开源、免费使用。云端识别、在线翻译和 AI 服务由各服务商按量计费，密钥自备。</p>
+        </div></div>
+      </details>
+      <details class="qa">
+        <summary><span data-i18n="q7">怎么更新到新版本？</span><i class="chev" aria-hidden="true"></i></summary>
+        <div class="qa-body"><div>
+          <p data-i18n="a7.1">从官网下载的版本每天自动检查一次更新，有新版本时会弹窗说明更新内容；也可以在 设置 › 通用 › 关于与更新 里点「检查更新」，或在菜单栏菜单里选「检查更新…」。</p>
+          <p data-i18n="a7.2">下载新的安装包后打开，把 InputBetter 拖到「应用程序」替换旧版即可，设置和已下载的模型都会保留。自行编译的开源版默认不检查更新，可以按 GitHub 上 README 的说明配置自己的更新接口。</p>
+        </div></div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>© 2026 InputBetter · <span data-i18n="ft.license">MIT 开源</span></span>
+  <!-- 安装包校验值(首页只保留标语和按钮,校验值放在这里) -->
+  <span class="sha">InputBetter {{VERSION}} · SHA-256 {{SHA256}}</span>
+</footer>
+
+<script src="/assets/main.js" defer></script>
+<script src="/assets/support.js" defer></script>
+</body>
+</html>

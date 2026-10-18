@@ -14,6 +14,8 @@ idf_component_register(
          "ib_adpcm.c"
          "ib_ui.c"
          "ib_ui_gfx.c"
+         "ib_ui_wave.c"
+         "ib_ui_dots.c"
          "ib_ui_statusbar.c"
          "ib_ui_hints.c"
          "ib_ui_agent.c"
@@ -25,7 +27,7 @@ idf_component_register(
          "ib_ui_err.c"
          "ib_ui_sub.c"
          "ib_ui_list.c"
-         "icons/ib_icon_font_22.c"
+         "icons/ib_icon_font_12.c"
          "icons/ib_icon_font_56.c"
     INCLUDE_DIRS "."
     REQUIRES bsp bt esp_app_format esp_driver_usb_serial_jtag esp_hw_support esp_timer nvs_flash vfs

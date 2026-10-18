@@ -294,7 +294,7 @@ nonisolated final class ModelListTests: XCTestCase {
     }
 }
 
-/// 链:SubtitleController.handle(.final) → CaptionTranscript.append / setTranslation → TranscriptView / TranscriptSaver。
+/// 链:SubtitleController.handle(.partial → live / .final → commit) → CaptionTranscript.commit / setTranslation → TranscriptView / TranscriptSaver。
 nonisolated final class CaptionTranscriptTests: XCTestCase {
     func testAppendTranslateAndExport() {
         let start = Date(timeIntervalSince1970: 1_000_000)
@@ -311,6 +311,55 @@ nonisolated final class CaptionTranscriptTests: XCTestCase {
         XCTAssertTrue(text.contains("[00:00:05] Hello\n           你好\n"))
         XCTAssertTrue(text.contains("[01:02:05] World"))
         XCTAssertFalse(transcript.plainText(includeTranslation: false).contains("你好"))
+    }
+
+    /// 一次定稿的句子合成一段(显示和导出都按段),时间是开始说的时刻;同一秒内的另一次定稿单独成段,
+    /// 不会并进上一段。译文按语言习惯拼接,还没译文的句子跳过。
+    func testCommitGroupsOneUtteranceIntoParagraph() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        var transcript = CaptionTranscript(appName: "Chrome", startedAt: start)
+        let first = transcript.commit(["This is great.", "Sheets animate."], startedAt: start.addingTimeInterval(208.1),
+                                      now: start.addingTimeInterval(215))
+        transcript.commit(["Next one."], startedAt: nil, now: start.addingTimeInterval(215.4))
+        transcript.commit(["Another."], startedAt: nil, now: start.addingTimeInterval(215.8))
+        XCTAssertEqual(first.map(\.text), ["This is great.", "Sheets animate."])
+        XCTAssertEqual(transcript.entries[0].finalizedAt, start.addingTimeInterval(215))
+        transcript.setTranslation("这很好。", for: first[0].id, target: .zhHans)
+        transcript.setTranslation("表单动画。", for: first[1].id, target: .zhHans)
+
+        let paragraphs = transcript.paragraphs()
+        XCTAssertEqual(paragraphs.map(\.range), [0..<2, 2..<3, 3..<4])
+        XCTAssertEqual(paragraphs.map { transcript.offset(of: $0) }, ["00:03:28", "00:03:35", "00:03:35"])
+        XCTAssertEqual(transcript.text(of: paragraphs[0]), "This is great. Sheets animate.")
+        XCTAssertEqual(transcript.translation(of: paragraphs[0]), "这很好。表单动画。")
+        XCTAssertNil(transcript.translation(of: paragraphs[1]), "还没有译文")
+        XCTAssertTrue(transcript.plainText().contains(
+            "[00:03:28] This is great. Sheets animate.\n           这很好。表单动画。\n[00:03:35] Next one.\n[00:03:35] Another.\n"))
+        XCTAssertTrue(CaptionTranscript(appName: "").paragraphs().isEmpty)
+    }
+
+    /// 没有正在说的内容就直接定稿时,时间取定稿时刻;空定稿不加句子。
+    func testCommitWithoutLiveUsesNowAndIgnoresEmpty() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        var transcript = CaptionTranscript(appName: "A", startedAt: start)
+        XCTAssertTrue(transcript.commit([], startedAt: start, now: start).isEmpty)
+        XCTAssertTrue(transcript.isEmpty)
+        let now = start.addingTimeInterval(12)
+        let added = transcript.commit(["Hi."], startedAt: nil, now: now)
+        XCTAssertEqual(added.first?.time, now)
+        XCTAssertEqual(added.first?.finalizedAt, now)
+        XCTAssertEqual(CaptionTranscript.Entry(time: now, text: "x").finalizedAt, now, "不给定稿时间时等于 time")
+    }
+
+    /// 正在说的一行与它定稿后的段时间相同:记录窗口里这一行原位变色,不跳。
+    func testLiveOffsetMatchesCommittedParagraph() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        var transcript = CaptionTranscript(appName: "A", startedAt: start)
+        let live = CaptionTranscript.Live(startedAt: start.addingTimeInterval(61.7), text: "Hello wor")
+        let liveOffset = transcript.offset(of: live)
+        transcript.commit(["Hello world."], startedAt: live.startedAt, now: start.addingTimeInterval(70))
+        XCTAssertEqual(liveOffset, "00:01:01")
+        XCTAssertEqual(transcript.offset(of: transcript.paragraphs()[0]), liveOffset)
     }
 
     func testSavedStateTracksNewEntries() {

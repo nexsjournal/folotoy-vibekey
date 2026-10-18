@@ -18,6 +18,16 @@ int32_t ib_ease_in_out_sine(int32_t p)
     return (int32_t)(((int64_t)(32768 - c) * IB_P_ONE) / 65536);
 }
 
+int32_t ib_ease_in_out_cubic(int32_t p)
+{
+    if (p <= 0) return 0;
+    if (p >= IB_P_ONE) return IB_P_ONE;
+    int64_t one = IB_P_ONE;
+    if (p < IB_P_ONE / 2) return (int32_t)(4 * (int64_t)p * p * p / (one * one));
+    int64_t q = 2 * (one - p);                       // (-2p + 2),定点
+    return IB_P_ONE - (int32_t)(q * q * q / (2 * one * one));
+}
+
 int32_t ib_progress(uint32_t t, uint32_t t0, uint32_t dur)
 {
     if (t <= t0) return 0;
@@ -93,6 +103,18 @@ lv_obj_t *ib_label_create(lv_obj_t *parent, const lv_font_t *font, uint32_t colo
     return l;
 }
 
+int32_t ib_font_top(const lv_font_t *font, int32_t cy)
+{
+    return cy - lv_font_get_line_height(font) / 2;
+}
+
+lv_obj_t *ib_caption_create(lv_obj_t *parent, uint32_t color, int32_t y, int32_t w, int32_t letter_space)
+{
+    lv_obj_t *l = ib_label_create(parent, &lv_font_montserrat_12, color, y, w);
+    lv_obj_set_style_text_letter_space(l, letter_space, 0);
+    return l;
+}
+
 void ib_fx_begin(ib_fx_t *fx, lv_event_t *e)
 {
     lv_obj_t *obj = lv_event_get_target_obj(e);
@@ -123,8 +145,8 @@ void ib_fx_circle(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, lv_color
     lv_draw_rect(fx->layer, &d, &a);
 }
 
-void ib_fx_arc(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t width, int32_t start, int32_t end,
-               lv_color_t c, lv_opa_t opa)
+static void fx_arc(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t width, int32_t start, int32_t end,
+                   lv_color_t c, lv_opa_t opa, bool rounded)
 {
     if (r <= 0 || width <= 0 || start == end || (opa = mix_opa(fx, opa)) < LV_OPA_MIN) return;
     lv_draw_arc_dsc_t d;
@@ -137,8 +159,20 @@ void ib_fx_arc(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t wid
     d.center.y = fx->oy + cy;
     d.start_angle = start;
     d.end_angle = end;
-    d.rounded = (end - start) < 360;
+    d.rounded = rounded && (end - start) < 360;
     lv_draw_arc(fx->layer, &d);
+}
+
+void ib_fx_arc(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t width, int32_t start, int32_t end,
+               lv_color_t c, lv_opa_t opa)
+{
+    fx_arc(fx, cx, cy, r, width, start, end, c, opa, true);
+}
+
+void ib_fx_arc_flat(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t width, int32_t start, int32_t end,
+                    lv_color_t c, lv_opa_t opa)
+{
+    fx_arc(fx, cx, cy, r, width, start, end, c, opa, false);
 }
 
 void ib_fx_ring(const ib_fx_t *fx, int32_t cx, int32_t cy, int32_t r, int32_t width, lv_color_t c, lv_opa_t opa)
@@ -292,4 +326,17 @@ static const char *const LARGE_GLYPHS[IB_GLYPH_COUNT] = {
 const char *ib_glyph(ib_glyph_t glyph)
 {
     return (unsigned)glyph < IB_GLYPH_COUNT ? LARGE_GLYPHS[glyph] : "";
+}
+
+// 图标 → UTF-8 字形,与字体同源(icons/ib_icon_list.h 由 tools/gen-icon-font.sh 生成)。
+static const char *const ICON_GLYPHS[IB_ICON_COUNT] = {
+    [IB_ICON_NONE] = "",
+#define IB_ICON_DEF(name, id, glyph, codepoint) [IB_ICON_##name] = glyph,
+#include "icons/ib_icon_list.h"
+#undef IB_ICON_DEF
+};
+
+const char *ib_icon_glyph(ib_icon_t icon)
+{
+    return (unsigned)icon < IB_ICON_COUNT ? ICON_GLYPHS[icon] : "";
 }

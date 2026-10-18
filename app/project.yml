@@ -15,16 +15,19 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: 3.1.0
+  # 检查更新(与具体 app 无关,可复用):版本比较、检查调度、JSON 更新数据源;AppUpdateInstaller 用 Sparkle 2 下载安装。
+  AppUpdateKit:
+    path: Packages/AppUpdateKit
 configFiles:
-  Debug: Config/Signing.xcconfig
-  Release: Config/Signing.xcconfig
+  Debug: Config/App.xcconfig
+  Release: Config/App.xcconfig
 settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    MARKETING_VERSION: "0.1.4"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "0.1.6"
+    CURRENT_PROJECT_VERSION: "7"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     ARCHS: arm64
     ENABLE_HARDENED_RUNTIME: YES
@@ -50,6 +53,10 @@ targets:
       - package: SherpaOnnx
         product: sherpa-onnx
       - package: KeyboardShortcuts
+      - package: AppUpdateKit
+        product: AppUpdateKit
+      - package: AppUpdateKit
+        product: AppUpdateInstaller
     entitlements:
       path: InputBetter/InputBetter.entitlements
       properties:
@@ -70,6 +77,14 @@ targets:
         NSAudioCaptureUsageDescription: InputBetter 需要录制所选应用播放的声音，用于生成实时字幕。
         NSBluetoothAlwaysUsageDescription: InputBetter 通过蓝牙连接 Passport，接收按键并显示状态。
         NSSpeechRecognitionUsageDescription: 使用 Apple 语音识别引擎在本机转录语音。
+        # 检查更新的接口与应用标识,来自 Config/App.xcconfig(本机 Update.local.xcconfig 填写);为空时不检查更新。
+        IBUpdateFeedURL: $(IB_UPDATE_FEED_URL)
+        IBUpdateAppID: $(IB_UPDATE_APP_ID)
+        # Sparkle 应用内安装:appcast 地址与 EdDSA 公钥(同样来自本机配置;为空时退回在浏览器中下载)。
+        # 检查时机由 UpdateChecker 决定,关闭 Sparkle 自己的定时检查。
+        IBUpdateAppcastURL: $(IB_UPDATE_APPCAST_URL)
+        SUPublicEDKey: $(IB_UPDATE_PUBLIC_ED_KEY)
+        SUEnableAutomaticChecks: false
         CFBundleURLTypes:
           - CFBundleURLName: com.inputbetter.agent
             CFBundleURLSchemes: [inputbetter]

@@ -31,7 +31,7 @@ tools/validate.sh --host   # 只跑主机测试(不需要 ESP-IDF)
 
 脚本会:检查串口没有被 InputBetter / Passport Keys app 或其它程序占用 → 编译 → 该设备(按 MAC)第一次烧录时把整片 8 MB Flash 备份到 `~/esp/passport-backups/passport-<MAC>-flash.bin` → 检查写入地址都在 `cardid` 之前 → 只写 bootloader / 分区表 / 应用,不擦除整片,**不写 `cardid` 分区(0x356000)**。
 
-普通用户不需要编译:在 InputBetter app(设置 › Passport)或官网 <https://input.0os.io/#firmware> 用浏览器刷入,两者都从官网下载同一份固件。发布固件到官网见 `docs/website.md`(`scripts/package-firmware.sh` 生成 `build/release/manifest.json` 和镜像)。
+普通用户不需要编译:在 InputBetter app(设置 › Passport)或官网 <https://input.0os.io/passport/#firmware> 用浏览器刷入,两者都从官网下载同一份固件。发布固件到官网见 `docs/website.md`(`scripts/package-firmware.sh` 生成 `build/release/manifest.json` 和镜像)。
 
 分区:`nvs 0x9000`、`phy_init 0xf000`、`factory 0x10000 (3 MB)`、`cardid 0x356000 (16 KB,出厂身份数据,只保留不写)`。
 
@@ -54,10 +54,12 @@ firmware/
 │   ├── ib_ui.*            UI 核心:页面调度、切换动画、逐帧定时器(约 30 fps)、对外接口加锁
 │   ├── ib_ui_page.h       页面接口(create / enter / update / frame)
 │   ├── ib_ui_gfx.*        配色、缓动、整数三角函数、自绘控件与 lv_draw 封装
+│   ├── ib_ui_dots.*       点阵:8 px 网格上的圆点、点阵字形、页面之间的点重排(morph)
+│   ├── ib_ui_wave.*       点阵声波(REC 与 SUB 共用:活柱跟随电平,历史柱每 100 ms 跳一格)
 │   ├── ib_ui_statusbar.*  顶部状态栏(链路 / 电量 / 录音计时 / LIVE)
-│   ├── ib_ui_hints.*      右侧竖排按键提示图标列(三个键的纵坐标常量 IB_HINT_Y_* 在这里调)
+│   ├── ib_ui_hints.*      右侧竖排按键提示(12 px 图标 + 小点;PROC 时禁用;三个键的纵坐标常量 IB_HINT_Y_* 在这里调)
 │   ├── ib_icons.*         keys 命令的图标 id ↔ 枚举(纯逻辑)
-│   ├── icons/             生成的图标字体 ib_icon_font_22.c / ib_icon_font_56.c、图标表 ib_icon_list.h / ib_icon_large_list.h、Apache-2.0 许可证
+│   ├── icons/             生成的图标字体 ib_icon_font_12.c / ib_icon_font_56.c、图标表 ib_icon_list.h / ib_icon_large_list.h、Apache-2.0 许可证
 │   ├── ib_ui_agent.*      Agent 通知层(全屏 / 录音中横幅)
 │   └── ib_ui_<页面>.c     offline / idle / rec / proc / done / err / sub / list 各页面
 ├── tests/                 主机测试(cc 直接编译,不依赖 ESP-IDF)

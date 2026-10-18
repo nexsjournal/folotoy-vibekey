@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passport — InputBetter</title>
+<meta name="description" content="FoloToy AI Passport 刷入 InputBetter 固件后，变成一只带屏幕的三键遥控器：按住说话、回车、Esc、切换应用，Claude Code / Codex 完成时响铃提醒。在浏览器里直接刷写固件。">
+<meta name="theme-color" content="#050507">
+<meta property="og:title" content="Passport — InputBetter">
+<meta property="og:description" content="你手里的 vibe coding 遥控器：按住说话、回车、Esc、切换应用，Agent 完成时响铃提醒。">
+<meta property="og:image" content="/assets/icon.png">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/passport.css">
+</head>
+<body class="passport">
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
+  <nav class="nav-links" aria-label="站点导航">
+    <a href="/passport/" aria-current="page" data-i18n="nav.passport">Passport</a>
+    <a href="/support/" data-i18n="nav.support">支持</a>
+    <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    <button class="lang" type="button" aria-label="Switch language">EN</button>
+  </nav>
+</header>
+
+<main class="page wrap">
+  <!-- 首屏:文案 + 真实固件截图轮播(firmware/tools/ui-preview 离屏渲染) -->
+  <section class="pp-hero">
+    <div class="pp-copy">
+      <span class="eyebrow">FoloToy AI Passport</span>
+      <h1 class="pp-title" data-i18n="pp.title">你手里的 vibe coding 遥控器。</h1>
+      <p class="pp-lead" data-i18n="pp.lead">给 FoloToy AI Passport 刷入 InputBetter 固件，它就成了一只带屏幕的三键遥控器：按住说话，文字进入 Mac 上的光标处；上键回车、下键 Esc；Claude Code / Codex 完成或等你确认时，它会响铃提醒。</p>
+      <div class="pp-cta">
+        <a class="btn primary" href="#firmware"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 6 13.5h5.5L11 21l7-10.5h-5.5z"/></svg><span data-i18n="pp.flash">在浏览器里刷入固件</span></a>
+        <a class="btn ghost" href="{{DMG_URL}}" data-i18n="cta.download">下载 macOS 版</a>
+      </div>
+      <ul class="pp-facts">
+        <li><b data-i18n="pp.fact1">USB-C 或蓝牙</b><span data-i18n="pp.fact1d">插线即用，无需配对</span></li>
+        <li><b data-i18n="pp.fact2">屏幕提示跟着按键走</b><span data-i18n="pp.fact2d">改了映射，图标同步变</span></li>
+        <li><b data-i18n="pp.fact3">固件开源</b><span data-i18n="pp.fact3d">MIT，为本项目全新编写</span></li>
+      </ul>
+    </div>
+
+    <div class="pp-stage" aria-hidden="true">
+      <div class="pp-glow"></div>
+      <div class="device" id="device" data-key="">
+        <span class="key power"></span>
+        <span class="key up"></span>
+        <span class="key down"></span>
+        <span class="key ok"></span>
+        <div class="screen" id="screen">
+          <img src="/assets/passport/idle.png" alt="" width="240" height="320" data-screen="idle" data-key="" class="on">
+          <img src="/assets/passport/rec.png" alt="" width="240" height="320" data-screen="rec" data-key="ok" loading="lazy">
+          <img src="/assets/passport/done.png" alt="" width="240" height="320" data-screen="done" data-key="" loading="lazy">
+          <img src="/assets/passport/sub.png" alt="" width="240" height="320" data-screen="sub" data-key="" loading="lazy">
+          <img src="/assets/passport/list.png" alt="" width="240" height="320" data-screen="list" data-key="down" loading="lazy">
+          <img src="/assets/passport/agent-done.png" alt="" width="240" height="320" data-screen="agentDone" data-key="" loading="lazy">
+          <img src="/assets/passport/agent-input.png" alt="" width="240" height="320" data-screen="agentInput" data-key="" loading="lazy">
+          <img src="/assets/passport/offline.png" alt="" width="240" height="320" data-screen="offline" data-key="" loading="lazy">
+        </div>
+        <span class="ring r1"></span><span class="ring r2"></span>
+      </div>
+      <!-- 三个实体键的标注,与机身右侧上下排列一致 -->
+      <ul class="callouts">
+        <li class="c-up"><b data-i18n="pp.k.up">上键</b><span data-i18n="pp.k.upd">回车 · 长按切换模式</span></li>
+        <li class="c-down"><b data-i18n="pp.k.down">下键</b><span data-i18n="pp.k.downd">Esc · 长按切换应用</span></li>
+        <li class="c-ok"><b>OK</b><span data-i18n="pp.k.okd">按住说话</span></li>
+      </ul>
+      <p class="screen-cap" id="screenCap"></p>
+    </div>
+  </section>
+
+  <!-- 能做什么:每条都对应 app / 固件里的实际行为 -->
+  <section class="section" id="features">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="pp.feat.eyebrow">配合 InputBetter</span>
+      <h2 data-i18n="pp.feat.title">三个键，把说话变成操作。</h2>
+      <p data-i18n="pp.feat.lead">设备只上报按键、显示 Mac 下发的状态；所有含义都由 Mac 上的 InputBetter 决定，所以行为随 app 更新而更新。</p>
+    </div>
+    <div class="grid3">
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></span>
+        <h3 data-i18n="pp.c1.t">按住 OK 说话</h3>
+        <p data-i18n="pp.c1.d">松开后文字输入到 Mac 的当前光标处；短按一下开始、再按一下结束，可以免提。也可以把 Passport 的麦克风设为听写音源。</p>
+      </article>
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 9h12a4 4 0 0 1 0 8H9"/><path d="m8 13-4 4 4 4"/></svg></span>
+        <h3 data-i18n="pp.c2.t">上键回车，下键 Esc</h3>
+        <p data-i18n="pp.c2.d">默认映射：回车发送 prompt，Esc 打断 Agent。可在 设置 › Passport 改成 ⌫ 退格、⌦ Delete、⌘Z 撤销、Tab、⇧Tab、⌘↩、⌃C、确认第一项或再次输入上一段。</p>
+      </article>
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 7h11l-3-3M20 17H9l3 3"/></svg></span>
+        <h3 data-i18n="pp.c3.t">长按上键切换模式</h3>
+        <p data-i18n="pp.c3.d">听写 → 翻译听写 → 字幕，循环切换；屏幕上的点阵图标重排成新模式的图标，模式名翻牌切换。字幕模式下按 OK 开始或停止字幕，上键开关翻译，下键收起字幕条。</p>
+      </article>
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="3" y="13" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg></span>
+        <h3 data-i18n="pp.c4.t">长按下键切换应用</h3>
+        <p data-i18n="pp.c4.d">屏幕上列出 Mac 正在运行的应用，上下键选择、OK 确认，该应用的窗口就前置并聚焦。录音中长按下键则取消本次录音。</p>
+      </article>
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>
+        <h3 data-i18n="pp.c5.t">Agent 完成时响铃</h3>
+        <p data-i18n="pp.c5.d">在 设置 › Vibe Coding 一键配置 Claude Code / Codex 的 hooks：任务完成显示 DONE 并响铃，等你确认时显示 YOUR TURN、每 20 秒提醒一次，按任意键关闭。</p>
+      </article>
+      <article class="card reveal">
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M7 7h10M7 12h10M7 17h6"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg></span>
+        <h3 data-i18n="pp.c6.t">一块点阵屏</h3>
+        <p data-i18n="pp.c6.d">整块屏幕只用一种圆点：模式图标、跟着声音跳动的声波、处理中的扫描光、完成状态都由同一批点组成，切换时点会重排。不显示你说的内容；彩色只留给录音、完成和 Agent 提醒。离线时是一只点阵时钟。</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- 按键一览:来自 docs/protocol.md 的按键语义与 app 的默认映射 -->
+  <section class="section" id="keys">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="pp.keys.eyebrow">按键一览</span>
+      <h2 data-i18n="pp.keys.title">默认映射</h2>
+      <p data-i18n="pp.keys.lead">上下键的动作可以在 InputBetter 的 设置 › Passport 里改；屏幕右侧贴着按键的提示图标会跟着变。</p>
+    </div>
+    <div class="keytable reveal" role="table" aria-label="按键映射">
+      <div class="kt-row kt-head" role="row">
+        <span role="columnheader"></span>
+        <span role="columnheader" data-i18n="pp.kt.dict">听写 / 翻译模式</span>
+        <span role="columnheader" data-i18n="pp.kt.rec">录音中</span>
+        <span role="columnheader" data-i18n="pp.kt.sub">字幕模式</span>
+      </div>
+      <div class="kt-row" role="row">
+        <span role="rowheader"><kbd>UP</kbd><i data-i18n="pp.kt.short">短按</i></span>
+        <span role="cell" data-i18n="pp.kt.r1a">回车（发送）</span>
+        <span role="cell">—</span>
+        <span role="cell" data-i18n="pp.kt.r1c">开关本场字幕的翻译</span>
+      </div>
+      <div class="kt-row" role="row">
+        <span role="rowheader"><kbd>UP</kbd><i data-i18n="pp.kt.long">长按</i></span>
+        <span role="cell" data-i18n="pp.kt.r2a">切换模式</span>
+        <span role="cell">—</span>
+        <span role="cell" data-i18n="pp.kt.r2a">切换模式</span>
+      </div>
+      <div class="kt-row" role="row">
+        <span role="rowheader"><kbd>DOWN</kbd><i data-i18n="pp.kt.short">短按</i></span>
+        <span role="cell" data-i18n="pp.kt.r3a">Esc（打断）</span>
+        <span role="cell">—</span>
+        <span role="cell" data-i18n="pp.kt.r3c">收起 / 展开字幕条</span>
+      </div>
+      <div class="kt-row" role="row">
+        <span role="rowheader"><kbd>DOWN</kbd><i data-i18n="pp.kt.long">长按</i></span>
+        <span role="cell" data-i18n="pp.kt.r4a">切换应用</span>
+        <span role="cell" data-i18n="pp.kt.r4b">取消本次录音</span>
+        <span role="cell">—</span>
+      </div>
+      <div class="kt-row" role="row">
+        <span role="rowheader"><kbd>OK</kbd></span>
+        <span role="cell" data-i18n="pp.kt.r5a">按住说话；短按开始</span>
+        <span role="cell" data-i18n="pp.kt.r5b">松开 / 再按结束</span>
+        <span role="cell" data-i18n="pp.kt.r5c">开始 / 停止字幕</span>
+      </div>
+    </div>
+    <p class="note reveal" data-i18n="pp.keys.note">收到 Agent 提醒后，第一次按键只用于关闭提醒，不触发其他动作。</p>
+  </section>
+
+  <!-- 硬件规格:以 firmware/README.md 为准 -->
+  <section class="section" id="specs">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="pp.spec.eyebrow">硬件与固件</span>
+      <h2 data-i18n="pp.spec.title">规格</h2>
+    </div>
+    <dl class="specs reveal">
+      <div><dt data-i18n="pp.s1">主控</dt><dd>ESP32-C3</dd></div>
+      <div><dt data-i18n="pp.s2">存储</dt><dd>8 MB Flash</dd></div>
+      <div><dt data-i18n="pp.s3">屏幕</dt><dd>ST7789 · 240 × 320</dd></div>
+      <div><dt data-i18n="pp.s4">按键</dt><dd data-i18n="pp.s4d">三键（单 ADC）+ 电源键</dd></div>
+      <div><dt data-i18n="pp.s5">音频</dt><dd data-i18n="pp.s5d">ES8311 麦克风 / 扬声器</dd></div>
+      <div><dt data-i18n="pp.s6">电量计</dt><dd>CW2017</dd></div>
+      <div><dt data-i18n="pp.s7">连接</dt><dd data-i18n="pp.s7d">USB-C（USB Serial/JTAG）· 蓝牙 BLE</dd></div>
+      <div><dt data-i18n="pp.s8">麦克风上行</dt><dd data-i18n="pp.s8d">16 kHz 单声道 · IMA ADPCM</dd></div>
+      <div><dt data-i18n="pp.s9">固件</dt><dd>ESP-IDF 5.5.3 · LVGL 9</dd></div>
+      <div class="span-rest"><dt data-i18n="pp.s10">许可证</dt><dd data-i18n="pp.s10d">MIT（驱动源自 FoloToy，MIT；图标 Material Icons Round，Apache-2.0）</dd></div>
+    </dl>
+  </section>
+
+  <!-- Passport 网页刷写(assets/flasher.js):元素 id 不能改。只写固件区域,不擦除整片,不碰 cardid -->
+  <section class="firmware" id="firmware">
+    <div class="fw-text reveal">
+      <span class="eyebrow" data-i18n="fw.eyebrow">固件</span>
+      <h2 data-i18n="fw.title">在浏览器里刷入固件</h2>
+      <p class="fw-lead" data-i18n="fw.lead">插上 USB-C 线，用电脑上的 Chrome 或 Edge 直接刷，无需安装任何工具。也可以在 InputBetter app 的 设置 › Passport 里一键刷入，两边用的是同一份固件。</p>
+      <ol class="fw-steps">
+        <li data-i18n="fw.s1">长按电源键开机，用支持数据传输的 USB-C 线连接电脑</li>
+        <li data-i18n="fw.s2">先退出 InputBetter app，它会占用串口</li>
+        <li data-i18n="fw.s3">点「连接并刷入」，在弹窗里选择 Passport</li>
+      </ol>
+      <p class="note" data-i18n="fw.note">网页会先确认芯片是 ESP32-C3、Flash 为 8 MB、分区表里有 Passport 的身份分区，不是 Passport 就停止。</p>
+    </div>
+    <div class="fw-panel reveal" data-delay="120">
+      <div class="fw-head"><span data-i18n="fw.latest">最新固件</span><b id="fwVersion">…</b></div>
+      <label class="fw-check"><input type="checkbox" id="fwBackup" checked><span data-i18n="fw.backup">先备份整片 Flash（推荐首次勾选，8 MB，约 1–3 分钟，可用于恢复原固件）</span></label>
+      <button class="btn primary" id="fwStart" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 6 13.5h5.5L11 21l7-10.5h-5.5z"/></svg><span data-i18n="fw.start">连接并刷入</span></button>
+      <div class="fw-progress" id="fwProgress" hidden><i id="fwBar"></i></div>
+      <p class="fw-status" id="fwStatus" role="status" aria-live="polite"></p>
+      <p class="fw-safe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><span data-i18n="fw.safe">只写入固件区域，不擦除整片 Flash，也不会改动设备身份数据。</span></p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>© 2026 InputBetter · <span data-i18n="ft.license">MIT 开源</span></span>
+  <nav aria-label="页脚">
+    <a href="/" data-i18n="nav.home">首页</a>
+    <a href="/support/" data-i18n="ft.support">支持</a>
+    <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</footer>
+
+<script src="/assets/main.js" defer></script>
+<script src="/assets/passport.js" defer></script>
+<script type="module" src="/assets/flasher.js"></script>
+</body>
+</html>

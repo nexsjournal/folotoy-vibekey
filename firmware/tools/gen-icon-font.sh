@@ -12,7 +12,7 @@
 #   (LVGL 9 默认 LV_USE_FONT_COMPRESSED=0,压缩字体无法显示)。
 #
 # 一张图标表生成两种字号:
-#   22 px  右侧按键提示(keys 命令的协议 id)  → main/icons/ib_icon_font_22.c + main/icons/ib_icon_list.h
+#   12 px  右侧按键提示(keys 命令的协议 id)  → main/icons/ib_icon_font_12.c + main/icons/ib_icon_list.h
 #   56 px  页面主图标(IDLE 模式图标等)       → main/icons/ib_icon_font_56.c + main/icons/ib_icon_large_list.h
 # 另复制许可证全文到 main/icons/LICENSE-material-icons。
 #
@@ -23,27 +23,27 @@
 set -euo pipefail
 
 ICONS=(
-    "ENTER:enter:keyboard_return:22"
-    "ESC:esc:close:22"
-    "UNDO:undo:undo:22"
-    "STAB:stab:first_page:22"            # Round 风格没有 keyboard_tab_rtl,用 first_page(|←)表示 Shift-Tab
-    "TAB:tab:keyboard_tab:22"
-    "SEND:send:send:22"
-    "STOP:stop:stop:22"
-    "CANCEL:cancel:cancel:22"
-    "CHECK:check:check:22"
-    "REPEAT:repeat:replay:22"
-    "MODE:mode:swap_vert:22"
-    "APPS:apps:apps:22,56"
-    "MIC:mic:mic:22,56"
-    "TRANSLATE:translate:translate:22,56"
-    "HIDE:hide:visibility_off:22"
-    "UP:up:keyboard_arrow_up:22"
-    "DOWN:down:keyboard_arrow_down:22"
-    "PLAY:play:play_arrow:22"
-    "OPEN:open:open_in_new:22"
-    "BKSP:bksp:backspace:22"             # ⌫ 退格
-    "DEL:del:backspace_mirrored:22"      # ⌦ 向右删除(派生字形)
+    "ENTER:enter:keyboard_return:12"
+    "ESC:esc:close:12"
+    "UNDO:undo:undo:12"
+    "STAB:stab:first_page:12"            # Round 风格没有 keyboard_tab_rtl,用 first_page(|←)表示 Shift-Tab
+    "TAB:tab:keyboard_tab:12"
+    "SEND:send:send:12"
+    "STOP:stop:stop:12"
+    "CANCEL:cancel:cancel:12"
+    "CHECK:check:check:12"
+    "REPEAT:repeat:replay:12"
+    "MODE:mode:swap_vert:12"
+    "APPS:apps:apps:12,56"
+    "MIC:mic:mic:12,56"
+    "TRANSLATE:translate:translate:12,56"
+    "HIDE:hide:visibility_off:12"
+    "UP:up:keyboard_arrow_up:12"
+    "DOWN:down:keyboard_arrow_down:12"
+    "PLAY:play:play_arrow:12"
+    "OPEN:open:open_in_new:12"
+    "BKSP:bksp:backspace:12"             # ⌫ 退格
+    "DEL:del:backspace_mirrored:12"      # ⌦ 向右删除(派生字形)
     "CC:-:closed_caption:56"             # 字幕模式主图标
 )
 
@@ -155,10 +155,10 @@ header() {   # header <文件名> <说明>
 mkdir -p "${out_dir}"
 small_list="${out_dir}/ib_icon_list.h"
 large_list="${out_dir}/ib_icon_large_list.h"
-header ib_icon_list.h "按键提示图标表(X-macro):IB_ICON_DEF(枚举名, \"协议 id\", \"UTF-8 字形\", 码点);顺序即 ib_icon_t 枚举顺序(IB_ICON_NONE 之后)。字号 22 px。" > "${small_list}"
+header ib_icon_list.h "按键提示图标表(X-macro):IB_ICON_DEF(枚举名, \"协议 id\", \"UTF-8 字形\", 码点);顺序即 ib_icon_t 枚举顺序(IB_ICON_NONE 之后)。字号 12 px。" > "${small_list}"
 header ib_icon_large_list.h "页面主图标表(X-macro):IB_ICON_LARGE_DEF(枚举名, \"UTF-8 字形\", 码点)。字号 56 px。" > "${large_list}"
 
-ranges_22=()
+ranges_12=()
 ranges_56=()
 for entry in "${ICONS[@]}"; do
     IFS=: read -r enum id material sizes <<< "${entry}"
@@ -167,9 +167,9 @@ for entry in "${ICONS[@]}"; do
     IFS=, read -ra size_list <<< "${sizes}"
     for size in "${size_list[@]}"; do
         case "${size}" in
-        22)
-            [[ "${id}" != "-" ]] || { echo "${enum}:22 px 图标必须有协议 id" >&2; exit 1; }
-            ranges_22+=("0x${cp}")
+        12)
+            [[ "${id}" != "-" ]] || { echo "${enum}:12 px 图标必须有协议 id" >&2; exit 1; }
+            ranges_12+=("0x${cp}")
             printf 'IB_ICON_DEF(%-10s "%s", %-14s 0x%s)   // %s\n' "${enum}," "${id}" "\"${utf8}\"," "${cp}" "${material}" >> "${small_list}"
             ;;
         56)
@@ -211,7 +211,7 @@ open(path, "w", encoding="utf-8").write(header + src)
 PY
 }
 
-gen_font 22 "${ranges_22[@]}"
+gen_font 12 "${ranges_12[@]}"
 gen_font 56 "${ranges_56[@]}"
 cp "${work}/LICENSE" "${out_dir}/LICENSE-material-icons"
-echo "已生成 ${out_dir}:ib_icon_font_22.c(${#ranges_22[@]} 个)、ib_icon_font_56.c(${#ranges_56[@]} 个)、ib_icon_list.h、ib_icon_large_list.h"
+echo "已生成 ${out_dir}:ib_icon_font_12.c(${#ranges_12[@]} 个)、ib_icon_font_56.c(${#ranges_56[@]} 个)、ib_icon_list.h、ib_icon_large_list.h"

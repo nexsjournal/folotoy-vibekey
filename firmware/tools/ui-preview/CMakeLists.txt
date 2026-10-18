@@ -2,7 +2,7 @@
 #
 # - LVGL:直接编译固件同一份 managed_components/lvgl__lvgl(9.5.0),配置取自固件的 sdkconfig.h
 #   (见 shim/preview_kconfig.h),字体、颜色深度与真机一致。
-# - 界面代码:原样编译 firmware/main 的 ib_ui*.c、ib_icons.c 与 icons/ib_icon_font_22.c,不做任何修改;
+# - 界面代码:原样编译 firmware/main 的 ib_ui*.c、ib_icons.c 与 icons/ib_icon_font_12.c,不做任何修改;
 #   只用 shim/ 里的极小替身代替 bsp_display.h(LVGL 锁)、esp_log.h、esp_err.h。
 # - PNG:third_party/stb_image_write.h(nothings/stb 提交 2c980bb59875b0d32144a71867fbdebb2f77cd20,
 #   v1.16,public domain / MIT 双许可,许可证见文件末尾)。
@@ -42,6 +42,8 @@ target_compile_options(lvgl_host PRIVATE -w -O2)   # 第三方代码:不在这�
 set(UI_SOURCES
     "${UI_DIR}/ib_ui.c"
     "${UI_DIR}/ib_ui_gfx.c"
+    "${UI_DIR}/ib_ui_wave.c"
+    "${UI_DIR}/ib_ui_dots.c"
     "${UI_DIR}/ib_ui_statusbar.c"
     "${UI_DIR}/ib_ui_hints.c"
     "${UI_DIR}/ib_ui_agent.c"
@@ -54,7 +56,7 @@ set(UI_SOURCES
     "${UI_DIR}/ib_ui_sub.c"
     "${UI_DIR}/ib_ui_list.c"
     "${UI_DIR}/ib_icons.c"
-    "${UI_DIR}/icons/ib_icon_font_22.c"
+    "${UI_DIR}/icons/ib_icon_font_12.c"
     "${UI_DIR}/icons/ib_icon_font_56.c")
 
 add_executable(ib_ui_preview

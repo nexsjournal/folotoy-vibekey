@@ -1,0 +1,127 @@
+/* 首页:照 Fable 设计稿 v5 方向 B「胶囊在它该在的地方」原样移植(scratchpad home-v5/b.html + _common.css),
+   底部胶囊演示是稿子里的 CSS keyframes(一轮 18 s)。之后按用户反馈补充(见文件末尾):深色主题背景(不用纯黑)与两团缓慢呼吸的淡光、
+   标语进场与周期扫光、字幕条原文行像 app 一样始终露出最新的词。
+   与站点公共样式的适配只有:导航用 style.css 的 .nav;按钮类名 .btn → .hbtn(避免和公共 .btn 冲突);h1 限定在首页。
+   结构:导航 / 标语 / 两个按钮 / 一行轮播功能 / 屏幕底边的状态胶囊(细条 → 录音 + 气泡 → 已输入 → 字幕条)。 */
+body.home{background:#0b0c10;height:100svh;overflow:hidden}   /* 深色主题,不用纯黑 */
+.home .page{position:relative;width:100vw;height:100svh;display:flex;flex-direction:column;padding:0}   /* 清掉公共 .page 的上下内边距 */
+.home .nav{position:relative;inset:auto;height:56px;flex:none;background:none;-webkit-backdrop-filter:none;backdrop-filter:none}   /* 稿子里导航在文档流里、无底色 */
+:root{color-scheme:dark}
+.home .nav-links a{color:rgba(255,255,255,.5);text-decoration:none;position:relative;transition:color .25s}
+.home .nav-links a::after{content:"";position:absolute;left:0;right:100%;bottom:-4px;height:1px;background:#fff;transition:right .3s cubic-bezier(.2,.8,.2,1)}
+.home .nav-links a:hover{color:#fff}.home .nav-links a:hover::after{right:0}
+.btns{display:flex;gap:12px;justify-content:center}
+.hbtn{height:44px;padding:0 22px;border-radius:22px;font-size:15px;font-weight:500;display:flex;align-items:center;text-decoration:none;position:relative;overflow:hidden;transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .25s}
+.hbtn:active{transform:scale(.97)}
+.hbtn.p{background:#fff;color:#000;min-width:150px;justify-content:center}
+.hbtn.p span{display:block;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .3s}
+.hbtn.p .alt{position:absolute;left:0;right:0;text-align:center;font-size:12.5px;color:rgba(0,0,0,.6);transform:translateY(18px);opacity:0}
+.hbtn.p:hover .main{transform:translateY(-18px);opacity:0}
+.hbtn.p:hover .alt{transform:none;opacity:1}
+.hbtn.p::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent);transform:skewX(-20deg);animation:sheen 6s infinite}
+@keyframes sheen{0%,70%{left:-60%}90%,100%{left:130%}}
+.hbtn.s{border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85)}
+.hbtn.s:hover{border-color:rgba(255,255,255,.45)}
+.feat{position:absolute;left:0;right:0;height:22px;text-align:center;font-size:15px;color:rgba(255,255,255,.55)}
+.feat span{position:absolute;left:0;right:0;opacity:0;animation:feat 16s infinite}
+.feat b{color:#fff;font-weight:500;margin-right:10px}
+.feat span:nth-child(2){animation-delay:4s}.feat span:nth-child(3){animation-delay:8s}.feat span:nth-child(4){animation-delay:12s}
+@keyframes feat{0%,2%{opacity:0;transform:translateY(6px);filter:blur(4px)}5%,22%{opacity:1;transform:none;filter:none}25%,100%{opacity:0;transform:translateY(-6px);filter:blur(4px)}}
+.glass{background:rgba(18,18,20,.92);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)}
+.bar{width:36px;height:6px;border-radius:3px;animation:breath 4s infinite ease-in-out}
+@keyframes breath{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 12px 1px rgba(255,255,255,.18)}}
+.pill{height:34px;border-radius:17px;display:flex;align-items:center;color:rgba(255,255,255,.85)}
+.pill .x,.pill .ok{width:26px;text-align:center;font-size:11px;font-weight:600}
+.pill .ok{color:#30d158}
+.reddot{width:18px;height:18px;display:flex;align-items:center;justify-content:center;position:relative}
+.reddot::before{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:rgba(255,69,58,.35);animation:ring .7s infinite alternate ease-in-out}
+.reddot::after{content:"";position:relative;width:7px;height:7px;border-radius:50%;background:#ff453a}
+@keyframes ring{from{transform:scale(.7)}to{transform:scale(1.15)}}
+.wave{width:92px;height:22px;display:flex;align-items:center;justify-content:flex-end;gap:4px;overflow:hidden}
+.wave i{display:block;width:2.2px;height:20px;border-radius:1.1px;background:#fff;transform-origin:center;animation:wv .55s infinite alternate ease-in-out}
+.wave i:nth-child(odd){animation-duration:.42s}.wave i:nth-child(3n){animation-duration:.68s}.wave i:nth-child(4n){animation-delay:-.2s}.wave i:nth-child(5n){animation-delay:-.35s}
+.wave i:nth-child(1){opacity:.2}.wave i:nth-child(2){opacity:.35}.wave i:nth-child(3){opacity:.5}.wave i:nth-child(4){opacity:.65}.wave i:nth-child(5){opacity:.8}
+@keyframes wv{from{transform:scaleY(.16)}to{transform:scaleY(.95)}}
+.pill.text{padding:0 14px;gap:8px;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.92)}
+.check{width:12px;height:12px}
+.check path{fill:none;stroke:#30d158;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20}
+.bubble{white-space:nowrap;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.92);padding:8px 14px;border-radius:14px;background:rgba(18,18,20,.9);border:1px solid rgba(255,255,255,.1)}
+.caption{width:570px;border-radius:18px;padding:10px 20px 11px;text-align:left;background:rgba(18,18,20,.94)}
+.caption .src{font-size:17px;font-weight:500;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden}
+.caption .src .live{color:rgba(255,255,255,.4)}
+.caption .dst{font-size:19px;font-weight:600;line-height:1.2;margin-top:4px}
+.caption .dst p+p{margin-top:.2em}
+.caption .dst .old{color:rgba(255,255,255,.84)}
+.caption .dst .tent{color:rgba(255,255,255,.55)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative;transform:translateY(-56px)}
+  .home h1{font-size:76px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+  .btns{margin-top:44px}
+  .feat{bottom:140px}
+  .dock{position:absolute;left:0;right:0;bottom:24px;height:120px;display:flex;justify-content:center;align-items:flex-end}
+  .dock>*{position:absolute;bottom:0;opacity:0;transform-origin:50% 100%}
+  .d-bar{animation:dBar 18s infinite}
+  .d-rec{animation:dRec 18s infinite;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .d-rec .bubble{animation:bub 18s infinite;transform-origin:50% 100%}
+  .d-done{animation:dDone 18s infinite}
+  .d-done .check path{animation:draw 18s infinite}
+  .d-cap{animation:dCap 18s infinite}
+  .d-cap .w{display:inline-block;opacity:0;animation:cw 18s infinite}
+  .d-cap .w:nth-child(2){animation-delay:.5s}.d-cap .w:nth-child(3){animation-delay:1s}.d-cap .w:nth-child(4){animation-delay:1.5s}.d-cap .w:nth-child(5){animation-delay:2s}
+  .d-cap .l1{animation:l1 18s infinite}.d-cap .l2{animation:l2 18s infinite;display:grid;grid-template-rows:0fr}
+  .d-cap .l2>span{overflow:hidden;display:block}
+  @keyframes dBar{0%,7%{opacity:1}9%,36%{opacity:0}37%,39%{opacity:1}41%,89%{opacity:0}91%,100%{opacity:1}}
+  @keyframes dRec{0%,8%{opacity:0;transform:scaleX(.3)}10%,24%{opacity:1;transform:none}26%,100%{opacity:0;transform:none}}
+  @keyframes bub{0%,10%{opacity:0;transform:translateY(6px) scale(.9)}12%,23%{opacity:1;transform:none}26%,100%{opacity:0;transform:translateY(-10px)}}
+  @keyframes dDone{0%,25%{opacity:0;transform:scale(.9)}27%,34%{opacity:1;transform:none}36%,100%{opacity:0}}
+  @keyframes draw{0%,26%{stroke-dashoffset:20}30%,100%{stroke-dashoffset:0}}
+  @keyframes dCap{0%,40%{opacity:0;transform:translateY(8px) scaleX(.2)}43%,87%{opacity:1;transform:none}90%,100%{opacity:0}}
+  @keyframes cw{0%,44%{opacity:0;transform:translateY(4px)}47%,100%{opacity:1;transform:none}}
+  @keyframes l1{0%,58%{color:rgba(255,255,255,.55)}62%,70%{color:#fff}74%,100%{color:rgba(255,255,255,.84)}}
+  @keyframes l2{0%,70%{grid-template-rows:0fr;opacity:0}74%,100%{grid-template-rows:1fr;opacity:1}}
+
+.feat i{font-style:normal}   /* 句子包在 <i> 里只为中英文切换 */
+.d-cap .w{white-space:pre}   /* 修正稿子里词组末尾空格被吞掉(fewpuzzle → few puzzle) */
+
+/* 背景:深色底 + 两团很淡的冷色光(标语后方、底边胶囊处),各自缓慢呼吸;不加粒子、不跟随鼠标 */
+.home .page::before,.home .page::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:50%;filter:blur(40px)}
+.home .page{overflow:hidden}
+.home .page::before{left:0;right:0;margin:0 auto;top:22%;width:min(1100px,110vw);height:520px;
+  background:radial-gradient(closest-side,rgba(96,120,255,.16),rgba(96,120,255,.05) 55%,transparent);animation:glowA 12s ease-in-out infinite}
+.home .page::after{left:0;right:0;margin:0 auto;bottom:-260px;width:min(900px,100vw);height:420px;
+  background:radial-gradient(closest-side,rgba(120,150,255,.14),transparent);animation:glowB 9s ease-in-out infinite}
+@keyframes glowA{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes glowB{0%,100%{opacity:.6}50%{opacity:1}}
+.home .hero,.home .feat,.home .dock{z-index:1}
+.home .nav{z-index:2}   /* 标语区上移 56px 会盖住导航,导航必须在最上层,否则链接点不到 */
+
+/* 标语:进场时从模糊中浮现,按钮随后;之后每 8 s 有一道光从左到右扫过文字 */
+.home h1{background:linear-gradient(100deg,#fff 0 40%,#b9c6ff 50%,#fff 60% 100%) 0 0/250% 100% no-repeat;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:heroIn 1s cubic-bezier(.2,.8,.2,1) both,titleSheen 8s ease-in-out 1.6s infinite}
+.home .btns{animation:heroIn 1s cubic-bezier(.2,.8,.2,1) .25s both}
+@keyframes heroIn{from{opacity:0;transform:translateY(14px);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+@keyframes titleSheen{0%{background-position:100% 0}35%,100%{background-position:0 0}}
+
+/* 字幕条原文:和 app 一样始终露出最新的词——词组出现前不占宽度,整行靠右对齐,超出的旧词从左边移出 */
+.d-cap .src{display:flex;justify-content:flex-end;align-items:flex-end}
+.d-cap .w{flex:none;overflow:hidden;max-width:0}
+.d-cap .w{animation-name:cwGrow}
+@keyframes cwGrow{0%,44%{opacity:0;max-width:0;transform:translateY(4px)}47%,100%{opacity:1;max-width:12em;transform:none}}
+
+/* 窄屏(手机):允许滚动,字幕条按屏宽缩小(稿子只给了桌面尺寸,这里只做不溢出的最小适配) */
+@media (max-width:760px){
+  body.home{height:auto;overflow:auto}
+  .home .page{height:auto;min-height:100svh}
+  .home h1{font-size:40px}
+  .hero{transform:none;padding:96px 16px 220px}
+  .feat{bottom:150px;padding:0 16px;font-size:13px}
+  .caption{width:calc(100vw - 32px)}
+  .bubble{white-space:normal;max-width:calc(100vw - 48px)}
+}
+/* 矮屏(稿子 1280x720:h1 56;功能行距底稿子写 112,会和展开的字幕条重叠,改为 136) */
+@media (max-height:760px) and (min-width:761px){
+  .home h1{font-size:56px}
+  .feat{bottom:136px}
+}

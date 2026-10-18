@@ -165,12 +165,15 @@ final class DeviceBridge {
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
         guard key == .ok else { return }
-        // 听写进行中(包括从 Mac 上开始的):OK 交给听写,与屏幕上的停止 / 麦克风提示一致。
+        // 上一句还在处理(识别 / 润色 / 翻译):OK 不可用,不开始新的一句;设备上提示列是禁用色并给出"不可用"反馈。
+        if case .processing = dictation.phase { return }
+        // 录音进行中(包括从 Mac 上开始的):OK 交给听写,与屏幕上的停止 / 麦克风提示一致。
         if dictation.phase.isBusy {
             dictation.pressDown(mode: dictation.mode)
             okDrivesDictation = true
         } else if inCaptionsMode {
-            // Mac 上正显示模态提示框(如"结束字幕?")时不开 / 停字幕,避免叠加弹框。
+            // Mac 上正显示模态提示框(换应用 / 退出的确认)时不开 / 停字幕,避免叠加弹框。
+            // 字幕条上的「结束字幕？」气泡不算:设备上结束不询问,会直接结束并收起气泡。
             guard NSApp.modalWindow == nil else { return }
             subtitles.isRunning ? hooks.stopCaptions() : openCaptionAppPicker()
         } else {

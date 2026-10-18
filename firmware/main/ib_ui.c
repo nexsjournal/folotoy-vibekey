@@ -102,11 +102,46 @@ static ib_bar_mode_t bar_mode_for(ib_ui_screen_t screen)
     return IB_BAR_NORMAL;
 }
 
+// 主体是点阵的页面(ib_ui_dots)之间"直切":新页面接着上一页的最后一帧让点重排(见 ib_ui_page.h);
+// OFFLINE / LIST 与它们之间仍是淡入淡出。
+static bool dot_page(ib_ui_screen_t s)
+{
+    return s == IB_UI_IDLE || s == IB_UI_REC || s == IB_UI_PROC || s == IB_UI_DONE || s == IB_UI_ERR || s == IB_UI_SUB;
+}
+
+static bool cut_transition(ib_ui_screen_t from, ib_ui_screen_t to)
+{
+    return from != to && dot_page(from) && dot_page(to);
+}
+
 static void switch_to(ib_ui_screen_t screen)
 {
     uint32_t now = lv_tick_get();
     lv_obj_t *old = s_roots[s_screen];
     lv_obj_t *neu = s_roots[screen];
+    // 旧页面还没完全显示出来(例如正在淡入)时不直切,免得新页面从一个没出现过的画面开始变形。
+    bool cut = cut_transition(s_screen, screen) && !lv_obj_has_flag(old, LV_OBJ_FLAG_HIDDEN) &&
+               lv_obj_get_style_opa(old, 0) == LV_OPA_COVER;
+    s_ctx.prev_screen = cut ? s_screen : IB_UI_SCREEN_NONE;
+
+    if (cut) {
+        lv_anim_delete(old, NULL);
+        lv_anim_delete(neu, NULL);
+        lv_obj_add_flag(old, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(neu, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_opa(neu, LV_OPA_COVER, 0);
+        lv_obj_set_style_translate_y(neu, 0, 0);
+        lv_obj_move_foreground(neu);
+        s_screen = screen;
+        s_ctx.enter_ms = now;
+        s_ctx.now_ms = now;
+        ib_bar_set_mode(bar_mode_for(screen), now);
+        ib_hints_set_visible(true);
+        ib_hints_set_disabled(screen == IB_UI_PROC);
+        ib_agent_set_banner(screen == IB_UI_REC, now);
+        PAGES[screen]->enter(&s_ctx);
+        return;
+    }
 
     uint32_t delay = 0;
     if (old != neu) {
@@ -130,6 +165,7 @@ static void switch_to(ib_ui_screen_t screen)
     s_ctx.now_ms = now;
     ib_bar_set_mode(bar_mode_for(screen), now);
     ib_hints_set_visible(screen != IB_UI_OFFLINE);
+    ib_hints_set_disabled(screen == IB_UI_PROC);    // 上一句还在处理:按键暂不可用
     // 录音中通知只显示横幅,离开录音后恢复全屏。
     ib_agent_set_banner(screen == IB_UI_REC, now);
     PAGES[screen]->enter(&s_ctx);

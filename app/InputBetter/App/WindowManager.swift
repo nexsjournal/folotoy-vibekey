@@ -1,13 +1,17 @@
 import AppKit
+import AppUpdateKit
 import SwiftUI
 
-/// 管理设置窗口、首次引导窗口和字幕记录窗口。app 是菜单栏应用(LSUIElement),打开窗口时需要主动激活。
+/// 管理设置窗口、首次引导窗口、字幕记录窗口和新版本提示窗口。app 是菜单栏应用(LSUIElement),打开窗口时需要主动激活。
 @MainActor
 final class WindowManager: NSObject, NSWindowDelegate {
     private unowned let app: AppState
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var transcriptWindow: NSWindow?
+    private var updateWindow: NSWindow?
+    /// 当前更新窗口是不是强制更新(后台撤销强制后要自动关闭)。
+    private var updateWindowIsRequired = false
     /// 设置窗口当前分类(可从外部直接打开某个分类)。
     private let settingsNavigation = SettingsNavigation()
     /// 字幕记录窗口的固定状态(固定在屏幕右侧、置顶)。
@@ -24,6 +28,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
             self?.settingsWindow?.title = String(localized: "InputBetter 设置", bundle: .l10n)
             self?.onboardingWindow?.title = String(localized: "欢迎使用 InputBetter", bundle: .l10n)
             self?.transcriptWindow?.title = String(localized: "字幕记录", bundle: .l10n)
+            self?.updateWindow?.title = String(localized: "软件更新", bundle: .l10n)
+        }
+        // 强制更新窗口:后台撤销强制(最近一次检查的结论不再是 required)时自动关闭。
+        observeChanges({ [weak self] in _ = self?.app.updates?.verdict }) { [weak self] in
+            guard let self, updateWindowIsRequired, let window = updateWindow else { return }
+            if case .required = app.updates?.verdict { return }
+            window.close()
         }
     }
 
@@ -100,6 +111,73 @@ final class WindowManager: NSObject, NSWindowDelegate {
         app.summarizer.setWindowVisible(true)
     }
 
+    /// 显示检查更新的结果(UpdateChecker.present 调用)。
+    /// - 有新版本:打开提示窗口;强制更新的窗口没有关闭按钮、浮在其他窗口之上,只能下载或退出,
+    ///   后台撤销强制(下次检查结论不再是 required)时自动关闭;
+    /// - 已是最新 / 检查失败(只在用户手动检查时出现):系统提示框,和其他 Mac app 的「检查更新」一致。
+    func showUpdate(_ event: UpdateEvent) {
+        switch event {
+        case .upToDate:
+            let version = app.updates?.currentVersion.description ?? ""
+            alert(String(localized: "已是最新版本", bundle: .l10n),
+                  String(localized: "InputBetter \(version) 是目前的最新版本。", bundle: .l10n))
+        case .failed(let reason):
+            alert(String(localized: "无法检查更新", bundle: .l10n),
+                  String(localized: "请检查网络连接后再试。(\(reason))", bundle: .l10n), style: .warning)
+        case .update(let release, let required):
+            showUpdatePrompt(release, required: required)
+        }
+    }
+
+    private func showUpdatePrompt(_ release: UpdateRelease, required: Bool) {
+        guard let updates = app.updates else { return }
+        // 换成最新的一次结果(例如可选更新变成了强制更新)。
+        updateWindow?.delegate = nil
+        updateWindow?.close()
+        let close = { [weak self] in
+            guard let self, let window = self.updateWindow else { return }
+            window.close()  // windowWillClose 里清空 updateWindow 并按需切回菜单栏模式
+        }
+        let view = UpdatePromptView(
+            release: release, required: required, currentVersion: updates.currentVersion,
+            languageCode: L10n.code(for: app.language.language),
+            installer: app.installer,
+            onDownload: {
+                // 在浏览器中下载(没有配置应用内安装,或安装失败时的兜底);窗口留着显示下一步怎么装。
+                NSWorkspace.shared.open(release.downloadURL)
+            },
+            onLater: { close() },
+            onSkip: { updates.skip(release); close() },
+            onQuit: { NSApp.terminate(nil) })
+        let window = makeWindow(title: String(localized: "软件更新", bundle: .l10n), size: NSSize(width: 480, height: 300),
+                                content: LocalizedRoot(language: app.language) { view })
+        if required {
+            window.styleMask.remove([.closable, .miniaturizable])
+            window.level = .floating
+        }
+        updateWindow = window
+        updateWindowIsRequired = required
+        present(window)
+    }
+
+    /// Sparkle 请求把更新界面放到前面(安装进行中再次触发检查等)。
+    func focusUpdateWindow() {
+        if let updateWindow { present(updateWindow) }
+    }
+
+    /// 应用级提示框(检查更新的结果)。菜单栏应用要先激活才能把提示框放到前面。
+    private func alert(_ title: String, _ message: String, style: NSAlert.Style = .informational) {
+        DispatchQueue.main.async {
+            NSApp.activate()
+            let alert = NSAlert()
+            alert.alertStyle = style
+            alert.messageText = title
+            alert.informativeText = message
+            alert.addButton(withTitle: String(localized: "好", bundle: .l10n))
+            alert.runModal()
+        }
+    }
+
     /// 字幕记录窗口是否正在显示(结束字幕时没显示才自动打开)。
     var isTranscriptVisible: Bool { transcriptWindow?.isVisible == true }
 
@@ -163,7 +241,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     /// 最后一个窗口关闭后切回只在菜单栏(最小化在 Dock 里的窗口还算打开,否则就没法还原了)。
     private func restoreMenuBarMode(closing: NSWindow) {
-        let open = [settingsWindow, onboardingWindow, transcriptWindow].compactMap { $0 }
+        let open = [settingsWindow, onboardingWindow, transcriptWindow, updateWindow].compactMap { $0 }
             .filter { $0 !== closing && ($0.isVisible || $0.isMiniaturized) }
         if open.isEmpty { NSApp.setActivationPolicy(.accessory) }
     }
@@ -180,6 +258,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         restoreMenuBarMode(closing: window)
+        if window === updateWindow {
+            updateWindow = nil
+            // 关掉更新窗口:正在下载就取消(和 Sparkle 自带界面一致),失败状态清掉,下次打开重新开始。
+            if case .downloading = app.installer?.phase { app.installer?.cancel() } else { app.installer?.reset() }
+        }
         // 关闭字幕记录窗口:总结自动暂停。
         if window === transcriptWindow { app.summarizer.setWindowVisible(false) }
         if window === onboardingWindow {

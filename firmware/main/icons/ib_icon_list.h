@@ -1,5 +1,5 @@
 // main/icons/ib_icon_list.h: 由 tools/gen-icon-font.sh 生成,请勿手改。
-// 按键提示图标表(X-macro):IB_ICON_DEF(枚举名, "协议 id", "UTF-8 字形", 码点);顺序即 ib_icon_t 枚举顺序(IB_ICON_NONE 之后)。字号 22 px。
+// 按键提示图标表(X-macro):IB_ICON_DEF(枚举名, "协议 id", "UTF-8 字形", 码点);顺序即 ib_icon_t 枚举顺序(IB_ICON_NONE 之后)。字号 12 px。
 // 字形来自 Google Material Icons Round(Apache-2.0,见 LICENSE-material-icons),提交 49d4db35df873165d6bd6ba09b063c7dafbac2f4;del 由 backspace 水平镜像派生。
 IB_ICON_DEF(ENTER,     "enter", "\xEE\x8C\x9B", 0xe31b)   // keyboard_return
 IB_ICON_DEF(ESC,       "esc", "\xEE\x97\x8D", 0xe5cd)   // close

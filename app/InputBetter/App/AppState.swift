@@ -1,4 +1,6 @@
 import AppKit
+import AppUpdateInstaller
+import AppUpdateKit
 import SwiftUI
 
 /// 组合根:创建所有模块、注入依赖、把它们连起来。其他类型都不直接创建彼此。
@@ -29,6 +31,10 @@ final class AppState {
     let agent: AgentNotifier
     let firmware: FirmwareFlasher
     let passportSetup: PassportSetupModel
+    /// 检查更新。只有官网发布的正式版有更新数据源;开源版为 nil,不检查更新(见 UpdateFeeds)。
+    let updates: UpdateChecker?
+    /// 应用内下载安装更新(Sparkle);没配置 appcast / 公钥时为 nil,更新窗口改为在浏览器中下载。
+    let installer: SparkleInstaller?
     @ObservationIgnored let hotkeys: HotkeyManager
     @ObservationIgnored private(set) var windows: WindowManager!
     @ObservationIgnored private var pill: PillPanelController!
@@ -63,6 +69,10 @@ final class AppState {
         firmware = FirmwareFlasher(link: deviceLink, downloader: FirmwareDownloader(manifestURL: Self.firmwareManifestURL))
         passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
         hotkeys = HotkeyManager()
+        updates = UpdateFeeds.make().flatMap { feed in
+            AppVersion.current().map { UpdateChecker(feed: feed, currentVersion: $0) }
+        }
+        installer = updates == nil ? nil : UpdateFeeds.makeInstaller()
         subtitles = SubtitleController(settings: settings, models: models, engines: engines, translation: translation)
         summarizer = TranscriptSummarizer(settings: settings, subtitles: subtitles)
         transcriptTranslator = TranscriptTranslator(settings: settings, subtitles: subtitles, translation: translation)
@@ -100,7 +110,7 @@ final class AppState {
                               settings: settings, hooks: .init(toggleSubtitleBar: { [unowned self] in
                                   setCaptionsCollapsed(!captionsCollapsed)
                               }, startCaptions: { [unowned self] app in startCaptions(app) },
-                              stopCaptions: { [unowned self] in stopCaptions(fromDevice: true) },
+                              stopCaptions: { [unowned self] in stopCaptions(from: .device) },
                               canTranslate: { [unowned self] in translation.isAvailable }))
         bridge.start()
         // 引导走到 Passport 一步之前不打开蓝牙,避免一启动就弹出蓝牙权限框。
@@ -117,6 +127,10 @@ final class AppState {
 
         installStatusItem()
         observeSettings()
+        // 检查更新:结果交给窗口管理器显示(新版本提示 / 强制更新 / 手动检查的结论)。
+        updates?.present = { [unowned self] event in windows.showUpdate(event) }
+        installer?.onFocusRequest = { [unowned self] in windows.focusUpdateWindow() }
+        updates?.start()
         Task { await translation.refreshSystemStatus() }
         llmModels.loadIfNeeded()
 
@@ -160,6 +174,7 @@ final class AppState {
     }
 
     func shutdown() {
+        updates?.stop()
         subtitles.stop()
         dictation.cancel()
         deviceLink.stop()
@@ -173,7 +188,9 @@ final class AppState {
             startCaptions: { [unowned self] point in pill.popUp(menus.captionAppsMenu(), at: point) },
             expandCaptions: { [unowned self] in setCaptionsCollapsed(false) },
             collapseCaptions: { [unowned self] in setCaptionsCollapsed(true) },
-            stopCaptions: { [unowned self] in stopCaptions() },
+            stopCaptions: { [unowned self] in stopCaptions(from: .surface) },
+            confirmStopCaptions: { [unowned self] in confirmStopCaptions() },
+            cancelStopCaptions: { [unowned self] in pill.dismissStopPrompt() },
             showTranscript: { [unowned self] in windows.showTranscript() },
             // 字幕条上的「翻译设置…」:字幕的翻译方式在 设置 › 实时字幕 里选。
             openTranslationSettings: { [unowned self] in windows.showSettings(.subtitles) },
@@ -201,6 +218,7 @@ final class AppState {
     /// (可以选择先打开字幕记录去保存);没有要保存的内容就直接切换。
     func startCaptions(_ app: AudioApp) {
         pill.ui.subtitleCollapsed = false
+        pill.dismissStopPrompt()
         // 已经在为这个应用生成字幕:只展开字幕条,不重新开始(否则会清掉当前记录)。
         if subtitles.isRunning, subtitles.appBundleID == app.bundleID { return }
         guard subtitles.isRunning, subtitles.transcript.hasUnsavedEntries else {
@@ -224,39 +242,58 @@ final class AppState {
         }
     }
 
-    /// 结束字幕(所有入口都走这里:字幕条、菜单、快捷键、设置、Passport)。
-    /// 只确认"是否结束"(设置里可关);结束后如果字幕记录窗口没在显示,就打开它——保存、总结由用户在窗口里处理。
-    /// - Parameter fromDevice: Passport 上结束时为 true:不弹确认框(设备上没法回答),
-    ///   打开字幕记录窗口但不激活 InputBetter(否则设备上的回车 / Esc 会发到 InputBetter 而不是用户正在用的应用)。
-    /// 启动失败时(字幕条显示原因)调用则只是关闭字幕条。
-    func stopCaptions(fromDevice: Bool = false) {
-        guard subtitles.needsSurface else { return }
-        guard subtitles.isRunning else {
-            subtitles.stop()
-            return
-        }
-        let finish: @MainActor @Sendable () -> Void = { [unowned self] in
-            subtitles.stop()
-            if !subtitles.transcript.isEmpty, !windows.isTranscriptVisible {
-                windows.showTranscript(tab: .captions, activate: !fromDevice)
-            }
-        }
-        fromDevice ? finish() : confirmThen(finish)
+    /// 结束字幕的发起处(决定「结束字幕？」气泡已显示时再来一次怎么处理)。
+    enum StopCaptionsSource {
+        /// 字幕条上的 ⏹:气泡已显示时再点一次 = 收起气泡(取消)。
+        case surface
+        /// 菜单栏 / ⌃ 菜单 / 快捷键 / 设置:气泡已显示时再触发一次 = 确认结束(键盘用户不用去点气泡)。
+        case command
+        /// Passport:不询问(设备上没法回答),打开字幕记录窗口但不激活 InputBetter
+        /// (否则设备上的回车 / Esc 会发到 InputBetter 而不是用户正在用的应用)。
+        case device
     }
 
-    /// 需要时先确认结束当前字幕再执行。确认框放到下一轮事件循环,避免在菜单 / 按钮的事件处理过程中弹出模态框;
-    /// 确认后再检查一次字幕还在运行(期间可能已经被别的入口结束)。
-    private func confirmThen(_ action: @escaping @MainActor @Sendable () -> Void) {
-        guard settings.confirmStopCaptions else {
-            action()
+    /// 结束字幕(所有入口都走这里:字幕条、菜单、快捷键、设置、Passport)。
+    /// 开了「结束字幕前确认」时不弹模态框,而是在字幕条 ⏹ 上方显示「结束字幕？」气泡(StopCaptionsBubble),
+    /// 用户点「结束」走 `confirmStopCaptions`;结束后如果字幕记录窗口没在显示,就打开它——保存、总结由用户在窗口里处理。
+    /// 启动失败时(字幕条显示原因)调用则只是关闭字幕条。
+    func stopCaptions(from source: StopCaptionsSource = .command) {
+        guard subtitles.needsSurface else { return }
+        guard subtitles.isRunning else {
+            pill.dismissStopPrompt()
+            subtitles.stop()
             return
         }
-        let appName = subtitles.appName, sentences = subtitles.transcript.entries.count
-        Task { @MainActor [unowned self] in
-            guard subtitles.isRunning,
-                  CaptionsConfirmation.confirmStop(appName: appName, sentences: sentences, settings: settings),
-                  subtitles.isRunning else { return }
-            action()
+        if let prompt = pill.ui.stopPrompt {
+            if prompt.session == subtitles.transcript.id, source != .device {
+                source == .surface ? pill.dismissStopPrompt() : confirmStopCaptions()
+                return
+            }
+            pill.dismissStopPrompt()  // 问的是上一场字幕,作废
+        }
+        guard settings.confirmStopCaptions, source != .device else {
+            finishCaptions(activate: source != .device)
+            return
+        }
+        pill.showStopPrompt(StopCaptionsPrompt(appName: subtitles.appName, sentences: subtitles.transcript.entries.count,
+                                               session: subtitles.transcript.id))
+    }
+
+    /// 「结束字幕？」气泡里点了「结束」:勾了「不再询问」就关掉设置(设置 › 实时字幕 可重新打开);
+    /// 再检查一次还是发起时那一场字幕(期间可能已被别的入口结束或换了应用)。
+    func confirmStopCaptions() {
+        guard let prompt = pill.ui.stopPrompt else { return }
+        pill.dismissStopPrompt()
+        if prompt.dontAskAgain { settings.confirmStopCaptions = false }
+        guard subtitles.isRunning, subtitles.transcript.id == prompt.session else { return }
+        finishCaptions(activate: true)
+    }
+
+    /// 真正结束:停止采集与识别;有记录且字幕记录窗口没在显示就打开它。
+    private func finishCaptions(activate: Bool) {
+        subtitles.stop()
+        if !subtitles.transcript.isEmpty, !windows.isTranscriptVisible {
+            windows.showTranscript(tab: .captions, activate: activate)
         }
     }
 

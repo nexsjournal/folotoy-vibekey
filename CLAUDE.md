@@ -6,7 +6,7 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `app/` | macOS app(Swift 6 / SwiftUI + AppKit,XcodeGen 生成工程,macOS 26+) |
+| `app/` | macOS app(Swift 6 / SwiftUI + AppKit,XcodeGen 生成工程,macOS 26+);`app/Packages/AppUpdateKit` 是可复用的检查更新包 |
 | `firmware/` | Passport 固件(ESP-IDF 5.5.3,ESP32-C3,LVGL 9),为本项目全新编写 |
 | `docs/` | 协议、设备交互设计、修改记录 |
 | `scripts/` | 烧录等脚本 |
@@ -20,7 +20,9 @@ cd app && ./scripts/test.sh                  # 单元测试
 cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成 String Catalog(英文在 app/Localization/en.json)
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
 ./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)
-cd app && ./scripts/release.sh               # 打包签名公证的 DMG(证书与公证凭据用环境变量传入,见 docs/website.md)
+cd app && ./scripts/release.sh               # 打包签名公证的 DMG + Sparkle 签名(凭据用环境变量或本机 app/Config/Release.local.env 传入,见 docs/website.md)
+cd app && ./scripts/publish-update.sh        # 部署官网后把新版本登记到更新后台,已安装的 app 会提示更新(地址密钥只在本机)
+cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/InputBetter.app 并启动
 ./scripts/package-firmware.sh                # 把 firmware/build 整理成官网固件清单与镜像(deploy.sh 会自动调用)
 website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG 和固件);服务器地址和密钥不写进仓库
 ```
@@ -34,9 +36,10 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - `IB_SUBTITLE_APP`:直接开字幕(`IB_SUBTITLE_TRANSLATE=1` 同时打开翻译,`IB_TRANSLATION_METHOD=system|mt.deepl|llm` 先切换字幕的翻译方式,`IB_CAPTION_TRACE=1` 打印翻译时序,排查"译文跟不上");
 - `IB_SHOW_TRANSCRIPT`:打开字幕记录窗口(`IB_TRANSCRIPT_TAB=summary` 打开「总结」页,`IB_SUMMARIZE_AFTER=秒` / `IB_SUMMARIZE_ALL_AFTER=秒` 定时触发一次分段 / 全文总结,`IB_TRANSCRIPT_TRANSLATE_AFTER=秒` 定时把字幕记录「全部重新翻译」一次并打印结果,可配合 `IB_DEMO_CAPTIONS`);
 - `IB_TRANSLATE_CONFIG=deepl`(`TranslationProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=translation` 直接弹出该在线翻译服务的配置表单;
-- `IB_DEMO_CAPTIONS`:用示例双语字幕显示字幕条(不采集音频),加 `IB_SHOW_HEADER=1` 一直显示字幕条标题栏;
-- `IB_SHOW_PILL`:显示状态条;
-- `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件。
+- `IB_DEMO_CAPTIONS`:用示例双语字幕显示字幕条(不采集音频),加 `IB_SHOW_HEADER=1` 一直显示字幕条标题栏,加 `IB_STOP_PROMPT=1` 立即弹出「结束字幕？」气泡;
+- `IB_SHOW_PILL`:显示状态条;`IB_PILL_RESULT=typed|warning`:状态条停在听写完成卡片上(warning 是很长的失败说明),检查卡片宽度;
+- `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件;
+- `IB_UPDATE_DEMO=available|required`:用假数据弹出可选 / 强制更新窗口(不联网);`IB_UPDATE_FEED=url`:检查更新改用这个接口。
 
 ## 规则
 

@@ -27,6 +27,10 @@ struct SubtitleSurface: View {
     let onConfigureLLM: () -> Void
     let onCollapse: () -> Void
     let onStop: () -> Void
+    /// 正在问的「结束字幕？」(nil = 没问);popover 被点外面 / Esc 关掉时置 nil(= 取消),勾「不再询问」也改它。
+    @Binding var stopPrompt: StopCaptionsPrompt?
+    /// 气泡里点了「结束」。
+    let onConfirmStop: () -> Void
 
     /// 原文 / 译文字号(设置 › 实时字幕 分别调;标题栏的 小 / 大 两个一起调)。
     private var sourceSize: CGFloat { settings.subtitleSourceFontSize }
@@ -132,6 +136,15 @@ struct SubtitleSurface: View {
                     tool("mic.fill", help: String(localized: "听写", bundle: .l10n), action: onDictate)
                     tool("chevron.down", help: String(localized: "收起成小胶囊", bundle: .l10n), action: onCollapse)
                     tool("stop.fill", help: String(localized: "结束字幕", bundle: .l10n), action: onStop)
+                        .anchoredPopover(isPresented: Binding(get: { stopPrompt != nil },
+                                                              set: { if !$0 { stopPrompt = nil } })) {
+                            if let prompt = stopPrompt {
+                                StopCaptionsBubble(prompt: prompt,
+                                                   dontAskAgain: Binding(get: { stopPrompt?.dontAskAgain ?? false },
+                                                                         set: { stopPrompt?.dontAskAgain = $0 }),
+                                                   onConfirm: onConfirmStop, onCancel: { stopPrompt = nil })
+                            }
+                        }
                 }
 
             }
@@ -154,11 +167,16 @@ struct SubtitleSurface: View {
                 .fixedSize(horizontal: false, vertical: true)
         default:
             if controller.silentTooLong {
+                // 提示保持一行(应用名太长时中间省略):字幕条悬停加宽、移开收窄时文字不会随宽度重排。
+                // 详细原因放在按钮的帮助提示里。
                 VStack(alignment: .leading, spacing: 6) {
-                    hint("没有收到声音。请确认 \(controller.appName) 正在播放，并允许 InputBetter 录制系统音频。")
-                    Button("打开隐私设置") { permissions.openSystemAudioSettings() }
+                    hint("没有收到 \(controller.appName) 的声音")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button("检查录音权限") { permissions.openSystemAudioSettings() }
                         .buttonStyle(.borderless)
                         .font(.system(size: 12, weight: .medium))
+                        .help("请确认它正在播放，并在系统设置里允许 InputBetter 录制系统音频")
                 }
             } else {
                 VStack(alignment: .leading, spacing: 4) {

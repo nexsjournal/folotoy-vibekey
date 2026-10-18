@@ -140,6 +140,11 @@ nonisolated final class DeviceStateMapperTests: XCTestCase {
         XCTAssertEqual(DeviceStateMapper.keyHints(state: .sub, deviceMode: .sub, handsFree: false, canTranslate: true, up: .enter, down: .escape).up, .translate)
         XCTAssertNil(DeviceStateMapper.keyHints(state: .sub, deviceMode: .sub, handsFree: false, canTranslate: false, up: .enter, down: .escape).up,
                      "翻译不可用时不显示翻译提示(按了也不会切换)")
+        // 处理中:OK 仍显示麦克风(设备画成禁用色),上下键不提示;完成 / 失败页不显示提示。
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .proc, deviceMode: .dict, handsFree: false, canTranslate: true, up: .enter, down: .escape),
+                       .init(ok: .mic, up: nil, down: nil))
+        XCTAssertEqual(DeviceStateMapper.keyHints(state: .done, deviceMode: .dict, handsFree: false, canTranslate: true, up: .enter, down: .escape),
+                       .init(ok: nil, up: nil, down: nil))
     }
 }
 

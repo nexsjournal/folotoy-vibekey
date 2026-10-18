@@ -2,82 +2,47 @@
 # 打包可分发的 DMG(官网下载用),按 Apple 对 App Store 以外分发的要求:
 #   Developer ID 签名 + Hardened Runtime + 安全时间戳 → DMG → 签名 → 公证(notarytool)→ staple → Gatekeeper 校验。
 #
-# 用法(证书与公证凭据都从环境变量传入,不写进仓库):
+# 用法(凭据见 signing-env.sh:环境变量,或本机的 app/Config/Release.local.env):
 #   DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)" \
 #   NOTARY_KEY=/path/to/AuthKey_XXXXXXXXXX.p8 NOTARY_KEY_ID=XXXXXXXXXX NOTARY_ISSUER=<issuer-uuid> \
 #   ./scripts/release.sh
 # 也可以用 notarytool 保存的钥匙串配置代替三个 NOTARY_* 变量:NOTARY_PROFILE=<名称>。
 # SKIP_NOTARIZE=1 只签名打包、不公证(仅本机测试,别人下载后会被 Gatekeeper 拦下)。
 #
-# 产物:app/build/release/InputBetter-<版本>.dmg 和同名 .sha256。
-# 第三方的 esptool 保留 Espressif 自己的 Developer ID 签名(已带 Hardened Runtime 与时间戳),不重签。
+# 产物:app/build/release/InputBetter-<版本>.dmg 和同名 .sha256、.sparkle(EdDSA 签名与大小,应用内安装用)。
+# 发布:website/deploy/deploy.sh 上传到官网,再用 scripts/publish-update.sh 通知已安装的用户更新。
+# 编译与签名在 build-signed.sh(和 install.sh 共用)。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-
-: "${DEVELOPER_ID:?请设置 DEVELOPER_ID,例如 \"Developer ID Application: Your Name (TEAMID)\"}"
-team="$(sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p' <<<"${DEVELOPER_ID}")"
-[[ -n "${team}" ]] || { echo "DEVELOPER_ID 末尾应带 (TEAMID)" >&2; exit 1; }
-
-notary_args=()
-if [[ -z "${SKIP_NOTARIZE:-}" ]]; then
-    if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-        notary_args=(--keychain-profile "${NOTARY_PROFILE}")
-    else
-        : "${NOTARY_KEY:?请设置 NOTARY_KEY / NOTARY_KEY_ID / NOTARY_ISSUER,或 NOTARY_PROFILE}"
-        : "${NOTARY_KEY_ID:?}" "${NOTARY_ISSUER:?}"
-        notary_args=(--key "${NOTARY_KEY}" --key-id "${NOTARY_KEY_ID}" --issuer "${NOTARY_ISSUER}")
-    fi
-fi
+source scripts/signing-env.sh
+# 先检查公证凭据,免得编译完才发现缺少。
+if [[ -z "${SKIP_NOTARIZE:-}" ]]; then load_notary_args; fi
 
 version="$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
-derived="build/ReleaseDerivedData"
 out="build/release"
-app="${derived}/Build/Products/Release/InputBetter.app"
+app="build/ReleaseDerivedData/Build/Products/Release/InputBetter.app"
 dmg="${out}/InputBetter-${version}.dmg"
 
 # ---- 构建并签名 ----
-# 打包烧录工具 esptool(发布版必须带上,否则用户无法在 app 里刷固件);固件本身刷写时从官网下载。
-./scripts/bundle-device-assets.sh
-xcodegen generate --quiet
-echo "==> Building InputBetter ${version} (Release, ${DEVELOPER_ID})"
-xcodebuild -project InputBetter.xcodeproj -scheme InputBetter -configuration Release \
-    -derivedDataPath "${derived}" -destination 'platform=macOS' \
-    CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="${DEVELOPER_ID}" DEVELOPMENT_TEAM="${team}" \
-    OTHER_CODE_SIGN_FLAGS="--timestamp" CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
-    clean build | grep -E "error:|BUILD" || true
-[[ -d "${app}" ]] || { echo "构建失败" >&2; exit 1; }
-# 测试包不随 app 分发。
-rm -rf "${app}/Contents/PlugIns/InputBetterTests.xctest"
+./scripts/build-signed.sh
 
-# sherpa-onnx 的 onnxruntime.framework 里带了一个指向自己的符号链接(Versions/A/A -> A),
-# codesign 严格校验时报 "Too many levels of symbolic links",公证也会失败。
-# 删掉 app 里所有断开或循环的符号链接,再由内到外重新签名(先框架,后 app,app 保留原有的权限声明)。
-broken="$(find "${app}" -type l | while IFS= read -r link; do [[ -e "${link}" ]] || echo "${link}"; done)"
-if [[ -n "${broken}" ]]; then
-    echo "==> Removing broken / looping symlinks:"
-    echo "${broken}"
-    while IFS= read -r link; do rm -f "${link}"; done <<<"${broken}"
-    for framework in "${app}"/Contents/Frameworks/*.framework; do
-        codesign --force --sign "${DEVELOPER_ID}" --timestamp --options runtime "${framework}"
-    done
-    codesign --force --sign "${DEVELOPER_ID}" --timestamp --options runtime \
-        --preserve-metadata=identifier,entitlements,requirements,flags "${app}"
-fi
-
-echo "==> Verifying code signature"
-codesign --verify --deep --strict --verbose=2 "${app}"
-codesign -dvv "${app}" 2>&1 | grep -E "Authority=Developer ID Application|flags=.*runtime|Timestamp" || {
-    echo "签名缺少 Developer ID / Hardened Runtime / 时间戳" >&2; exit 1; }
+# 检查更新接口来自本机的 Config/Update.local.xcconfig(不在仓库里);没配置时这个版本不会提示用户更新。
+feed="$(/usr/libexec/PlistBuddy -c 'Print :IBUpdateFeedURL' "${app}/Contents/Info.plist" 2>/dev/null || true)"
+if [[ -n "${feed}" ]]; then echo "==> Update feed: ${feed}"; else echo "warning: 未配置检查更新接口(Config/Update.local.xcconfig),这个版本不会检查更新" >&2; fi
 
 # ---- DMG ----
+# 安装窗口(背景、图标位置、窗口大小)用 dmgbuild 直接写进 .DS_Store,不依赖 Finder 脚本;配置见 scripts/dmg/。
 echo "==> Creating ${dmg}"
 mkdir -p "${out}"
 staging="$(mktemp -d)"
 trap 'rm -rf "${staging}"' EXIT
-ditto "${app}" "${staging}/InputBetter.app"
-ln -s /Applications "${staging}/Applications"
+swift scripts/dmg/background.swift "${staging}" >/dev/null
+tiffutil -cathidpicheck "${staging}/background.png" "${staging}/background@2x.png" -out "${staging}/background.tiff" >/dev/null 2>&1
+dmgbuild="$(scripts/dmg/ensure-dmgbuild.sh)"
 rm -f "${dmg}"
-hdiutil create -volname "InputBetter ${version}" -srcfolder "${staging}" -fs HFS+ -format UDZO -ov "${dmg}" >/dev/null
+"${dmgbuild}" -s scripts/dmg/settings.py -D app="${app}" -D background="${staging}/background.tiff" \
+    "InputBetter ${version}" "${dmg}" 2>&1 | grep -v "hdiutil: WARNING" || true
+[[ -f "${dmg}" ]] || { echo "DMG 生成失败" >&2; exit 1; }
 codesign --force --sign "${DEVELOPER_ID}" --timestamp "${dmg}"
 
 # ---- 公证 ----
@@ -90,5 +55,19 @@ if [[ -z "${SKIP_NOTARIZE:-}" ]]; then
 fi
 
 shasum -a 256 "${dmg}" | awk '{print $1}' > "${dmg}.sha256"
+
+# ---- Sparkle 签名(应用内安装时校验更新包)----
+# 必须在 staple 之后签:签名覆盖的是最终发布的 DMG 字节。私钥默认取本机钥匙串(Sparkle generate_keys 生成),
+# 也可以用 SPARKLE_KEY_FILE 指定导出的私钥文件。结果写进同名 .sparkle,publish-update.sh 发布时读取。
+sign_update="$(find build -path '*artifacts/sparkle/Sparkle/bin/sign_update' -type f 2>/dev/null | head -1)"
+if [[ -n "${sign_update}" ]]; then
+    key_args=(); [[ -n "${SPARKLE_KEY_FILE:-}" ]] && key_args=(--ed-key-file "${SPARKLE_KEY_FILE}")
+    "${sign_update}" ${key_args[@]+"${key_args[@]}"} "${dmg}" > "${dmg}.sparkle"
+    signature="$(sed -nE 's/.*edSignature="([^"]+)".*/\1/p' "${dmg}.sparkle")"
+    "${sign_update}" ${key_args[@]+"${key_args[@]}"} --verify "${dmg}" "${signature}" >/dev/null
+    echo "==> Sparkle signature: $(cat "${dmg}.sparkle")"
+else
+    echo "warning: 没找到 Sparkle 的 sign_update,这个 DMG 不能在 app 内安装" >&2
+fi
 echo "Done: $(pwd)/${dmg}"
 echo "SHA-256: $(cat "${dmg}.sha256")"

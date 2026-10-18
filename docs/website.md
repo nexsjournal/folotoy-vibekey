@@ -6,7 +6,12 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `website/site/` | 静态页面:`index.html`、`assets/style.css`、`assets/main.js`(中英文切换、滚动浮现、听写 / 双语字幕演示动画)、图标 |
+| `website/site/index.html` | 首页(照 Fable 设计稿 v5 方向 B 原样实现):一屏只有标语、下载 / GitHub 两个按钮(悬停下载按钮时标签换成系统要求与大小)、一行每 4 s 轮播的功能介绍,以及屏幕底边一枚照 app 1:1 画的状态胶囊(细条 → 录音 + 气泡 → 已输入 → 双语字幕条,纯 CSS keyframes,一轮 18 s);在稿子基础上按用户反馈补充:深色主题背景(`#0b0c10`,不用纯黑)加两团缓慢呼吸的淡蓝光、标语进场浮现与每 8 s 一次扫光、字幕条原文行靠右并让词组出现时才占宽度(和 app 一样始终露出最新的词);`home.js` 只登记英文词条 |
+| `website/site/passport/index.html` | Passport 页:设备轮播(真实固件截图)、功能卡片、按键表、规格、`#firmware` 网页刷写区 |
+| `website/site/support/index.html` | 支持页:页头一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;页脚是安装包版本与 SHA-256 |
+| `website/site/assets/style.css`、`main.js` | 三页共用:色彩令牌、导航、按钮、页脚、滚动浮现;中英文切换(`IB.i18n`)。`main.js` 把旧链接 `/#firmware` 转到 `/passport/#firmware` |
+| `website/site/assets/home.*`、`passport.*`、`support.*` | 各页自己的布局、动画与英文词条 |
+| `website/site/assets/passport/*.png` | 设备屏幕截图,由 `firmware/tools/ui-preview/run.sh` 生成后无损压成调色板 PNG(每张 3–10 KB) |
 | `website/site/assets/flasher.js` | Passport 网页刷写(Web Serial + esptool-js),见下文「Passport 固件」 |
 | `website/site/assets/vendor/esptool-js-0.7.0.js` | Espressif 官方 [esptool-js](https://github.com/espressif/esptool-js) 0.7.0 的 `bundle.js` 原样拷贝(Apache-2.0,许可证同目录),本站自带,不走 CDN |
 | `website/deploy/Dockerfile`、`nginx.conf` | 只服务静态文件的 nginx 容器(非 root,8080,不记录访问日志) |
@@ -14,9 +19,9 @@
 | `website/deploy/input.0os.io.caddy` | 共享 Caddy 的站点配置(`*.0os.io` 证书、公共安全头、HSTS),反代到 `inputbetter-web:8080` |
 | `website/deploy/deploy.sh` | 部署脚本 |
 
-页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换。中文写在 HTML 里,英文在 `main.js` 的 `en` 字典中;默认跟随浏览器语言,可手动切换。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
+页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换(首页用 `{{DMG_URL}}`、`{{SIZE}}`,支持页页脚用 `{{VERSION}}`、`{{SHA256}}`;`deploy.sh` 的线上校验:首页的下载链接是新安装包、支持页有新 SHA-256)。部署时页面里引用的 `/assets/*.css`、`*.js` 会加上内容哈希 `?v=…`(assets 长缓存,文件一改地址就变,浏览器不会用旧样式 / 脚本配新页面)。中文写在 HTML 里(`data-i18n` 元素的文本就是中文原文),英文在各页脚本通过 `IB.i18n.add` 注册的字典里;默认跟随浏览器语言,可手动切换并记在 localStorage。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
 
-本地预览:把 `website/site` 复制到临时目录、替换占位符后用 `python3 -m http.server` 打开(`deploy.sh` 里的组装步骤可以照抄)。
+本地预览:把 `website/site` 复制到临时目录、替换占位符后用 `python3 -m http.server` 打开(`deploy.sh` 里的组装步骤可以照抄);留言表单在本地会得到 501,线上由反向代理把 `/api/support` 转发到后台(后台不在本仓库)。
 
 ## 打包安装包(签名 + 公证)
 
@@ -28,10 +33,24 @@ NOTARY_KEY=<AuthKey_XXXXXXXXXX.p8 路径> NOTARY_KEY_ID=<Key ID> NOTARY_ISSUER=<
 ```
 
 - 也可以用 notarytool 保存的钥匙串配置:`NOTARY_PROFILE=<名称>` 代替三个 `NOTARY_*`。
-- 流程:Release 构建(Developer ID 签名、Hardened Runtime、`--timestamp`、去掉 get-task-allow)→ 修复 sherpa-onnx 的 `onnxruntime.framework` 里断开 / 循环的符号链接并由内到外重签 → `codesign --verify --deep --strict` → DMG(app + 应用程序快捷方式)→ 签名 → `notarytool submit --wait` → `stapler staple` → `spctl` 校验 → 生成 `.sha256`。
+- 凭据也可以写进本机的 `app/Config/Release.local.env`(已在 .gitignore 中,格式见 `app/scripts/signing-env.sh`),之后直接运行脚本即可;环境变量优先于文件。
+- 流程(编译签名部分在 `build-signed.sh`,和 `install.sh` 共用):Release 构建(Developer ID 签名、Hardened Runtime、`--timestamp`、去掉 get-task-allow)→ 修复 sherpa-onnx 的 `onnxruntime.framework` 里断开 / 循环的符号链接并由内到外重签 → 按 Sparkle 文档由内到外重签 Sparkle 的 Installer.xpc / Downloader.xpc(保留 entitlements)/ Autoupdate / Updater.app / 框架 → 重签 app → `codesign --verify --deep --strict` → DMG → 签名 → `notarytool submit --wait` → `stapler staple` → `spctl` 校验 → 生成 `.sha256` → Sparkle `sign_update` 对最终 DMG 做 EdDSA 签名并校验,写入 `.sparkle`(签名与字节数)。
+- DMG 安装窗口用 [dmgbuild](https://github.com/dmgbuild/dmgbuild)(固定版本,`scripts/dmg/ensure-dmgbuild.sh` 装在 `app/build/tools` 的独立虚拟环境里)直接写 `.DS_Store`,不依赖 Finder 脚本:窗口 600×360、128 px 图标,app 与「应用程序」左右排开;背景由 `scripts/dmg/background.swift` 生成(浅色底 + 一条细箭头,不放文字——Finder 在自定义背景图上总用深色画文件名;1x / 2x 合成 Retina TIFF),配置在 `scripts/dmg/settings.py`。
+- 检查更新接口在本机 `app/Config/Update.local.xcconfig` 配置(见 README「官网版与开源版」);`release.sh` 会打印编进 app 的接口地址,没配置时给出警告。
+- Sparkle 的 EdDSA 私钥用 Sparkle `generate_keys` 生成,存在发布者本机的登录钥匙串里(另有一份导出备份,只在本机);公钥写在 `Update.local.xcconfig` 的 `IB_UPDATE_PUBLIC_ED_KEY`。私钥丢失后已安装的 app 无法再在 app 内更新,务必备份。也可以用 `SPARKLE_KEY_FILE=<导出的私钥文件>` 代替钥匙串。
 - 第三方的 `esptool` 保留 Espressif 自己的 Developer ID 签名,不重签。
 - 产物在 `app/build/release/`(已在 .gitignore 中),不提交到仓库。
 - 发版前记得改 `app/project.yml` 的 `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`。
+
+## 本机安装正式版(自测)
+
+```bash
+cd app && ./scripts/install.sh
+```
+
+- 和发布版走同样的签名、公证(提交 zip,票据 staple 到 app 上),只是不打包 DMG;然后正常退出正在运行的 InputBetter(10 秒没退再强制结束),替换 `/Applications/InputBetter.app` 并启动。
+- `SKIP_NOTARIZE=1` 只签名不公证(本机编译的 app 没有隔离属性,也能打开);`NO_LAUNCH=1` 装好后不启动。
+- 签名证书和之前装的版本不同时(如之前是 Xcode 的 Apple Development 签名),系统会当成另一个 app,麦克风 / 辅助功能 / 屏幕录制权限需要重新授权。
 
 ## Passport 固件
 
@@ -49,7 +68,7 @@ app 不内置固件,app 和网页刷写都从官网 `/firmware/` 下载同一份
 - `proto` 与 app 的协议版本不一致时,app 不刷,提示先更新 app。
 - 缓存:`manifest.json` 不缓存,发布后立即生效;镜像目录带版本和构建标识,长缓存。
 
-网页刷写(`#firmware` 一节)没有用 ESP Web Tools:它在「全新安装」时默认擦除整片 Flash(勾选询问时用户也可能选擦除),会抹掉 Passport 的设备身份数据。`flasher.js` 只做 app 里同样的事:
+网页刷写(`/passport/#firmware`)没有用 ESP Web Tools:它在「全新安装」时默认擦除整片 Flash(勾选询问时用户也可能选擦除),会抹掉 Passport 的设备身份数据。`flasher.js` 只做 app 里同样的事:
 
 1. 点击后选择串口(VID 0x303A);
 2. 下载清单和镜像,校验大小与 SHA-256;
@@ -70,6 +89,18 @@ website/deploy/deploy.sh <user@host> <ssh-key> [dmg]
 - 服务器上的共享代理(`/opt/proxy`)、`web` 网络、`*.0os.io` 证书和其他站点都不改动;做法与同机的其他站点一致。
 - 安装包按附件下载,文件名带版本号,可长缓存;首页不缓存,发版后立即生效。
 
+## 发布更新(通知已安装的用户)
+
+```bash
+cd app && ./scripts/publish-update.sh [--required-at-or-below <版本> | --no-required]
+```
+
+在 `release.sh` 和 `deploy.sh` 之后运行。脚本先确认官网上的 DMG 与本地 SHA-256 一致,再把版本号、构建号、最低系统版本、Sparkle 签名与大小,以及 `docs/releases/<版本>.zh.md` / `.en.md` 的更新说明登记到更新后台(0os Console 的「版本更新」,按平台保存)。已安装的 app 每天检查一次 `input.0os.io/api/update`,有新版本时弹窗;用户点「下载并安装」后 Sparkle 从 `input.0os.io/api/appcast.xml` 取 appcast,下载 DMG、校验 EdDSA 签名与代码签名后替换并重启。
+
+- 「版本 ≤ X 必须更新」默认保留后台现有设置;`--required-at-or-below` 设新值,`--no-required` 取消。也可以在后台网页或 MCP 工具 `set_app_update` 里改。
+- 后台地址、API 密钥、应用标识只在本机 `app/Config/Release.local.env`(`UPDATE_CONSOLE_URL`、`UPDATE_CONSOLE_KEY_FILE`、`UPDATE_APP_ID`、`UPDATE_DOWNLOAD_BASE`)。
+- 官网把 `/api/support`(留言)、`/api/update`、`/api/appcast.xml` 反向代理到后台。这段 Caddy 路由只在本机 `website/deploy/private/routes.caddy`(已在 .gitignore 中),`deploy.sh` 部署时把它插进 `input.0os.io.caddy` 的标记处;没有这个文件时这三个接口返回 404。安装新站点配置前会备份旧配置,`caddy validate` 不通过就恢复,避免影响同机其他站点。
+
 ## 不提交的内容
 
-服务器地址、SSH 密钥、Developer ID 证书、公证用的 App Store Connect API 密钥都只在本机,运行脚本时作为参数或环境变量传入,不写进仓库。DMG 不提交到仓库,也不发 GitHub Release,只放在官网。
+服务器地址、SSH 密钥、Developer ID 证书、公证用的 App Store Connect API 密钥、Sparkle EdDSA 私钥、更新接口与后台地址(`Update.local.xcconfig`、`Release.local.env`、`deploy/private/`)都只在本机,运行脚本时作为参数或环境变量传入,不写进仓库。DMG 不提交到仓库,也不发 GitHub Release,只放在官网。

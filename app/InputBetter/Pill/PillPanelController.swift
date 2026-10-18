@@ -86,6 +86,20 @@ final class PillPanelController {
     }
 
 
+    // MARK: - 结束字幕的确认气泡
+
+    /// 在字幕条的 ⏹ 上弹出「结束字幕？」气泡(SubtitleSurface 里的 popover,见 StopCaptionsBubble)。
+    /// 字幕条收起或状态条隐藏时先展开 / 显示出来,从菜单栏、快捷键发起时用户也能看到。用户的回答通过 PillActions 回到 AppState。
+    func showStopPrompt(_ prompt: StopCaptionsPrompt) {
+        show(force: true)
+        ui.subtitleCollapsed = false
+        ui.stopPrompt = prompt
+    }
+
+    func dismissStopPrompt() {
+        ui.stopPrompt = nil
+    }
+
     /// 在胶囊上方弹出菜单(快捷键触发、没有点击位置时使用)。
     func popUpAtPill(_ menu: NSMenu) {
         let rect = hotRect.isEmpty ? CGRect(x: Self.size.width / 2, y: Self.size.height - 20, width: 0, height: 0) : hotRect
@@ -146,18 +160,18 @@ final class PillPanelController {
         monitors = []
     }
 
+    /// 可交互区域(字幕条 / 胶囊)的屏幕坐标(原点左下),四周放宽 6pt 便于悬停。
+    private var interactiveScreenRect: CGRect {
+        guard !hotRect.isEmpty else { return .null }
+        // 窗口坐标(左上原点)转屏幕坐标(左下原点)。
+        return CGRect(x: panel.frame.minX + hotRect.minX, y: panel.frame.maxY - hotRect.maxY,
+                      width: hotRect.width, height: hotRect.height).insetBy(dx: -6, dy: -6)
+    }
+
     private func updateHover() {
         // 拖动过程中保持可交互。
         if dragStart != nil { return }
-        let mouse = NSEvent.mouseLocation
-        // 窗口坐标(左上原点)转屏幕坐标(左下原点)。
-        let screenRect = CGRect(
-            x: panel.frame.minX + hotRect.minX,
-            y: panel.frame.maxY - hotRect.maxY,
-            width: hotRect.width,
-            height: hotRect.height
-        ).insetBy(dx: -6, dy: -6)
-        let inside = !hotRect.isEmpty && screenRect.contains(mouse)
+        let inside = interactiveScreenRect.contains(NSEvent.mouseLocation)
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
         if ui.isHovering != inside { ui.isHovering = inside }
     }
@@ -182,4 +196,6 @@ final class PillUIState {
     var isHovering = false
     /// 字幕运行时把字幕条收起成小胶囊(Passport 下键 / 字幕条上的收起按钮)。
     var subtitleCollapsed = false
+    /// 正在字幕条上询问「结束字幕？」(nil = 没有询问)。只由 PillPanelController.showStopPrompt / dismissStopPrompt 改。
+    var stopPrompt: StopCaptionsPrompt?
 }

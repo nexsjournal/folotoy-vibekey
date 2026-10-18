@@ -36,6 +36,12 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>IBUpdateAppID</key>
+	<string>$(IB_UPDATE_APP_ID)</string>
+	<key>IBUpdateAppcastURL</key>
+	<string>$(IB_UPDATE_APPCAST_URL)</string>
+	<key>IBUpdateFeedURL</key>
+	<string>$(IB_UPDATE_FEED_URL)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
@@ -50,5 +56,9 @@
 	<string>InputBetter 需要使用麦克风，把你说的话转成文字输入。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>使用 Apple 语音识别引擎在本机转录语音。</string>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUPublicEDKey</key>
+	<string>$(IB_UPDATE_PUBLIC_ED_KEY)</string>
 </dict>
 </plist>

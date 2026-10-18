@@ -7,8 +7,11 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
     /// 一句字幕。
     struct Entry: Identifiable, Equatable, Sendable {
         let id: UUID
-        /// 定稿时间。
+        /// 开始说这段话的时间(这段话第一次出现识别结果的时刻)。显示 / 导出用它;同一次定稿切出的几句时间相同。
+        /// 记录窗口里正在说的一段一出现就按这个时间显示,定稿后时间不变,行就不会跳。
         let time: Date
+        /// 定稿时间(字幕记录窗口据此判断实时翻译是否还在处理这句)。
+        let finalizedAt: Date
         var text: String
         var translation: String?
         /// 翻译请求失败(超时 / 出错),不再等待译文。
@@ -21,12 +24,22 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         /// 翻译已有结果(成功或失败)。
         var translationSettled: Bool { translation != nil || translationFailed }
 
-        init(id: UUID = UUID(), time: Date = Date(), text: String, translation: String? = nil) {
+        /// `finalizedAt` 不给时等于 `time`(测试、示例数据)。
+        init(id: UUID = UUID(), time: Date = Date(), finalizedAt: Date? = nil, text: String, translation: String? = nil) {
             self.id = id
             self.time = time
+            self.finalizedAt = finalizedAt ?? time
             self.text = text
             self.translation = translation
         }
+    }
+
+    /// 正在说、还没定稿的一段话:开始说时就有时间,定稿后成为句子(`commit`)、时间不变,
+    /// 记录窗口里这一行因此只换颜色、不换位置。实例由 SubtitleController 持有,不放进记录里——
+    /// 它每秒变化好几次,放进记录会让观察记录的翻译工具条、总结等反复重算。
+    struct Live: Equatable, Sendable {
+        let startedAt: Date
+        var text: String
     }
 
     /// 会话标识:异步保存完成时用它确认记录还是同一次会话的。
@@ -58,6 +71,16 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
             entries.removeFirst(overflow)
             savedCount = max(0, savedCount - overflow)
         }
+    }
+
+    /// 定稿一段话:每句一条记录,时间 = 这段开始说的时间(没有未定稿内容时取 `now`),定稿时间 = `now`。
+    /// 同一次定稿的句子时间是同一个值,记录窗口据此把它们合成一段。返回新句子(字幕条关联和翻译要用它们的 id)。
+    @discardableResult
+    mutating func commit(_ sentences: [String], startedAt: Date?, now: Date = Date()) -> [Entry] {
+        let time = startedAt ?? now
+        let added = sentences.map { Entry(time: time, finalizedAt: now, text: $0) }
+        added.forEach { append($0) }
+        return added
     }
 
     /// 译文异步到达后补到对应的句子上。空字符串表示原文已是目标语言、不需要译文。
@@ -105,13 +128,56 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         savedCount = max(savedCount, min(count ?? entries.count, entries.count))
     }
 
-    /// 某句相对会话开始的时间,格式 `HH:mm:ss`。
-    func offset(of entry: Entry) -> String {
-        let seconds = max(0, Int(entry.time.timeIntervalSince(startedAt)))
+    /// 某个时刻相对会话开始的时间,格式 `HH:mm:ss`。
+    func offset(at date: Date) -> String {
+        let seconds = max(0, Int(date.timeIntervalSince(startedAt)))
         return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
     }
 
-    /// 导出为纯文本:标题行 +(有的话)AI 总结 + 每句 `[时间] 原文`,译文缩进在下一行。
+    /// 某句的时间(开始说这段话的时间)。
+    func offset(of entry: Entry) -> String { offset(at: entry.time) }
+
+    /// 正在说的一段的时间(定稿后这段的时间与它相同)。
+    func offset(of live: Live) -> String { offset(at: live.startedAt) }
+
+    // MARK: - 分段显示
+
+    /// 显示用的一段:同一次定稿的相邻句子(`time` 相同)合成一段。
+    /// 识别引擎常把一大段话一次定稿、再切成几句,逐句列出会出现一串重复的时间;
+    /// 合成一段更接近说话的自然段落,也和定稿前正在说的那一行一一对应(定稿后原位变色,不会并进上一段)。
+    /// 数据仍按句保存(翻译、润色都按句进行),只在显示 / 导出时合并。
+    struct Paragraph: Equatable, Sendable {
+        /// 段内句子在 `entries` 中的下标范围。
+        let range: Range<Int>
+    }
+
+    /// 把全部句子分段:相邻句子 `time` 不同处切开(线性时间,长记录也很快)。
+    func paragraphs() -> [Paragraph] {
+        var result: [Paragraph] = []
+        var start = 0
+        for index in entries.indices.dropFirst() where entries[index].time != entries[index - 1].time {
+            result.append(Paragraph(range: start..<index))
+            start = index
+        }
+        if !entries.isEmpty { result.append(Paragraph(range: start..<entries.count)) }
+        return result
+    }
+
+    /// 一段的时间(取段内第一句)。
+    func offset(of paragraph: Paragraph) -> String { offset(of: entries[paragraph.range.lowerBound]) }
+
+    /// 一段的原文:各句按语言习惯拼接(中日韩之间不加空格,拉丁文字之间加空格)。
+    func text(of paragraph: Paragraph) -> String {
+        TranscriptText.join(entries[paragraph.range].map(\.text))
+    }
+
+    /// 一段的译文:已有译文的句子拼接起来;都还没有(或都不需要)译文时为 nil。
+    func translation(of paragraph: Paragraph) -> String? {
+        let parts = entries[paragraph.range].compactMap(\.translation).filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : TranscriptText.join(parts)
+    }
+
+    /// 导出为纯文本:标题行 +(有的话)AI 总结 + 每段 `[时间] 原文`,译文缩进在下一行(分段规则同记录窗口)。
     func plainText(includeTranslation: Bool = true, summary: String? = nil) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -120,9 +186,9 @@ nonisolated struct CaptionTranscript: Equatable, Sendable {
         if let summary, !summary.isEmpty {
             lines += [String(localized: "【AI 总结】", bundle: .l10n), summary, "", String(localized: "【字幕】", bundle: .l10n)]
         }
-        for entry in entries {
-            lines.append("[\(offset(of: entry))] \(entry.text)")
-            if includeTranslation, let translation = entry.translation, !translation.isEmpty {
+        for paragraph in paragraphs() {
+            lines.append("[\(offset(of: paragraph))] \(text(of: paragraph))")
+            if includeTranslation, let translation = translation(of: paragraph) {
                 lines.append("           \(translation)")
             }
         }

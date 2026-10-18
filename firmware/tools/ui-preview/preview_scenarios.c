@@ -40,6 +40,16 @@ static void keys(ib_icon_t up, ib_icon_t down, ib_icon_t ok)
     ib_ui_set_key_icon(IB_UI_KEY_OK, ok);
 }
 
+// 模拟一段说话的电平起伏(每 100 ms 一个值),让声波截图里有高有低的历史柱。
+static void speak(void)
+{
+    static const uint8_t LEVELS[] = { 10, 45, 85, 60, 25, 70, 95, 55, 20, 5, 0, 35, 80, 65, 30, 50, 90, 40 };
+    for (unsigned i = 0; i < sizeof(LEVELS); i++) {
+        ib_ui_set_level(LEVELS[i]);
+        preview_advance(100);
+    }
+}
+
 static void set_list(uint16_t sel, uint16_t top)
 {
     static const char *const APPS[] = { "Ghostty", "Chrome", "Xcode", "Finder", "Mail", "Notes", "Slack" };
@@ -100,9 +110,11 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     ib_ui_show(IB_UI_IDLE, IB_UI_MODE_SUB, "");
     preview_advance(700);
     shot("idle_sub");
-    ib_ui_key_press(IB_UI_KEY_OK);                  // 按键反馈:提示图标闪白
-    preview_advance(40);
-    shot("idle_sub_press_ok_40ms");
+    ib_ui_key_press(IB_UI_KEY_OK);                  // 按键反馈:图标与边缘标记 60 ms 冲到白,再回落
+    preview_advance(60);
+    shot("idle_sub_press_ok_60ms");
+    preview_advance(140);
+    shot("idle_sub_press_ok_200ms");
     preview_advance(400);
 
     // ---- REC:按住说话 → 免提 → 翻译模式 ----
@@ -118,6 +130,10 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     shot("idle_to_rec_fade_200ms");
     preview_advance(1000);
     shot("rec_hold_low_level");
+    speak();
+    shot("rec_speaking");
+    preview_advance(33);
+    shot("rec_speaking_next_frame");                // 与上一张相比整体外移 2 px:流动连续
     ib_ui_set_level(90);
     preview_advance(600);
     shot("rec_hold_high_level");
@@ -160,7 +176,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     keys(IB_ICON_TRANSLATE, IB_ICON_HIDE, IB_ICON_STOP);
     ib_ui_set_level(60);
     ib_ui_show(IB_UI_SUB, IB_UI_MODE_SUB, "Chrome");
-    preview_advance(900);
+    preview_advance(300);
+    shot("sub_intro_300ms");
+    speak();
     shot("sub");
     ib_ui_set_level(0);
 
@@ -228,16 +246,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     ib_ui_set_battery(64, true);
     preview_advance(300);
     shot("idle_ble_charging");
-
-    // ---- 听写模式下 Mac 后台跑字幕:IDLE + msg "LIVE" → 状态栏显示 LIVE 徽章 ----
     ib_ui_set_link(IB_UI_LINK_USB, true);
     ib_ui_set_battery(87, false);
-    ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "LIVE");
-    preview_advance(600);
-    shot("idle_dict_live");
-    ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "");    // 字幕停止:恢复链路文字
-    preview_advance(300);
-    shot("idle_dict_live_off");
+
 
     return s_failures;
 }

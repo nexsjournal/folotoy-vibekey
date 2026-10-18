@@ -7,6 +7,12 @@ firmware/sdkconfig
 firmware/sdkconfig.old
 app/DeviceAssets/
 app/Config/Signing.local.xcconfig
+# 本机的检查更新接口(官网版用;开源版自己配置,见 README)
+app/Config/Update.local.xcconfig
+# 官网反向代理到后台的路由(website/deploy/deploy.sh 读取,不公开)
+website/deploy/private/
+# 本机签名 / 公证凭据(scripts/signing-env.sh 读取)
+app/Config/Release.local.env
 
 # 敏感文件:仓库公开,以下内容一律不提交
 # 证书、公证 / API 密钥、SSH 密钥
@@ -22,3 +28,7 @@ app/Config/Signing.local.xcconfig
 *.dmg
 *-flash.bin
 passport-backups/
+
+# SwiftPM 本地包的编译产物与 Xcode 工作区状态
+.build/
+.swiftpm/

@@ -7,8 +7,11 @@ struct PillActions {
     var startCaptions: (CGPoint) -> Void
     var expandCaptions: () -> Void
     var collapseCaptions: () -> Void
-    /// 结束字幕(结束后按设置询问是否保存记录)。
+    /// 字幕条上的 ⏹:结束字幕(按设置先在 ⏹ 上方弹出「结束字幕？」气泡;气泡已显示时再点一次 = 收起气泡)。
     var stopCaptions: () -> Void
+    /// 「结束字幕？」气泡里的 结束 / 取消。
+    var confirmStopCaptions: () -> Void
+    var cancelStopCaptions: () -> Void
     /// 打开字幕记录窗口。
     var showTranscript: () -> Void
     /// 字幕条「翻译设置…」:打开 设置 › 实时字幕(字幕的翻译方式在那里)。
@@ -158,14 +161,16 @@ struct PillView: View {
         GlassEffectContainer(spacing: 12) {
             switch surface {
             case .captionsBar:
+                // 正在问「结束字幕？」时标题栏保持显示:气泡挂在标题栏的 ⏹ 上,鼠标移进气泡也不能让它失去依托。
                 SubtitleSurface(controller: subtitles, translation: translation, catalog: catalog, settings: settings, permissions: permissions,
-                                hovering: expanded, onDictate: actions.toggleDictation,
+                                hovering: expanded || ui.stopPrompt != nil, onDictate: actions.toggleDictation,
                                 onTranscript: actions.showTranscript,
                                 onTranslationSettings: actions.openTranslationSettings,
                                 onConfigureProvider: actions.configureTranslationProvider,
                                 onConfigureSystem: actions.openSystemTranslation,
                                 onConfigureLLM: actions.openLLMSettings,
-                                onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions)
+                                onCollapse: actions.collapseCaptions, onStop: actions.stopCaptions,
+                                stopPrompt: stopPromptBinding, onConfirmStop: actions.confirmStopCaptions)
                     .glassEffect(.regular.tint(.black.opacity(0.55)), in: .rect(cornerRadius: 18))
                     .glassEffectID("main", in: glass)
             case .toolbar(let captions):
@@ -285,24 +290,27 @@ struct PillView: View {
     /// 完成 / 失败卡片。传入 `action` 时整个卡片可点击(末尾显示 › 提示),悬停有说明。
     @ViewBuilder
     private func resultPill(symbol: String, color: Color, text: String, action: (() -> Void)? = nil) -> some View {
-        let content = HStack(spacing: 7) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(color)
-                .symbolEffect(.bounce, value: text)
-            Text(text)
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            if action != nil {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.6))
+        // 宽度跟着文字走、最长 492(加内边距共 520,长的失败说明截断)。
+        // 不能用 frame(maxWidth:):面板给的宽度更大时它会撑满,短短的「已输入」也被拉成 520 宽。
+        let content = CappedWidth(max: 492) {
+            HStack(spacing: 7) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(color)
+                    .symbolEffect(.bounce, value: text)
+                Text(text)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if action != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
             }
         }
         .padding(.horizontal, 14)
-        .frame(maxWidth: 520)
         .frame(height: 34)
         .contentShape(Capsule())
         if let action {
@@ -340,6 +348,15 @@ struct PillView: View {
         .buttonStyle(.plain)
         .glassEffect(.regular.tint(.black.opacity(0.5)), in: .capsule)
         .glassEffectID(glassID, in: glass)
+    }
+
+    // MARK: - 「结束字幕？」气泡
+
+    /// 字幕条读写的询问状态:置 nil(popover 被关掉)走 cancelStopCaptions,其他修改(「不再询问」)直接写回。
+    private var stopPromptBinding: Binding<StopCaptionsPrompt?> {
+        Binding(get: { ui.stopPrompt }, set: { new in
+            if new == nil { if ui.stopPrompt != nil { actions.cancelStopCaptions() } } else { ui.stopPrompt = new }
+        })
     }
 
     // MARK: - 气泡:实时文字 / 提示

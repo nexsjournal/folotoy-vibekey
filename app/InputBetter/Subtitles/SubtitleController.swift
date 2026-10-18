@@ -20,8 +20,9 @@ final class SubtitleController {
     private(set) var appBundleID = ""
     /// 本次(或上一次)字幕会话的完整记录。停止后保留,直到下一次开始,供记录窗口查看和保存。
     private(set) var transcript = CaptionTranscript()
-    /// 正在说的那句(未定稿,会不断变化)。
-    private(set) var partial = ""
+    /// 正在说、还没定稿的一段(文字会不断变化)。开始时间在这段第一次出现识别结果时记下,定稿后沿用,
+    /// 字幕记录窗口里这一行因此一出现就带时间、定稿后原位变色。
+    private(set) var live: CaptionTranscript.Live?
     /// 字幕条的逐句数据源。
     let feed: CaptionFeed
     private(set) var level: Float = 0
@@ -77,7 +78,7 @@ final class SubtitleController {
         appName = app.name
         appBundleID = app.bundleID
         transcript = CaptionTranscript(appName: app.name)
-        partial = ""
+        live = nil
         streamError = nil
         silentTooLong = false
         translationEnabled = false
@@ -138,7 +139,7 @@ final class SubtitleController {
         generation += 1
         startTask?.cancel()
         startTask = nil
-        if !partial.isEmpty { transcript.append(Line(text: partial)) }
+        if let live { transcript.commit([live.text], startedAt: live.startedAt) }
         if wasRunning { transcript.endedAt = Date() }
         tap?.stop()
         tap = nil
@@ -149,7 +150,7 @@ final class SubtitleController {
         feed.reset()
         translationEnabled = false
         level = 0
-        partial = ""
+        live = nil
         if status != .stopped { status = .stopped }
     }
 
@@ -207,7 +208,7 @@ final class SubtitleController {
         stop()
         transcript = sample
         appName = sample.appName
-        self.partial = partial
+        live = partial.isEmpty ? nil : CaptionTranscript.Live(startedAt: Date(), text: partial)
         status = .running
         translationEnabled = true
         feed.debugShow(sample.entries.map { (source: $0.text, translation: $0.translation) }, live: partial,
@@ -221,14 +222,17 @@ final class SubtitleController {
         switch event {
         case .failure(let message):
             streamError = message
-        case .partial(let text):
-            partial = TranscriptText.normalize(text)
-            if !text.isEmpty { streamError = nil }
-            feed.partial(partial)
+        case .partial(let raw):
+            let text = TranscriptText.normalize(raw)
+            // 同一段话沿用第一次出现文字时的开始时间;文字清空(引擎定稿后 / 判定为噪音)时这段结束。
+            live = text.isEmpty ? nil : CaptionTranscript.Live(startedAt: live?.startedAt ?? Date(), text: text)
+            if !raw.isEmpty { streamError = nil }
+            feed.partial(text)
         case .final(let raw):
             streamError = nil
             var text = TranscriptText.normalize(raw)
-            partial = ""
+            let startedAt = live?.startedAt
+            live = nil
             if text.isEmpty {
                 // 引擎给了空定稿(判定这段只有噪音),但识别中已经连续两次确认过的文字是真内容:
                 // 不能连同已经显示 / 翻译过的暂定内容一起丢掉,把它当作这段的定稿。
@@ -241,8 +245,7 @@ final class SubtitleController {
             // 按句记入记录(一次定稿常常有好几句):每句单独翻译,字幕条也按句显示。
             let sentences = SentenceSplitter.split(text, final: true).complete
             Log.subtitles.debug("final \(text.count) chars, \(sentences.count) sentences")
-            let lines = sentences.map { Line(text: $0) }
-            lines.forEach { transcript.append($0) }
+            let lines = transcript.commit(sentences, startedAt: startedAt)
             feed.final(text: text, entries: lines.map { (text: $0.text, entryID: $0.id) })
             if translationEnabled { translate(lines) }
         }

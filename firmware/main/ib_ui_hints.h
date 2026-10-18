@@ -18,9 +18,13 @@
 #define IB_HINT_Y_DOWN  170
 #define IB_HINT_Y_OK    270
 // 提示列占用的右侧宽度;页面内容只使用左边 IB_UI_W - IB_HINT_COL_W 的区域,不会与提示重叠。
-#define IB_HINT_COL_W   40
+#define IB_HINT_COL_W   22
 
 void ib_hints_create(lv_obj_t *screen);
 void ib_hints_set_icon(ib_ui_key_t key, ib_icon_t icon);
+// 按键反馈:可用时图标与标记点亮起;禁用时(见 ib_hints_set_disabled)改为"不可用"反馈:
+// 标记点闪红并左右抖动,图标保持暗色。
 void ib_hints_press(ib_ui_key_t key);
 void ib_hints_set_visible(bool visible);
+// 禁用整列提示(PROC 页:上一句还在处理,OK 等键暂时不可用):图标与标记画成更暗的禁用色。
+void ib_hints_set_disabled(bool disabled);

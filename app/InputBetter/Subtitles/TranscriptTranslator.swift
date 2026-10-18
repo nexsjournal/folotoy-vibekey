@@ -62,8 +62,8 @@ final class TranscriptTranslator {
         let now = Date(), live = subtitles.translationEnabled && subtitles.isRunning
         return subtitles.transcript.entries.filter { entry in
             if entry.translation == nil {
-                // 实时翻译还在路上的新句子交给它。
-                return entry.translationFailed || !(live && now.timeIntervalSince(entry.time) < Self.liveGrace)
+                // 实时翻译还在路上的新句子交给它(按定稿时间算:句子定稿后实时翻译才开始翻它)。
+                return entry.translationFailed || !(live && now.timeIntervalSince(entry.finalizedAt) < Self.liveGrace)
             }
             return entry.translationTarget != nil && entry.translationTarget != target
         }

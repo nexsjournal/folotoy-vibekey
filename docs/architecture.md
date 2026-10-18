@@ -16,13 +16,14 @@ App(AppState 组合根)
  ├─ Models(ModelManager / ModelCatalog)
  ├─ Translate(TranslationService / SystemTranslator / LanguageDetector / MachineTranslation / Batch)
  │     ──→ Translation 框架 + 在线翻译服务(Support/Signing、Support/CredentialStore)+ LLM
- └─ ASR/Cloud(CloudASRStore / CloudASREngine / StreamingCloudSession + RealtimeCodec)──→ Support/CredentialStore
+ ├─ ASR/Cloud(CloudASRStore / CloudASREngine / StreamingCloudSession + RealtimeCodec)──→ Support/CredentialStore
+ └─ Update(UpdateFeeds / UpdatePromptView)──→ Packages/AppUpdateKit(本地 Swift 包,与 app 无关,可复用)
 ```
 
 依赖规则:
 
 - 下层不依赖上层。
-- 跨模块只通过协议或小接口:`AudioSource`、`ASREngine`、`ASRSession`、`SegmentDecoder`、`MachineTranslator`、`DeviceLink` 公开方法、`PillActions`、`HotkeyManager.Actions`、`DeviceBridge.Hooks`。
+- 跨模块只通过协议或小接口:`AudioSource`、`ASREngine`、`ASRSession`、`SegmentDecoder`、`MachineTranslator`、`DeviceLink` 公开方法、`PillActions`、`HotkeyManager.Actions`、`DeviceBridge.Hooks`、`UpdateFeed`(AppUpdateKit)。
 
 ## 只有一份实现的公共能力
 
@@ -73,7 +74,7 @@ App(AppState 组合根)
 | 语言识别 / 同语言判断 | `LanguageDetector` | TranslationService、TargetLanguage.resolved |
 | 系统翻译语言包状态与下载(按目标语言) | `SystemTranslationRow`(`.translationTask` → prepareTranslation) | 设置 › 翻译 › 系统翻译「配置」(SystemTranslationSheet)、引导「翻译与 AI」 |
 | 字幕翻译时序追踪(调试) | `CaptionTrace`(IB_CAPTION_TRACE=1) | CaptionFeed、LiveDraft |
-| 结束字幕(含询问保存) | `AppState.stopCaptions` | 字幕条 ⏹、⌃ 菜单 / 菜单栏、快捷键、设置 › 实时字幕、Passport、切换应用 |
+| 结束字幕(含「结束字幕？」气泡确认) | `AppState.stopCaptions` | 字幕条 ⏹、⌃ 菜单 / 菜单栏、快捷键、设置 › 实时字幕、Passport、切换应用 |
 | 字幕记录保存成文件 | `TranscriptSaver`(`CaptionTranscript.plainText`) | AppState.stopCaptions / prepareToQuit、字幕记录窗口 |
 
 ## 1. 听写(快捷键按住说话)
@@ -263,6 +264,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
           → 进程列表变化 → rebuild(force:false)
      → session.events → SubtitleController.handle
           → TranscriptText.normalize
+          → .partial → SubtitleController.live = Live(startedAt: 这段第一次出现文字的时刻(沿用),text)(空文字 → nil,这段结束)
           → .partial → CaptionFeed.partial(每段话开始时锁定路径,说完这段才换,避免中途换方式导致句子重复)
               分句路径(不翻译 / 系统翻译 / 在线服务):
               → CaptionSegmenter.hypothesis(LocalAgreement-2:连续两次结果一致的词才确认,已确认文字只追加不改写)
@@ -281,7 +283,9 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
                   为什么分片段:火山引擎等识别中几乎不打句号,句子要等定稿(实测 10~20 秒)才切得出;
                   整段越来越长的文字反复重翻会让译文开头不停变化(实测暂定译文冻住 10 秒)
               记录路径(AI 翻译):识别中不切句,原文行显示整段未定稿文字
-          → .final → SentenceSplitter.split(final: true)→ 每句一条 CaptionTranscript.Entry(完整记录)
+          → .final → 取出 live.startedAt、清空 live → SentenceSplitter.split(final: true)
+              → CaptionTranscript.commit(句子, startedAt:)(每句一条 Entry;time = 这段开始说的时刻,没有 live 时 = 现在;
+                 finalizedAt = 现在;同一次定稿的句子 time 相同)
               → CaptionFeed.final:分句路径 → CaptionSegmenter.final(用已给出部分的末尾词定位,只补没给出的句子;
                  多段分次定稿时超出部分留给下一段抵扣);记录路径 → 按记录句子生成 unit 并关联
               → 本场开启了翻译(SubtitleController.translationEnabled)→ SubtitleController.translate(记录的句子):
@@ -324,29 +328,42 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
      + SourceLinesChip(开启翻译后出现:「原文 N 行」/「只看译文」,菜单选 不显示 / 1 / 2 / 3 → AppSettings.subtitleSourceLines,
        和 设置 › 实时字幕 › 翻译时原文行数 同一个设置)
  → PillView:dictation 空闲且字幕运行、没收起时显示 SubtitleSurface(与胶囊同一个 glassEffectID,变形过渡)
-结束(所有入口):AppState.stopCaptions
- → SubtitleController.stop(未定稿的半句记入记录)→ AppAudioTap.stop → ASRSession.cancel
-   之前:confirmStopCaptions 时下一轮事件循环 CaptionsConfirmation.confirmStop(结束 / 取消 / 不再询问);
-   Passport 上结束不确认(设备上没法回答 Mac 上的确认框)
- → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions);保存、总结由用户在窗口里处理
+结束(所有入口):AppState.stopCaptions(from: .surface / .command / .device)
+ → 开了「结束字幕前确认」(confirmStopCaptions)且不是 Passport:PillPanelController.showStopPrompt(展开字幕条、显示状态条)
+   → PillUIState.stopPrompt = StopCaptionsPrompt(应用名、句数、本场 transcript.id)
+   → PillView 把它作为 Binding 传给 SubtitleSurface(期间标题栏保持显示,气泡才有依托)
+   → ⏹ 按钮上 AnchoredPopover(深色 NSPopover,小三角对着 ⏹)弹出 StopCaptionsBubble(TipKit 风格:图标 + 标题 + 说明 + 不再询问 / 取消 / 结束)
+   → 「结束」→ PillActions.confirmStopCaptions → AppState.confirmStopCaptions(勾了「不再询问」就关掉设置;
+     再核对还是发起时那一场字幕)→ finishCaptions;「取消」/ 点外面 / Esc → popover 关闭 → Binding 置 nil → cancelStopCaptions
+   气泡已显示时:字幕条 ⏹ 再点一次 = 取消;菜单 / 快捷键再触发一次 = 确认(键盘用户不用去点气泡);
+   Passport 上结束不确认(设备上没法回答),已显示的气泡直接收起并结束
+ → finishCaptions:SubtitleController.stop(未定稿的半句 live 以它的开始时间 commit 进记录)→ AppAudioTap.stop → ASRSession.cancel
+ → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions)(Passport 发起的不激活 InputBetter);保存、总结由用户在窗口里处理
 正在转录时选了别的应用:AppState.startCaptions → 当前记录有未保存内容 → CaptionsConfirmation.confirmSwitch
  (「切换」(破坏性)/「打开字幕记录」(不切换,先去保存)/「取消」;不受「不再询问」影响)→ stop → start(新的一场);没有未保存内容直接切换
 窗口「保存…」→ TranscriptSaver.save(in: window)→ NSSavePanel → CaptionTranscript.plainText(summary: 总结在前)→ 写 UTF-8 文本
 退出 app:AppDelegate.applicationShouldTerminate → AppState.prepareToQuit(字幕在进行时 CaptionsConfirmation.confirmQuit,取消则不退出)
+(换应用、退出会丢记录,仍用模态提示框打断一次;结束字幕只是确认,用字幕条上的气泡,不打断)
 ```
 
 字幕记录(app 不保存任何历史,记录只在内存里,下次开始字幕或退出后清除):
 
 ```
 字幕条 📄 / ⌃ 菜单与菜单栏「字幕记录…」/ 结束字幕后自动打开 → WindowManager.showTranscript
- → TranscriptView(只读 SubtitleController.transcript / partial,跟随最新自动滚动)
+ → TranscriptView(只读 SubtitleController.transcript / live,跟随最新自动滚动)
      「拷贝全部」→ CaptionTranscript.plainText → NSPasteboard
      「保存…」→ WindowManager.saveTranscriptFromWindow → TranscriptSaver.save(in: window)(表单形式的保存面板)
  正文 TranscriptTextView(NSTextView,只读可跨行选择;只重排变化的尾部,译文异步到达时不重建整篇;showTranslations 切换时重建)
+     按段显示:CaptionTranscript.paragraphs()(time 相同的相邻句子 = 同一次定稿 = 一段,只显示一个时间)
+       → text(of:) / translation(of:)(TranscriptText.join 拼接)→ render;数据仍按句保存,翻译 / 润色按句;
+       拷贝 / 保存(plainText)用同样的分段
+     正在说的一段:live → render(offset: offset(of: live), live: true)——一出现就带时间,正文浅色;
+       定稿后从同一位置重排成正常段,时间来自同一个 startedAt,只换颜色、不跳位置(Otter / Zoom 式实时转录)
+ 顶栏:标题 | 字幕 / 总结 切换 | 固定、跟随最新(仅字幕页);左右两侧等宽,切换控件始终居中、切页不偏移
  「字幕」页顶部 TranscriptTranslationBar(字幕进行中或结束后都可用,不会自动开始;和字幕条一样「选语言 = 翻译」):
      语言菜单(还没有译文时标签是「翻译」,有译文时「译文:语言」)选一个语言
        → targetOverride(默认跟随字幕条)+ showTranslations = true + translateMissing
-         (没有译文 / 失败 / 译文不是所选语言;实时翻译 10 秒内的新句子交给它)
+         (没有译文 / 失败 / 译文不是所选语言;实时翻译定稿 10 秒内(Entry.finalizedAt)的新句子交给它)
      「显示译文」(有译文时才出现)→ showTranslations(拷贝 / 保存也按它)
      方式菜单(TranslationMethodMenuItems,target = 窗口所选语言)→ methodOverride(默认跟随设置);
        在这里添加在线服务 → 设置 › 翻译服务 的配置表单,保存后设为字幕的翻译方式(useFor: .subtitles)
@@ -369,7 +386,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
        → LLMClient.stream(边生成边显示)→ sections;「立即总结」→ summarizeNow
      「总结全文」→ summarizeAll:全文 ≤ 12000 字直接总结;更长时 chunks → Prompts.summaryNotes 逐块整理要点
        → Prompts.summarizeAll(概述 + 要点 + 结论 / 待办)→ LLMClient.stream → fullSummary(卡片置顶);不受暂停规则影响
-     每段时间范围:开始 = 上一句的定稿时刻(第一段从 00:00:00),结束 = 最后一句的定稿时刻,各段首尾相连
+     每段时间范围:开始 = 第一句开始说的时刻(Entry.time),结束 = 最后一句的定稿时刻(Entry.finalizedAt)
      新的字幕会话开始 → 清空总结(只在内存里)
  📌 → TranscriptPinController.toggle:固定 = 贴屏幕右边占满可用高度、floating 层级(始终最前)、所有桌面空间可见、不可拖动,
      窗口透明 + 深色外观,TranscriptView 画和字幕条一样的深色玻璃;
@@ -485,9 +502,11 @@ AI 实时翻译和批量 / 润色一样经 `RequestGate`(并发 2);一次定稿�
  设置 › 听写(DictationPane):「AI 润色」开关 + 润色模型(LLMModelMenuItems → AppSettings.polishModel);
    「听写翻译」TranslationMethodSettingRow(.dictation,按听写目标语言判断可用性)+ TargetLanguageSettingRow;
    说明文字里的「快捷键」「词汇表」是应用内链接(inputbetter-settings://<pane>,View.settingsLinks)→ 跳到对应设置页
- 设置 › 实时字幕(SubtitlesPane):显示(译文字号、原文字号、译文行数、翻译时原文行数、锁定)/
+ 设置 › 实时字幕(SubtitlesPane):识别(字幕使用的模型 → AppSettings.subtitleModelID,默认与听写相同)/
+   显示(译文字号、原文字号、译文行数、翻译时原文行数、锁定)/
    「翻译」TranslationMethodSettingRow(.subtitles)+ 默认翻译成 + 边说边译 / 字幕记录
    两个场景的「翻译方式」都用 TranslationMethodMenuItems(和字幕条同一个菜单);当前方式不可用时在该行橙色说明原因
+ 设置 › 识别模型(ModelsPane):下载 / 切换听写模型、云端识别配置、国内镜像下载(字幕用哪个模型在「实时字幕」页选)
  设置 › 翻译服务(TranslationPane):只负责配置,每行常驻「配置」,标出「实时字幕在用」「听写在用」:
    系统翻译「配置」→ SystemTranslationSheet(字幕 / 听写目标语言的语言包各一行,SystemTranslationRow)
    在线服务「配置」→ TranslationProviderSheet;AI「配置」→ 设置 › AI 服务
@@ -562,7 +581,7 @@ PassportSetupView「刷入固件」→ PassportSetupModel.flashFirmware
 刷写期间 PassportSetupModel.stage == .flashing(USB 暂停,不按连接状态判断)
 调试:IB_FIRMWARE_MANIFEST=<url> 改用别的清单地址;IB_FLASH_FIRMWARE=1 连上 USB 后自动刷一次
 
-官网网页刷写(website/site/assets/flasher.js,不用 ESP Web Tools:它全新安装时默认擦除整片 Flash,会抹掉 cardid):
+官网网页刷写(/passport/#firmware,website/site/assets/flasher.js,不用 ESP Web Tools:它全新安装时默认擦除整片 Flash,会抹掉 cardid):
 「连接并刷入」→ navigator.serial.requestPort(VID 0x303A)→ fetchManifest → partsOf(与 FirmwareManifest 相同规则)
  → download(大小 + SHA-256)→ esptool-js ESPLoader.main → 芯片 ESP32-C3 / Flash 8MB / 分区表有 cardid@0x356000,否则停止
  → (可选)readFlash 整片 8 MB 存成 passport-<MAC>-flash.bin → writeFlash(eraseAll: false,flash 参数 keep)→ after(hard_reset)
@@ -582,13 +601,36 @@ LanguagePicker(设置 › 通用 / 欢迎页)→ LanguageState.set(即时生效,
 系统权限弹窗文字:InfoPlist.xcstrings
 ```
 
-## 10a. 窗口显示(设置 / 引导 / 字幕记录)
+## 10a. 窗口显示(设置 / 引导 / 字幕记录 / 软件更新)
 
 ```
 菜单「设置…」/ 字幕条「翻译设置…」(.translation)/ 总结页「设置」(.ai)→ WindowManager.showSettings(pane, configure:) → present
  → NSApp.setActivationPolicy(.regular)(菜单栏应用在 macOS 14+ 协作式激活下单纯 activate 偶尔不前置)
  → 下一轮事件循环(等菜单关闭)→ NSApp.activate → makeKeyAndOrderFront + orderFrontRegardless
+WindowManager.showUpdate → 软件更新窗口同样经 present 前置
 windowWillClose → restoreMenuBarMode(没有其他打开 / 最小化的窗口时切回 .accessory)
+```
+
+## 10b. 检查更新
+
+```
+接口配置:Config/App.xcconfig 的 IB_UPDATE_FEED_URL / IB_UPDATE_APP_ID(本机 Config/Update.local.xcconfig 填写,不提交)
+ → Info.plist 的 IBUpdateFeedURL / IBUpdateAppID → UpdateFeeds.make
+     有 HTTPS 地址 → AppUpdateKit.JSONUpdateFeed(GET 地址?platform=macos,可带 X-App-ID);没有 → nil(开源版默认,不检查、不显示入口)
+     调试:IB_UPDATE_FEED 换地址,IB_UPDATE_DEMO=available|required 用 StaticUpdateFeed 假数据
+ → AppState.updates = UpdateChecker(feed, 当前版本 CFBundleShortVersionString + CFBundleVersion)
+AppState.launch → updates.present = WindowManager.showUpdate;updates.start
+UpdateChecker(主线程):启动 5 秒后检查一次;之后每小时看一次,距上次检查满 24 小时(UserDefaults AppUpdateKit.lastCheck)且开着自动检查才检查
+ → feed.fetch → UpdateVerdict.evaluate(current, result)(规则与 0os Console shared/versions.ts 一致:
+     缺的段按 0、同版本比构建号;版本 ≤ requiredAtOrBelow 且确有更新的版本 → required)
+ → required:每次都提示;available:未跳过的版本才提示(手动检查总是提示);upToDate / 失败:只在手动检查时提示
+WindowManager.showUpdate
+ ├─ .update → UpdatePromptView 窗口(可选:下载 / 稍后 / 跳过此版本;强制:下载 / 退出,无关闭按钮、浮动层级)
+ │     下载 → NSWorkspace.open(下载地址);跳过 → UpdateChecker.skip(写 AppUpdateKit.skippedVersion)
+ │     强制窗口:observeChanges(updates.verdict) 不再是 required(后台撤销强制)时自动关闭
+ └─ .upToDate / .failed → NSAlert
+入口:设置 › 通用 › 关于与更新(AboutSection:版本、最近一次结论 + 查看、检查更新、自动检查开关)、菜单「检查更新…」
+后台:官网版的接口是 input.0os.io/api/update,由官网 Caddy(本机 website/deploy/private/routes.caddy)转给 0os Console 的 GET /v1/app/update
 ```
 
 ## 11. 设置联动

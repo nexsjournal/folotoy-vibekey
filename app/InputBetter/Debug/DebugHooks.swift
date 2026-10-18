@@ -1,11 +1,13 @@
 #if DEBUG
 import AppKit
+import AppUpdateKit
 import AVFoundation
 
 /// 仅调试构建可用的启动钩子(环境变量),用于自动化检查,不进入正式版本:
 /// - IB_DOWNLOAD=id1,id2       启动后下载这些模型;
 /// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
 /// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
+/// - IB_PILL_RESULT=typed|warning  状态条停在听写完成卡片上(warning 为很长的「翻译失败」说明),检查卡片宽度;
 /// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕(IB_SUBTITLE_TRANSLATE=1 同时打开翻译,
 ///   IB_TRANSLATION_METHOD=system / mt.deepl / llm 先切换翻译方式,会写入设置;IB_CAPTION_TRACE=1 打印翻译时序);
 /// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口(IB_TRANSCRIPT_TAB=summary 打开「总结」页);
@@ -13,8 +15,11 @@ import AVFoundation
 /// - IB_TRANSCRIPT_TRANSLATE_AFTER=秒  启动后过这么多秒在字幕记录里「全部重新翻译」一次,打印结果(配合 IB_DEMO_CAPTIONS);
 /// - IB_SUMMARIZE_ALL_AFTER=秒  启动后过这么多秒触发一次「总结全文」;
 /// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;加 IB_SHOW_HEADER=1 一直显示标题栏;
+///   加 IB_STOP_PROMPT=1 显示后立即弹出「结束字幕？」气泡(检查气泡排版);
 /// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
 /// - IB_FIRMWARE_MANIFEST=url  从这个地址获取 Passport 固件清单(代替官网,测试新固件用)。
+/// - IB_UPDATE_FEED=url        检查更新改用这个接口(代替 Info.plist 里配置的)。
+/// - IB_UPDATE_DEMO=available|required  用假数据(版本 99.0)弹出可选 / 强制更新提示,检查界面用,不联网。
 /// - IB_FLASH_FIRMWARE=1       Passport 通过 USB 连上后自动刷一次固件(验证「下载 → 写入」整条链路)。
 /// - IB_CLOUD_CONFIG=provider  (在 ModelList 里读取)模型列表出现时直接弹出该云端服务的配置表单,如 volcengine,配合 IB_SETTINGS_PANE=models。
 /// - IB_TRANSLATE_CONFIG=provider(在 SettingsNavigation 里读取)直接弹出该在线翻译服务的配置表单,如 deepl,配合 IB_SETTINGS_PANE=translation。
@@ -25,6 +30,17 @@ enum DebugHooks {
     /// IB_FIRMWARE_MANIFEST 指定的固件清单地址;没设置时为 nil(用官网)。
     static var firmwareManifestURL: URL? { env["IB_FIRMWARE_MANIFEST"].flatMap(URL.init(string:)) }
 
+    /// IB_UPDATE_FEED 指定的检查更新接口。
+    static var updateFeedURL: URL? { env["IB_UPDATE_FEED"].flatMap(URL.init(string:)) }
+
+    /// IB_UPDATE_DEMO 的假数据源:版本 99.0,`required` 时当前版本必须更新。
+    static var updateDemoFeed: (any UpdateFeed)? {
+        guard let mode = env["IB_UPDATE_DEMO"], let version = AppVersion("99.0") else { return nil }
+        let notes = ["zh": "- 示例：字幕条支持拖动调整宽度\n- 示例：听写翻译更快\n- 修复若干问题", "en": "- Sample: resize the caption bar by dragging\n- Sample: faster dictation translation\n- Bug fixes"]
+        let release = UpdateRelease(version: version, notes: notes, downloadURL: URL(string: "https://example.com/InputBetter-99.0.dmg")!, publishedAt: Date())
+        return StaticUpdateFeed(UpdateFeedResult(latest: release, requiredAtOrBelow: mode == "required" ? AppVersion("98") : nil))
+    }
+
     static func run(app: AppState) {
         if let ids = env["IB_DOWNLOAD"] {
             for id in ids.split(separator: ",") { app.models.download(String(id)) }
@@ -34,6 +50,11 @@ enum DebugHooks {
             Task { await transcribe(path: path, modelIDs: ids, app: app) }
         }
         if env["IB_SHOW_PILL"] != nil { app.showPill() }
+        if let kind = env["IB_PILL_RESULT"] {
+            app.showPill()
+            let reason = "The operation couldn’t be completed because the translation service returned an unexpected response"
+            app.dictation.debugShowResult(kind == "warning" ? .typedUntranslated(reason) : .typed)
+        }
         if let code = env["IB_SWITCH_LANGUAGE"], let target = AppLanguage(rawValue: code) {
             let previous = AppLanguage.saved
             Task {
@@ -55,7 +76,10 @@ enum DebugHooks {
                 }
             }
         }
-        if env["IB_DEMO_CAPTIONS"] != nil { showDemoCaptions(app: app) }
+        if env["IB_DEMO_CAPTIONS"] != nil {
+            showDemoCaptions(app: app)
+            if env["IB_STOP_PROMPT"] != nil { app.stopCaptions() }
+        }
         if env["IB_FLASH_FIRMWARE"] != nil {
             Task {
                 // 等 USB 握手完成(最多 30 秒)再刷,和用户在设置页点「重新刷入」走同一条路径。
@@ -110,8 +134,10 @@ enum DebugHooks {
             ("The rules of a right triangle, we know many, many rules of math and geometry and logic and science.", "直角三角形的性质，我们知道很多很多数学、几何、逻辑和科学方面的规律。"),
             ("We have puzzle games that we could give it.", nil),
         ]
+        // 第 2、3 句是同一次定稿切出的两句(时间相同),记录窗口里应合成一段。
+        let seconds: [Double] = [150, 154, 154, 158, 162]
         for (i, line) in lines.enumerated() {
-            let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(Double(150 + i * 4)), text: line.0, translation: line.1)
+            let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(seconds[i]), text: line.0, translation: line.1)
             sample.append(entry)
         }
         app.subtitles.debugShow(sample, partial: "Constraint, constraint")

@@ -340,3 +340,12 @@ nonisolated final class SampleBuffer: @unchecked Sendable {
         self.session = session
     }
 }
+
+#if DEBUG
+extension DictationController {
+    /// 调试:直接停在完成卡片上(IB_PILL_RESULT),不录音、不自动复位,用于检查状态条排版。
+    func debugShowResult(_ result: DictationResult) {
+        phase = .done(result)
+    }
+}
+#endif
