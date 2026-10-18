@@ -90,6 +90,8 @@ open build/InputBetter.app
 
 有 Developer ID 证书时,`./scripts/install.sh` 会编译签名公证正式版、替换 `/Applications/InputBetter.app` 并启动(自测用,凭据配置见 [docs/website.md](docs/website.md))。
 
+编译、测试、打包之后想恢复干净目录:仓库根目录运行 `./scripts/clean.sh`(删除 app 与固件的全部产物;`--keep-downloads` 保留需联网下载的 esptool 与 ESP-IDF 组件,`--dry-run` 只列出不删)。
+
 第一次启动会进入引导,依次是:
 
 1. 授予麦克风与辅助功能权限

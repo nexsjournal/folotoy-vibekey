@@ -185,6 +185,26 @@ DeviceBridge.sync(16 Hz 定时器,或连接变化时)
  → DeviceLink.sendLevel(录音 / 字幕时,内部限流 50 ms)
  → DeviceLink.sendConfig(变化时;5 分钟校时)
 所有命令:HostCommand.encode → DeviceText.ascii → USB SerialPort.write | BLEClient.send
+
+Mac 握手:DeviceLink.beginHandshake → hello → handleHello
+ → noteDeviceBoot(boot 与上次握手不同 → notice 日志「device rebooted」)
+ → 重发 config / state / keys / mic → setActive
+```
+
+固件侧(`firmware/main/ib_app.c`,ib_app 任务每 100 ms 一轮):
+
+```
+链路:app_task → refresh_links
+ → ib_links_usb_present(ib_usb_host_present() 原始 SOF 判断, now)   USB 在位去抖:连续 1 s 不在位才算拔线
+ → ib_links_drop(USB)(确认拔线时)→ ib_links_any
+ → 在线→离线:go_offline(OFFLINE 页、停麦、清 Agent;保留 s_st / s_msg,done/err 收拢到常驻页),不 wake
+ → 离线→在线:show_screen(screen_for(s_st)) 回到离线前页面 + wake
+命令:handle_command → ib_links_seen → refresh_links → state: apply_state(+ wake) | config: 只更新设置,不 wake
+背光:app_task → refresh_backlight(在线且 rec/proc/sub 常亮;否则 now - s_last_activity_ms ≥ screen_off 熄屏)
+ wake 来源:handle_key(按下)、apply_state、agent_show / input 重复提醒、refresh_links(离线→在线)
+电量:app_task → refresh_battery(每 60 s,或 USB 在位变化时)
+ → bsp_battery_soc / bsp_battery_mv → ib_charge_update(充电推断 + 已充满判定;读数 -1 不改判定,已充满只由电压 / SOC 退出)
+ → ib_ui_set_battery + bat 消息(ib_format_battery)
 ```
 
 ## 3a. Passport 模式与 OK 键

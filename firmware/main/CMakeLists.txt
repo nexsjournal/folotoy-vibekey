@@ -1,10 +1,11 @@
-# 模块划分见 README.md「目录结构」。纯逻辑模块(ib_protocol / ib_icons / ib_adpcm / ib_clock / ib_keys / ib_links)
+# 模块划分见 README.md「目录结构」。纯逻辑模块(ib_protocol / ib_icons / ib_adpcm / ib_clock / ib_keys / ib_links / ib_charge)
 # 不依赖 ESP-IDF,由 tests/ 下的主机测试覆盖。
 idf_component_register(
     SRCS "main.c"
          "ib_app.c"
          "ib_keys.c"
          "ib_links.c"
+         "ib_charge.c"
          "ib_protocol.c"
          "ib_icons.c"
          "ib_clock.c"

@@ -32,13 +32,15 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | --- | --- | --- |
 | hello | `{"t":"hello","fw":"inputbetter","proto":1,"ver":"0.1.0","build":"a506a8bb","boot":"9f3a21c4"}` | 回复 `hello` 命令。`build` 是固件 ELF 文件 SHA-256 的前 8 位小写十六进制(esptool 把它写进镜像,设备用 `esp_app_get_elf_sha256()` 读出),等于 `shasum -a 256 firmware/build/InputBetter-Passport.elf` 的前 8 位,也等于 `InputBetter-Passport.bin` 文件偏移 `0xB0` 起 4 个字节的十六进制;Mac 用它判断设备固件是否与官网最新固件(`/firmware/manifest.json` 的 `build`)一致 |
 | key | `{"t":"key","k":"ok","e":"down","seq":12,"boot":"9f3a21c4"}` | 按键原始事件。`k`:`ok`/`up`/`down`;`e`:`down`(按下瞬间)/`up`(松开)/`long`(按住 1 秒)。该次按压用于关闭 agent 通知时附加 `"ack":1`(同一次按压的 down/up/long 都带) |
-| bat | `{"t":"bat","soc":87,"mv":4012,"chg":0}` | `hello` 之后及每 60 秒;读不到为 `-1`;`chg` 是否在充电(读不到为 0) |
+| bat | `{"t":"bat","soc":87,"mv":4012,"chg":0}` | `hello` 之后及每 60 秒;读不到为 `-1`;`chg` 是否在充电(读不到为 0);判定为已充满时 `soc` 报 100、`chg` 为 0,`mv` 始终是实测电压 |
 | pong | `{"t":"pong"}` | 回复 `ping` |
 
 - `seq` 本次上电后单调递增;`boot` 是每次上电随机生成的 8 位十六进制。Mac 用 `(boot, seq)` 去重。
 - 设备只在 Mac 在线时发送 `key`。Mac 离线时设备显示时钟,按键只用于点亮屏幕;熄屏时的那次按压只点亮屏幕,不上报。
-- `chg`:板子没有充电状态引脚,固件按"USB 主机在线且电量 < 100"推断。
+- `chg`:板子没有充电状态引脚,固件按"USB 主机在位且电量 < 100"推断。CW2017 是纯电压模型电量计,SOC 在恒压段会饱和在 9x%(实测卡在 94%)到不了 100,所以另加"已充满"判定(固件 0.1.3 起,`main/ib_charge.*`):USB 在位、`soc ≥ 90` 且 `mv ≥ 4150` 持续 10 分钟 → 视为已充满,`soc` 报 100、`chg=0`。已充满后只在 `mv < 4100`(50 mV 回差)或 `soc < 90` 时清除,与 USB 是否在位无关(Mac 睡眠时 SOF 停止但仍在充电;真拔线后电池静置电压 ≥ 4.10 V 本来就是满的,等电压掉下去再回到实际读数,避免 100 → 94 跳变)。某次读数失败(`-1`)不改变判定。阈值是经验值,待实测调整。
 - 在线状态按链路分别记录:任一合法命令都会让该链路在线;Mac 不发 `bye` 直接断开 BLE 时,只要 USB 还在通信,设备保持在线。
+- USB 拔线检测有 1 s 去抖(固件 0.1.3 起):ESP-IDF 的 `usb_serial_jtag_is_connected()` 只是"约 4 ms 没收到 USB SOF 帧就判断开",Mac 睡眠 / 总线挂起时会短暂误报。设备要连续 1 s 读到不在位(期间也没收到 USB 命令)才清除 USB 链路;插线则立即在位。
+- 两条链路都离线时设备切到离线时钟页、停麦、关闭 Agent 通知,但**保留 Mac 最后下发的 `state`**(`st` / `mode` / `msg`);恢复在线后直接回到对应页面(done / err 这类短暂结果页在离线时收拢为最近一次 idle / sub 的常驻页;列表内容作废,等 Mac 重发 `list`)。Mac 重新握手时仍会重发 `config` / `state` / `keys`。设备重启后状态从 idle 开始。
 - BLE 音频帧 170 字节且不拆包,MTU 需 ≥ 173(macOS 默认协商结果满足)。
 
 ### Mac → 设备
@@ -48,7 +50,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | hello | `{"cmd":"hello"}` | 回复 `hello` + `bat`,链路标记为在线 |
 | ping | `{"cmd":"ping"}` | 回复 `pong`。Mac 每 5 秒发送;设备 15 秒没收到任何命令即视为离线 |
 | bye | `{"cmd":"bye"}` | Mac 退出前发送,设备立即显示离线 |
-| config | `{"cmd":"config","mic":1,"engine":"Whisper Turbo","screen_off":60,"clock":1789097696,"sound":1}` | `mic`:1 表示听写音源是 Passport 麦克风(OK 键按下的瞬间设备就开始推送音频,不用等 `mic` 命令);`engine`:主页底部显示的引擎名;`screen_off`:空闲多少秒熄屏,0 为永不;`clock`:Mac 本地时间(Unix 秒 + 时区偏移);`sound`:开始/结束提示音。字段都可选 |
+| config | `{"cmd":"config","mic":1,"engine":"Whisper Turbo","screen_off":60,"clock":1789097696,"sound":1}` | `mic`:1 表示听写音源是 Passport 麦克风(OK 键按下的瞬间设备就开始推送音频,不用等 `mic` 命令);`engine`:主页底部显示的引擎名;`screen_off`:空闲多少秒熄屏,0 为永不(改变后按新值立即生效);`clock`:Mac 本地时间(Unix 秒 + 时区偏移);`sound`:开始/结束提示音。字段都可选 |
 | state | `{"cmd":"state","st":"rec","mode":"dict","msg":""}` | 切换设备界面。`st` 见下表;`mode`:`dict`(听写)/`tr`(翻译听写)/`sub`(字幕);`msg`:可选短文本(如 `Copied`、`No input`、应用名) |
 | level | `{"cmd":"level","v":42}` | 0..100 的音量电平,`rec`/`sub` 状态下 Mac 约每 60 ms 发送一次,驱动动画 |
 | mic | `{"cmd":"mic","on":1}` | 开/关麦克风上行。链路断开(bye、超时、拔线)时设备自动停止 |
@@ -70,6 +72,8 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | `list` | 列表页。设备收到 `st:"list"` **且**收到过 `list` 命令(先后不限)才显示列表页;切到其它 `st` 即离开,旧列表作废(下次需重发 `list`)。列表页上按键仍按原样上报 `key` 事件,上下移动与确认都由 Mac 解释 |
 
 握手成功后 Mac 立即下发 `config` 和当前 `state`;之后状态变化时下发 `state`,设置变化时下发 `config`,每 5 分钟重发 `config` 校准时钟。
+
+**屏幕点亮与熄灭**(固件 0.1.3 起):只有用户动作或需要用户看的变化才点亮屏幕——按键、收到 `state`、`agent` 通知(`input` 每 20 秒提醒时)、链路由离线变在线。`config` 是设置同步 / 定期校时,**不**点亮屏幕(否则熄屏后每 5 分钟会自己亮一次)。`rec` / `proc` / `sub` 且在线时屏幕常亮;其余时间距最近一次点亮超过 `screen_off` 秒熄屏。
 
 ### 按键语义(由 Mac 解释,默认"Vibe Coding"映射,上下键动作可在 Mac 设置里改)
 

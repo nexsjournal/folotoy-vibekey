@@ -1,4 +1,4 @@
-// tests/test_ib_keys.c: ib_keys(按键过滤)与 ib_links(链路在线)主机测试。
+// tests/test_ib_keys.c: ib_keys(按键过滤)与 ib_links(链路在线、USB 在位去抖)主机测试。
 #include "ib_keys.h"
 #include "ib_links.h"
 #include "test_common.h"
@@ -154,10 +154,48 @@ static void test_links(void)
     CHECK(ib_links_alive(&l, IB_LINK_USB, 10));
 }
 
+// USB 在位去抖:SOF 检测偶尔读到 false 不应判离线,真拔线 1 s 后才判离线。
+static void test_usb_present(void)
+{
+    ib_links_t l;
+    ib_links_init(&l);
+    // 开机没接 USB:一直不在位,不经过去抖窗口。
+    CHECK(!ib_links_usb_present(&l, false, 100));
+    // 插线立即在位。
+    CHECK(ib_links_usb_present(&l, true, 200));
+
+    // 短暂 false(SOF 中断几十毫秒)不判离线。
+    CHECK(ib_links_usb_present(&l, false, 1000));
+    CHECK(ib_links_usb_present(&l, false, 1300));
+    CHECK(ib_links_usb_present(&l, true, 1400));
+    // 恢复在位后计时清零:再次读到 false 重新计 1 s。
+    CHECK(ib_links_usb_present(&l, false, 1500));
+    CHECK(ib_links_usb_present(&l, false, 1500 + IB_USB_ABSENT_CONFIRM_MS - 1));
+    CHECK(ib_links_usb_present(&l, true, 1500 + IB_USB_ABSENT_CONFIRM_MS - 1));
+
+    // 真拔线:连续 false 满 1 s 判离线,之后保持不在位。
+    CHECK(ib_links_usb_present(&l, false, 5000));
+    CHECK(ib_links_usb_present(&l, false, 5000 + IB_USB_ABSENT_CONFIRM_MS - 1));
+    CHECK(!ib_links_usb_present(&l, false, 5000 + IB_USB_ABSENT_CONFIRM_MS));
+    CHECK(!ib_links_usb_present(&l, false, 9000));
+
+    // 读到 false 期间收到 USB 命令:主机仍在,计时从命令时刻重新开始。
+    CHECK(ib_links_usb_present(&l, true, 10000));
+    CHECK(ib_links_usb_present(&l, false, 10000));
+    ib_links_seen(&l, IB_LINK_USB, 10800);
+    CHECK(ib_links_usb_present(&l, false, 10000 + IB_USB_ABSENT_CONFIRM_MS));
+    CHECK(ib_links_usb_present(&l, false, 10800 + IB_USB_ABSENT_CONFIRM_MS - 1));
+    CHECK(!ib_links_usb_present(&l, false, 10800 + IB_USB_ABSENT_CONFIRM_MS));
+
+    // 去抖只做判定,不改链路在线状态(由调用方 drop)。
+    CHECK(ib_links_alive(&l, IB_LINK_USB, 10800 + IB_USB_ABSENT_CONFIRM_MS));
+}
+
 int main(void)
 {
     test_keys();
     test_bounce();
     test_links();
+    test_usb_present();
     TEST_DONE("test_ib_keys");
 }

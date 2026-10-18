@@ -17,6 +17,7 @@
 ```bash
 cd app && ./scripts/build.sh                 # 编译 app → app/build/InputBetter.app(会顺带打包固件与 esptool)
 cd app && ./scripts/test.sh                  # 单元测试
+./scripts/clean.sh                           # 删除所有编译 / 测试 / 打包产物(--keep-downloads 保留 esptool 与 ESP-IDF 组件,--dry-run 只列出)
 cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成 String Catalog(英文在 app/Localization/en.json)
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
 ./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)

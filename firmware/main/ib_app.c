@@ -9,6 +9,11 @@
 //
 // 时序要点:
 //   - 15 s 没收到命令、bye、USB 拔线、BLE 断开 → 对应链路离线;两条都离线 → OFFLINE 时钟页并停麦克风。
+//     USB 拔线按 SOF 检测,连续 1 s 不在位才算(ib_links_usb_present 去抖),短暂中断不会闪出离线页。
+//   - 离线不清除 Mac 最后下发的状态(st / mode / msg),恢复在线后直接回到对应页面;
+//     done / err 这类短暂结果页在离线时直接收拢到常驻页。重启后的初始状态是 idle。
+//   - 点亮屏幕的来源:按键、state 变化、Agent 通知、链路由离线变在线。config(Mac 每 5 分钟重发一次
+//     校准时钟)不点亮屏幕;screen_off 改变后按新值从最近一次活动时刻重新计算,立即生效。
 //   - config.mic=1 时,在线、IDLE、非字幕模式下 OK 键按下的瞬间就开始推送麦克风(不等 mic 命令);
 //     2 s 内 Mac 没切到 rec,或 Mac 下发 proc/done/err/sub(以及 600 ms 宽限期之后的 idle)就停止。
 //   - done 页 1.2 s、err 页 2 s 后自行回到 IDLE 动画。
@@ -20,6 +25,7 @@
 #include "bsp_display.h"
 #include "ib_audio.h"
 #include "ib_ble.h"
+#include "ib_charge.h"
 #include "ib_clock.h"
 #include "ib_keys.h"
 #include "ib_links.h"
@@ -128,10 +134,11 @@ static int64_t s_agent_next_chime;      // input 下次提醒时刻
 static bool s_backlight_on;
 static int64_t s_last_activity_ms;
 
-// 电量
+// 电量:s_soc / s_mv 是电量计原始读数;s_charge_view 是经 ib_charge 推断后显示 / 上报的电量与充电状态。
 static int s_soc = -1;
 static int s_mv = -1;
-static bool s_charging;
+static ib_charge_t s_charge;
+static ib_charge_view_t s_charge_view = { .soc = -1, .charging = false };
 static int64_t s_last_battery_ms;
 
 // 时钟:Mac 下发本地时间时记下当时的 esp_timer 读数,之后按流逝时间推算
@@ -315,7 +322,7 @@ static void refresh_clock(int64_t now, bool force)
 static void send_battery(ib_link_t link)
 {
     char msg[IB_MSG_MAX];
-    send_to(link, msg, ib_format_battery(msg, sizeof(msg), s_soc, s_mv, s_charging));
+    send_to(link, msg, ib_format_battery(msg, sizeof(msg), s_charge_view.soc, s_mv, s_charge_view.charging));
 }
 
 static void refresh_battery(int64_t now, bool force)
@@ -327,9 +334,9 @@ static void refresh_battery(int64_t now, bool force)
         s_soc = bsp_battery_soc();
         s_mv = bsp_battery_mv();
     }
-    // 板上没有充电状态引脚:插着 USB 主机且未充满即视为充电中(见 README 说明)。
-    s_charging = s_usb_present && s_soc >= 0 && s_soc < 100;
-    if (s_ui_ok) ib_ui_set_battery(s_soc, s_charging);
+    // 板上没有充电状态引脚:由 ib_charge 推断充电中 / 已充满(见 ib_charge.h)。
+    s_charge_view = ib_charge_update(&s_charge, s_usb_present, s_soc, s_mv, now);
+    if (s_ui_ok) ib_ui_set_battery(s_charge_view.soc, s_charge_view.charging);
     for (int i = 0; i < IB_LINK_COUNT; i++) {
         if (ib_links_alive(&s_links, (ib_link_t)i, now)) send_battery((ib_link_t)i);
     }
@@ -414,16 +421,30 @@ static void apply_list(const ib_cmd_t *cmd)
     if (s_st == IB_ST_LIST && s_screen != IB_UI_LIST) show_screen(IB_UI_LIST);
 }
 
+// done / err 结果页结束:状态回到常驻页面(idle 或字幕页)和它的模式、msg,只改状态不切页面。
+// Mac 随后的 state 会再确认一次。
+static void revert_home(void)
+{
+    s_revert_at = 0;
+    s_st = s_home_st;
+    s_mode = s_home_mode;
+    memcpy(s_msg, s_home_msg, sizeof(s_msg));
+}
+
 // ---- 链路 ----
 
+// 两条链路都离线:切到 OFFLINE 时钟页,停麦、清 Agent、复位按键。
+// 不清除 Mac 最后下发的状态:恢复在线时 refresh_links 按 s_st 回到原页面(Mac 若重新握手也会重发 state)。
+// 例外:done / err 是短暂结果页,离线期间不会再走 refresh_timers 的自动返回,直接收拢到常驻页,
+// 否则恢复在线后会停在结果页上。列表内容作废(s_list_ready 清零),等 Mac 重新下发 list。
 static void go_offline(void)
 {
     mic_stop();
     agent_clear();
     ib_keys_reset(&s_keys);
-    s_st = IB_ST_IDLE;
-    s_msg[0] = '\0';
+    if (s_st == IB_ST_DONE || s_st == IB_ST_ERR) revert_home();
     s_revert_at = 0;
+    s_mic_tail_until = 0;
     s_list_ready = false;
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
@@ -435,9 +456,10 @@ static void go_offline(void)
 
 static void refresh_links(int64_t now)
 {
-    bool usb = ib_usb_host_present();
+    // SOF 检测会短暂误报不在位,经 1 s 去抖后才认为拔线(见 IB_USB_ABSENT_CONFIRM_MS)。
+    bool usb = ib_links_usb_present(&s_links, ib_usb_host_present(), now);
     if (!usb) {
-        // 拔线收不到 bye:物理连接消失立即清除 USB 链路;Mac 此刻开始扫 BLE,切快速广播。
+        // 拔线收不到 bye:确认拔线后清除 USB 链路;Mac 此刻开始扫 BLE,切快速广播。
         ib_links_drop(&s_links, IB_LINK_USB);
         if (s_usb_present) ib_ble_boost_advertising();
     }
@@ -450,11 +472,12 @@ static void refresh_links(int64_t now)
     if (online != s_online) {
         s_online = online;
         if (online) {
-            show_screen(screen_for(s_st));
+            show_screen(screen_for(s_st));      // 回到离线前 Mac 下发的页面
+            wake(now);                          // 真正重连,用户需要看到
         } else {
+            // 离线不点亮:Mac 睡眠时 SOF 停止,去抖后设备离线;此时亮屏会表现为"熄了又自己亮"。
             go_offline();
         }
-        wake(now);
     }
 
     // 麦克风所在链路断开时停止。
@@ -536,7 +559,7 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
             s_clock_synced_ms = now;
             refresh_clock(now, true);
         }
-        wake(now);
+        // 不 wake:config 是设置同步 / 定期校时,不是用户活动。screen_off 变化由 refresh_backlight 按新值立即生效。
         break;
     case IB_CMD_STATE:
         apply_state(cmd, now);
@@ -577,11 +600,9 @@ static void refresh_timers(int64_t now)
 {
     if (s_revert_at && now >= s_revert_at) {
         s_revert_at = 0;
+        // 离线时 go_offline 已清掉 s_revert_at,这里只会在在线时触发。
         if (s_online && (s_screen == IB_UI_DONE || s_screen == IB_UI_ERR)) {
-            // 回到常驻页面(idle 或字幕页)和它的模式,Mac 随后的状态会再确认一次。
-            s_st = s_home_st;
-            s_mode = s_home_mode;
-            memcpy(s_msg, s_home_msg, sizeof(s_msg));
+            revert_home();
             show_screen(screen_for(s_st));
         }
     }
@@ -650,6 +671,7 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
     esp_app_get_elf_sha256(s_build_id, sizeof(s_build_id));
     ib_links_init(&s_links);
     ib_keys_reset(&s_keys);
+    ib_charge_init(&s_charge);
 
     s_queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(app_event_t));
     ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "event queue alloc failed");

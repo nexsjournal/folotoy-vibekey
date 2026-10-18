@@ -97,6 +97,9 @@ import os
     /// 最近一次按键提示(已转 ASCII 截断),握手后补发;未变化时不重复发送。
     @ObservationIgnored private var lastKeyHints: KeyHints?
     @ObservationIgnored private var micWanted = false
+    /// 最近一次握手时设备报告的 boot ID(每次上电随机生成)。跨链路会话保留、断开时不清空,
+    /// 这样设备重启(崩溃 / 掉电)后重新握手时能察觉 boot 变了并记日志,便于排查"偶发断开"。
+    @ObservationIgnored private var lastDeviceBoot: String?
     @ObservationIgnored private var lastLevelSentAt: TimeInterval = -.infinity
 
     private struct KeyHints: Equatable {
@@ -477,6 +480,7 @@ import os
             DeviceLog.link.notice("firmware protocol \(hello.protocolVersion), app speaks \(DeviceMessage.protocolVersion)")
         }
         DeviceLog.link.info("hello via \(link.rawValue, privacy: .public): ver=\(hello.version, privacy: .public) boot=\(hello.boot, privacy: .public)")
+        noteDeviceBoot(hello.boot, via: link)
         firmwareVersion = hello.version.isEmpty ? nil : hello.version
         firmwareBuild = hello.build.isEmpty ? nil : hello.build
         lastError = nil
@@ -500,6 +504,17 @@ import os
             // USB 优先:握手成功后断开蓝牙(不发 bye,设备仍通过 USB 在线)。
             updateBluetooth()
         }
+    }
+
+    /// 与上一次握手的 boot ID 比较:不同说明设备重启过(或换了一台 Passport),只记日志不改行为。
+    /// 放在 handleHello 的去重 guard 之后:同一次握手里重复回的 hello boot 相同,不会误报;
+    /// 设备重启必然导致链路断开(串口消失或 BLE 断开)后重新握手,在这里就能观察到。
+    private func noteDeviceBoot(_ boot: String, via link: DeviceLinkKind) {
+        guard !boot.isEmpty else { return }
+        if let previous = lastDeviceBoot, previous != boot {
+            DeviceLog.link.notice("device rebooted (boot \(previous, privacy: .public) -> \(boot, privacy: .public)) via \(link.rawValue, privacy: .public)")
+        }
+        lastDeviceBoot = boot
     }
 
     // MARK: USB

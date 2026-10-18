@@ -2,7 +2,7 @@
 # 固件校验:主机单元测试 + (可选)ESP-IDF 编译与分区检查。
 #
 # 用法:tools/validate.sh [--all|--host|--firmware]   默认 --all
-#   --host      只编译运行 tests/ 下的主机测试(纯 C 模块:协议、ADPCM、时钟、按键过滤、链路)
+#   --host      只编译运行 tests/ 下的主机测试(纯 C 模块:协议、ADPCM、时钟、按键过滤、链路、充电判定)
 #   --firmware  只做 idf.py build,并检查分区表里 cardid 仍在 0x356000/0x4000、应用镜像放得下
 # 环境变量:IDF_EXPORT(默认 ~/esp/esp-idf-v5.5.3/export.sh)、CC(默认 cc)
 set -euo pipefail
@@ -20,10 +20,12 @@ run_host() {
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_adpcm.c main/ib_adpcm.c -lm -o "${out}/adpcm"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_clock.c main/ib_clock.c -o "${out}/clock"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_keys.c main/ib_keys.c main/ib_links.c -o "${out}/keys"
+    "${CC:-cc}" "${cflags[@]}" tests/test_ib_charge.c main/ib_charge.c -o "${out}/charge"
     "${out}/protocol"
     "${out}/adpcm"
     "${out}/clock"
     "${out}/keys"
+    "${out}/charge"
     echo "Host tests: PASS"
 }
 
