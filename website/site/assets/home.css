@@ -39,30 +39,11 @@ body.home { height: 100svh; overflow: hidden; }
   display: flex; justify-content: center;
   opacity: 0; animation: rise 0.9s var(--ease) 0.34s both;
 }
-/* 一块 Mac 屏幕:输入框在屏幕里,胶囊浮在屏幕底部,字幕条也在屏幕里展开 */
+/* 演示的布局容器:不画外框,笔记窗口和胶囊直接浮在页面背景上 */
 .screen {
   position: relative; width: min(920px, 94vw); height: 300px;
-  display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
-  border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.09);
-  background: radial-gradient(120% 120% at 50% 0%, #171a24 0%, #0a0c11 60%, #07090d 100%);
-  box-shadow: 0 50px 120px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  display: flex; align-items: flex-end; justify-content: center;
 }
-.screen::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 26px 26px;
-  -webkit-mask-image: radial-gradient(72% 62% at 50% 38%, #000, transparent 82%);
-  mask-image: radial-gradient(72% 62% at 50% 38%, #000, transparent 82%);
-}
-.screen::before {
-  content: ""; position: absolute; left: 50%; bottom: 20px; width: 820px; height: 260px; transform: translateX(-50%);
-  background:
-    radial-gradient(38% 55% at 22% 68%, rgba(90, 110, 255, 0.32), transparent 70%),
-    radial-gradient(34% 50% at 78% 45%, rgba(255, 90, 150, 0.2), transparent 70%),
-    radial-gradient(30% 45% at 52% 92%, rgba(60, 210, 190, 0.18), transparent 70%);
-  filter: blur(34px); pointer-events: none; opacity: 0; transition: opacity 0.5s;
-}
-.stage[data-state="cap"] .screen::before { opacity: 1; }
 
 .pill {
   position: relative; z-index: 2; margin-bottom: 22px; padding: 0; cursor: pointer;
@@ -236,11 +217,11 @@ body.home { height: 100svh; overflow: hidden; }
 .cap-tools svg { width: 24px; height: 22px; padding: 5px 6px; fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .cap-tools .divider { width: 1px; height: 14px; margin: 0 4px; background: rgba(255, 255, 255, 0.18); }
 
-.cap-src { display: flex; flex-direction: column; min-width: 0; font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.6); }
+.cap-src { display: flex; flex-direction: column; min-width: 0; font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: 0; color: rgba(255, 255, 255, 0.6); }
 .cap-src span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cap-src span:first-child { animation: capIn 0.45s var(--ease) 0.15s both; }
 .cap-src span:last-child { animation: capIn 0.45s var(--ease) 0.5s both; }
-.cap-dst { display: flex; flex-direction: column; gap: 3.8px; min-width: 0; margin-top: 4px; font-weight: 600; font-size: 19px; line-height: 1.2; letter-spacing: -0.01em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.cap-dst { display: flex; flex-direction: column; gap: 3.8px; min-width: 0; margin-top: 4px; font-weight: 600; font-size: 19px; line-height: 1.2; letter-spacing: 0; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 .cap-dst span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: capIn 0.5s var(--ease) both; }
 .cap-dst span:nth-child(1) { color: rgba(255, 255, 255, 0.68); animation-delay: 0.8s; }
 .cap-dst span:nth-child(2) { color: rgba(255, 255, 255, 0.82); animation-delay: 1.15s; }
@@ -301,7 +282,7 @@ body.home { height: 100svh; overflow: hidden; }
   .hero h1 { font-size: clamp(34px, 10.5vw, 48px); }
   .lede { font-size: 14.5px; margin-top: 14px; }
   .stage { margin-top: 18px; }
-  .screen { width: calc(100vw - 24px); height: 300px; border-radius: 20px; }
+  .screen { width: calc(100vw - 24px); height: 300px; }
   .bubble { bottom: 66px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
   .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; }
   .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 155px; }
