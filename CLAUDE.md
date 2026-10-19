@@ -25,6 +25,7 @@ cd app && ./scripts/release.sh               # 打包签名公证的 DMG + Spark
 cd app && ./scripts/publish-update.sh        # 部署官网后把新版本登记到更新后台,已安装的 app 会提示更新(地址密钥只在本机)
 cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/InputBetter.app 并启动
 ./scripts/package-firmware.sh                # 把 firmware/build 整理成官网固件清单与镜像(deploy.sh 会自动调用)
+website/preview.py                           # 本地预览官网(自动替换占位符,http://127.0.0.1:8788/)
 website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG 和固件);服务器地址和密钥不写进仓库
 ```
 

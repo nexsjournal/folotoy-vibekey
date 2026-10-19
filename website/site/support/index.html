@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>支持 — InputBetter</title>
 <meta name="description" content="InputBetter 常见问题：权限、模型下载、Passport 连接与刷写、云端识别的隐私、更新；提交问题或留言。">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#07080c">
 <meta property="og:title" content="支持 — InputBetter">
 <meta property="og:description" content="常见问题与留言。">
 <meta property="og:image" content="/assets/icon.png">
@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/assets/support.css">
 </head>
 <body class="support">
+<div class="backdrop" aria-hidden="true"><div class="backdrop-grid"></div></div>
 
 <header class="nav">
   <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
@@ -23,70 +24,64 @@
     <a href="/support/" aria-current="page" data-i18n="nav.support">支持</a>
     <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
     <button class="lang" type="button" aria-label="Switch language">EN</button>
+    <a class="btn primary small nav-dl" href="{{DMG_URL}}" data-i18n="cta.short">下载</a>
   </nav>
 </header>
 
-<main class="page wrap">
-  <section class="sp-hero">
-    <h1 class="sp-title" data-i18n="sp.title">遇到问题？</h1>
-    <p class="sp-lead" data-i18n="sp.lead">有问题直接留言；下面也整理了常见问题。</p>
+<main class="page wrap sp">
+  <section class="sp-head">
+    <span class="eyebrow" data-i18n="sp.eyebrow">支持</span>
+    <h1 data-i18n="sp.title">遇到问题？</h1>
+    <p class="sp-lead" data-i18n="sp.lead">留言给我，或者先看看下面的常见问题。代码相关的问题也可以直接去 GitHub 提 issue。</p>
   </section>
 
   <!-- 留言:POST /api/support(相对路径,由服务器转发到后台),JSON {email, message},201 返回 {"id"} -->
-  <section class="section" id="contact">
-    <div class="contact">
-      <div class="contact-copy reveal">
-        <h2 data-i18n="ct.title">留言</h2>
-        <p class="ct-lead" data-i18n="ct.lead">会送到开发者那里，不会公开；留下邮箱我们才能回复你。</p>
+  <section class="sp-form" id="contact">
+    <form class="contact-form" id="supportForm" novalidate>
+      <div class="form-body" id="formBody">
+        <label class="field">
+          <span class="field-label"><span data-i18n="ct.email">邮箱</span><em data-i18n="ct.optional">可选</em></span>
+          <input type="email" name="email" id="email" autocomplete="email" inputmode="email" spellcheck="false" maxlength="254" placeholder="you@example.com">
+          <small class="field-err" id="emailErr" role="alert"></small>
+        </label>
+        <label class="field">
+          <span class="field-label"><span data-i18n="ct.message">留言</span><span class="count" aria-live="off"><b id="count">0</b> / 4000</span></span>
+          <textarea name="message" id="message" rows="6" maxlength="4000" required data-i18n-attr="placeholder:ct.placeholder" placeholder="遇到了什么问题？在哪一步、看到了什么、macOS 和 InputBetter 的版本……"></textarea>
+          <small class="field-err" id="messageErr" role="alert"></small>
+        </label>
+        <!-- 蜜罐字段:对人隐藏(移出屏幕、读屏跳过、Tab 跳过),自动填表的机器人会填上,填了就假装成功、不发请求 -->
+        <div class="hp" aria-hidden="true">
+          <label>Website <input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></label>
+        </div>
+        <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
+        <div class="form-foot">
+          <a class="gh-link" href="https://github.com/racall/InputBetter/issues/new" target="_blank" rel="noopener" data-i18n="ct.gh">代码问题去 GitHub 提 issue →</a>
+          <button class="btn primary" id="submit" type="submit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>
+            <span id="sendLabel" data-i18n="ct.send">发送</span>
+          </button>
+        </div>
       </div>
 
-      <form class="contact-form card reveal" id="supportForm" novalidate data-delay="120">
-        <div class="form-body" id="formBody">
-          <label class="field">
-            <span class="field-label"><span data-i18n="ct.email">邮箱</span><em data-i18n="ct.optional">可选</em></span>
-            <input type="email" name="email" id="email" autocomplete="email" inputmode="email" spellcheck="false" maxlength="254" placeholder="you@example.com">
-                        <small class="field-err" id="emailErr" role="alert"></small>
-          </label>
-          <label class="field">
-            <span class="field-label"><span data-i18n="ct.message">留言</span><span class="count" aria-live="off"><b id="count">0</b> / 4000</span></span>
-            <textarea name="message" id="message" rows="7" maxlength="4000" required data-i18n-attr="placeholder:ct.placeholder" placeholder="遇到了什么问题？在哪一步、看到了什么、macOS 和 InputBetter 的版本……"></textarea>
-            <small class="field-err" id="messageErr" role="alert"></small>
-          </label>
-          <!-- 蜜罐字段:对人隐藏(移出屏幕、读屏跳过、Tab 跳过),自动填表的机器人会填上,填了就假装成功、不发请求 -->
-          <div class="hp" aria-hidden="true">
-            <label>Website <input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></label>
-          </div>
-          <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
-          <div class="form-foot">
-            <a class="gh-link" href="https://github.com/racall/InputBetter/issues/new" target="_blank" rel="noopener" data-i18n="ct.gh">代码问题也可以去 GitHub 提 issue →</a>
-            <button class="btn primary" id="submit" type="submit">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>
-              <span id="sendLabel" data-i18n="ct.send">发送</span>
-            </button>
-          </div>
+      <!-- 发送成功后替换表单内容 -->
+      <div class="form-done" id="formDone" hidden tabindex="-1">
+        <i class="done-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></i>
+        <h3 data-i18n="ct.done.t">已收到，谢谢！</h3>
+        <p class="done-lead" id="doneLead"></p>
+        <div class="ref">
+          <span data-i18n="ct.done.ref">编号</span>
+          <code class="mono" id="doneId">—</code>
+          <button class="copy" type="button" id="copyId" data-i18n="ct.copy">复制</button>
         </div>
-
-        <!-- 发送成功后替换表单内容 -->
-        <div class="form-done" id="formDone" hidden tabindex="-1">
-          <i class="done-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></i>
-          <h3 data-i18n="ct.done.t">已收到，谢谢！</h3>
-          <p class="done-lead" id="doneLead"></p>
-          <div class="ref">
-            <span data-i18n="ct.done.ref">编号</span>
-            <code class="mono" id="doneId">—</code>
-            <button class="copy" type="button" id="copyId" data-i18n="ct.copy">复制</button>
-          </div>
-          <button class="btn ghost" type="button" id="again" data-i18n="ct.again">再写一条</button>
-        </div>
-      </form>
-    </div>
+        <button class="btn ghost" type="button" id="again" data-i18n="ct.again">再写一条</button>
+      </div>
+    </form>
   </section>
+
   <!-- 常见问题:答案都对照过 app 代码与 README -->
-  <section class="section" id="faq">
-    <div class="section-head reveal">
-      <h2 data-i18n="faq.title">常见问题</h2>
-    </div>
-    <div class="faq reveal">
+  <section class="sp-faq" id="faq">
+    <h2 data-i18n="faq.title">常见问题</h2>
+    <div class="faq">
       <details class="qa">
         <summary><span data-i18n="q1">需要哪些系统权限？</span><i class="chev" aria-hidden="true"></i></summary>
         <div class="qa-body"><div>
@@ -143,7 +138,6 @@
       </details>
     </div>
   </section>
-
 </main>
 
 <footer class="footer">

@@ -6,10 +6,10 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `website/site/index.html` | 首页(照 Fable 设计稿 v5 方向 B 原样实现):一屏只有标语、下载 / GitHub 两个按钮(悬停下载按钮时标签换成系统要求与大小)、一行每 4 s 轮播的功能介绍,以及屏幕底边一枚照 app 1:1 画的状态胶囊(细条 → 录音 + 气泡 → 已输入 → 双语字幕条,纯 CSS keyframes,一轮 18 s);在稿子基础上按用户反馈补充:深色主题背景(`#0b0c10`,不用纯黑)加两团缓慢呼吸的淡蓝光、标语进场浮现与每 8 s 一次扫光、字幕条原文行靠右并让词组出现时才占宽度(和 app 一样始终露出最新的词);`home.js` 只登记英文词条 |
-| `website/site/passport/index.html` | Passport 页:设备轮播(真实固件截图)、功能卡片、按键表、规格、`#firmware` 网页刷写区 |
-| `website/site/support/index.html` | 支持页:页头一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;页脚是安装包版本与 SHA-256 |
-| `website/site/assets/style.css`、`main.js` | 三页共用:色彩令牌、导航、按钮、页脚、滚动浮现;中英文切换(`IB.i18n`)。`main.js` 把旧链接 `/#firmware` 转到 `/passport/#firmware` |
+| `website/site/index.html` | 首页:一屏不滚动。中间是照 app 的状态胶囊 1:1 做的演示(细胶囊 → 悬停工具条 → 录音波形 + 实时文字气泡 → 识别中 → 已输入 → 展开成字幕条),进页面约 0.8 s 自己演一遍,之后停在字幕条;按住 / 点一下可以再演一次。标语、下载 / GitHub 按钮始终在,底下一行版本与系统要求,底部一个低调的 Passport 入口 |
+| `website/site/passport/index.html` | Passport 页(可选的配套硬件):设备轮播(真实固件截图,鼠标移上去轻微倾斜)、功能卡片、按键表、规格、`#firmware` 网页刷写区;文案明确"没有硬件 app 也完整可用",入口主要给极客用户 |
+| `website/site/support/index.html` | 支持页:一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;页脚是安装包版本与 SHA-256 |
+| `website/site/assets/style.css`、`main.js` | 三页共用:色彩令牌、背景(点阵 + 冷光)、导航、按钮、页脚、滚动浮现、跟随指针的柔光、顶部阅读进度;中英文切换(`IB.i18n`)。`main.js` 把旧链接 `/#firmware` 转到 `/passport/#firmware` |
 | `website/site/assets/home.*`、`passport.*`、`support.*` | 各页自己的布局、动画与英文词条 |
 | `website/site/assets/passport/*.png` | 设备屏幕截图,由 `firmware/tools/ui-preview/run.sh` 生成后无损压成调色板 PNG(每张 3–10 KB) |
 | `website/site/assets/flasher.js` | Passport 网页刷写(Web Serial + esptool-js),见下文「Passport 固件」 |
@@ -18,10 +18,19 @@
 | `website/deploy/docker-compose.yml` | 容器 `inputbetter-web`,接入服务器上共享的 `web` 网络 |
 | `website/deploy/input.0os.io.caddy` | 共享 Caddy 的站点配置(`*.0os.io` 证书、公共安全头、HSTS),反代到 `inputbetter-web:8080` |
 | `website/deploy/deploy.sh` | 部署脚本 |
+| `website/preview.py` | 本地预览:替换页面占位符、把 `/download/` 与 `/firmware/` 映射到本机产物,全部 `no-store`;改完文件刷新就能看,不用先打包 |
 
-页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换(首页用 `{{DMG_URL}}`、`{{SIZE}}`,支持页页脚用 `{{VERSION}}`、`{{SHA256}}`;`deploy.sh` 的线上校验:首页的下载链接是新安装包、支持页有新 SHA-256)。部署时页面里引用的 `/assets/*.css`、`*.js` 会加上内容哈希 `?v=…`(assets 长缓存,文件一改地址就变,浏览器不会用旧样式 / 脚本配新页面)。中文写在 HTML 里(`data-i18n` 元素的文本就是中文原文),英文在各页脚本通过 `IB.i18n.add` 注册的字典里;默认跟随浏览器语言,可手动切换并记在 localStorage。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
+页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换(首页用 `{{VERSION}}`、`{{DMG_URL}}`、`{{SIZE}}`,支持页页脚用 `{{VERSION}}`、`{{SHA256}}`;`deploy.sh` 的线上校验:首页的下载链接是新安装包、支持页有新 SHA-256)。部署时页面里引用的 `/assets/*.css`、`*.js` 会加上内容哈希 `?v=…`(assets 长缓存,文件一改地址就变,浏览器不会用旧样式 / 脚本配新页面)。中文写在 HTML 里(`data-i18n` 元素的文本就是中文原文),英文在各页脚本通过 `IB.i18n.add` 注册的字典里;默认跟随浏览器语言,可手动切换并记在 localStorage。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
 
-本地预览:把 `website/site` 复制到临时目录、替换占位符后用 `python3 -m http.server` 打开(`deploy.sh` 里的组装步骤可以照抄);留言表单在本地会得到 501,线上由反向代理把 `/api/support` 转发到后台(后台不在本仓库)。
+首页演示的尺寸、字号、圆角都照 app 的胶囊来(`app/InputBetter/Pill`:空闲细条 36×6、录音胶囊高 34、字幕条原文 17 / 译文 19、圆角 18),改 app 的胶囊外观时记得同步 `home.css`。
+
+本地预览:
+
+```bash
+website/preview.py            # http://127.0.0.1:8788/;--port 换端口,--open 自动打开浏览器
+```
+
+它把页面里的占位符换成 `app/build/release` 里最新 DMG 的实际值,并把 `/download/`、`/firmware/` 映射到本机的 `app/build/release`、`firmware/build/release`,全部 `no-store`,改完文件刷新即可。没有 DMG / 固件时用占位值,下载链接指向线上。留言表单在本地会得到 501,线上由反向代理把 `/api/support` 转发到后台(后台不在本仓库)。
 
 ## 打包安装包(签名 + 公证)
 

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Passport — InputBetter</title>
-<meta name="description" content="FoloToy AI Passport 刷入 InputBetter 固件后，变成一只带屏幕的三键遥控器：按住说话、回车、Esc、切换应用，Claude Code / Codex 完成时响铃提醒。在浏览器里直接刷写固件。">
-<meta name="theme-color" content="#050507">
+<meta name="description" content="可选的 FoloToy AI Passport 硬件：刷上 InputBetter 固件后，变成一只带屏幕的三键遥控器。按住 OK 说话、上键回车、下键 Esc、切换应用，Claude Code / Codex 完成时响铃。在浏览器里直接刷写固件。">
+<meta name="theme-color" content="#07080c">
 <meta property="og:title" content="Passport — InputBetter">
-<meta property="og:description" content="你手里的 vibe coding 遥控器：按住说话、回车、Esc、切换应用，Agent 完成时响铃提醒。">
+<meta property="og:description" content="可选的极客硬件：三键遥控器，按住说话、回车、Esc，Agent 完成时响铃。">
 <meta property="og:image" content="/assets/icon.png">
 <link rel="icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/assets/icon.png">
@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="/assets/passport.css">
 </head>
 <body class="passport">
-<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="backdrop" aria-hidden="true"><div class="backdrop-grid"></div></div>
 
 <header class="nav">
   <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
@@ -24,20 +24,22 @@
     <a href="/support/" data-i18n="nav.support">支持</a>
     <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
     <button class="lang" type="button" aria-label="Switch language">EN</button>
+    <a class="btn primary small nav-dl" href="{{DMG_URL}}" data-i18n="cta.short">下载</a>
   </nav>
 </header>
 
 <main class="page wrap">
-  <!-- 首屏:文案 + 真实固件截图轮播(firmware/tools/ui-preview 离屏渲染) -->
+  <!-- 首屏:文案 + 真实固件截图轮播(firmware/tools/ui-preview 离屏渲染),鼠标移上去会轻微倾斜 -->
   <section class="pp-hero">
     <div class="pp-copy">
-      <span class="eyebrow">FoloToy AI Passport</span>
+      <span class="eyebrow" data-i18n="pp.eyebrow">可选的配套硬件</span>
       <h1 class="pp-title" data-i18n="pp.title">你手里的 vibe coding 遥控器。</h1>
-      <p class="pp-lead" data-i18n="pp.lead">给 FoloToy AI Passport 刷入 InputBetter 固件，它就成了一只带屏幕的三键遥控器：按住说话，文字进入 Mac 上的光标处；上键回车、下键 Esc；Claude Code / Codex 完成或等你确认时，它会响铃提醒。</p>
+      <p class="pp-lead" data-i18n="pp.lead">给 FoloToy AI Passport 刷上 InputBetter 固件，它就成了一只带屏幕的三键遥控器：按住说话，文字进入 Mac 的光标处；上键回车、下键 Esc；Claude Code / Codex 完成或等你确认时，它会响铃提醒。</p>
       <div class="pp-cta">
         <a class="btn primary" href="#firmware"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 6 13.5h5.5L11 21l7-10.5h-5.5z"/></svg><span data-i18n="pp.flash">在浏览器里刷入固件</span></a>
         <a class="btn ghost" href="{{DMG_URL}}" data-i18n="cta.download">下载 macOS 版</a>
       </div>
+      <p class="pp-optional" data-i18n="pp.optional">没有这只硬件也没关系：InputBetter 本身完整可用。Passport 只是给喜欢折腾的人多一种输入方式。</p>
       <ul class="pp-facts">
         <li><b data-i18n="pp.fact1">USB-C 或蓝牙</b><span data-i18n="pp.fact1d">插线即用，无需配对</span></li>
         <li><b data-i18n="pp.fact2">屏幕提示跟着按键走</b><span data-i18n="pp.fact2d">改了映射，图标同步变</span></li>
@@ -45,26 +47,29 @@
       </ul>
     </div>
 
-    <div class="pp-stage" aria-hidden="true">
-      <div class="pp-glow"></div>
-      <div class="device" id="device" data-key="">
-        <span class="key power"></span>
-        <span class="key up"></span>
-        <span class="key down"></span>
-        <span class="key ok"></span>
-        <div class="screen" id="screen">
-          <img src="/assets/passport/idle.png" alt="" width="240" height="320" data-screen="idle" data-key="" class="on">
-          <img src="/assets/passport/rec.png" alt="" width="240" height="320" data-screen="rec" data-key="ok" loading="lazy">
-          <img src="/assets/passport/done.png" alt="" width="240" height="320" data-screen="done" data-key="" loading="lazy">
-          <img src="/assets/passport/sub.png" alt="" width="240" height="320" data-screen="sub" data-key="" loading="lazy">
-          <img src="/assets/passport/list.png" alt="" width="240" height="320" data-screen="list" data-key="down" loading="lazy">
-          <img src="/assets/passport/agent-done.png" alt="" width="240" height="320" data-screen="agentDone" data-key="" loading="lazy">
-          <img src="/assets/passport/agent-input.png" alt="" width="240" height="320" data-screen="agentInput" data-key="" loading="lazy">
-          <img src="/assets/passport/offline.png" alt="" width="240" height="320" data-screen="offline" data-key="" loading="lazy">
+    <div class="pp-stage" id="ppStage">
+      <div class="stage-glow"></div>
+      <div class="stage-dots" aria-hidden="true"></div>
+      <div class="device-wrap">
+        <div class="device" id="device" data-key="">
+          <span class="key power"></span>
+          <span class="key up"></span>
+          <span class="key down"></span>
+          <span class="key ok"></span>
+          <div class="screen" id="screen">
+            <img src="/assets/passport/idle.png" alt="" width="240" height="320" data-screen="idle" data-key="" class="on">
+            <img src="/assets/passport/rec.png" alt="" width="240" height="320" data-screen="rec" data-key="ok" loading="lazy">
+            <img src="/assets/passport/done.png" alt="" width="240" height="320" data-screen="done" data-key="" loading="lazy">
+            <img src="/assets/passport/sub.png" alt="" width="240" height="320" data-screen="sub" data-key="" loading="lazy">
+            <img src="/assets/passport/list.png" alt="" width="240" height="320" data-screen="list" data-key="down" loading="lazy">
+            <img src="/assets/passport/agent-done.png" alt="" width="240" height="320" data-screen="agentDone" data-key="" loading="lazy">
+            <img src="/assets/passport/agent-input.png" alt="" width="240" height="320" data-screen="agentInput" data-key="" loading="lazy">
+            <img src="/assets/passport/offline.png" alt="" width="240" height="320" data-screen="offline" data-key="" loading="lazy">
+          </div>
+          <span class="sheen" aria-hidden="true"></span>
+          <span class="ring r1" aria-hidden="true"></span><span class="ring r2" aria-hidden="true"></span>
         </div>
-        <span class="ring r1"></span><span class="ring r2"></span>
       </div>
-      <!-- 三个实体键的标注,与机身右侧上下排列一致 -->
       <ul class="callouts">
         <li class="c-up"><b data-i18n="pp.k.up">上键</b><span data-i18n="pp.k.upd">回车 · 长按切换模式</span></li>
         <li class="c-down"><b data-i18n="pp.k.down">下键</b><span data-i18n="pp.k.downd">Esc · 长按切换应用</span></li>
@@ -77,37 +82,43 @@
   <!-- 能做什么:每条都对应 app / 固件里的实际行为 -->
   <section class="section" id="features">
     <div class="section-head reveal">
-      <span class="eyebrow" data-i18n="pp.feat.eyebrow">配合 InputBetter</span>
+      <span class="eyebrow" data-i18n="pp.feat.eyebrow">能做什么</span>
       <h2 data-i18n="pp.feat.title">三个键，把说话变成操作。</h2>
       <p data-i18n="pp.feat.lead">设备只上报按键、显示 Mac 下发的状态；所有含义都由 Mac 上的 InputBetter 决定，所以行为随 app 更新而更新。</p>
     </div>
     <div class="grid3">
       <article class="card reveal">
+        <span class="idx">01</span>
         <span class="icon"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></span>
         <h3 data-i18n="pp.c1.t">按住 OK 说话</h3>
         <p data-i18n="pp.c1.d">松开后文字输入到 Mac 的当前光标处；短按一下开始、再按一下结束，可以免提。也可以把 Passport 的麦克风设为听写音源。</p>
       </article>
-      <article class="card reveal">
+      <article class="card reveal" data-delay="60">
+        <span class="idx">02</span>
         <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 9h12a4 4 0 0 1 0 8H9"/><path d="m8 13-4 4 4 4"/></svg></span>
         <h3 data-i18n="pp.c2.t">上键回车，下键 Esc</h3>
         <p data-i18n="pp.c2.d">默认映射：回车发送 prompt，Esc 打断 Agent。可在 设置 › Passport 改成 ⌫ 退格、⌦ Delete、⌘Z 撤销、Tab、⇧Tab、⌘↩、⌃C、确认第一项或再次输入上一段。</p>
       </article>
-      <article class="card reveal">
+      <article class="card reveal" data-delay="120">
+        <span class="idx">03</span>
         <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 7h11l-3-3M20 17H9l3 3"/></svg></span>
         <h3 data-i18n="pp.c3.t">长按上键切换模式</h3>
         <p data-i18n="pp.c3.d">听写 → 翻译听写 → 字幕，循环切换；屏幕上的点阵图标重排成新模式的图标，模式名翻牌切换。字幕模式下按 OK 开始或停止字幕，上键开关翻译，下键收起字幕条。</p>
       </article>
-      <article class="card reveal">
+      <article class="card reveal" data-delay="60">
+        <span class="idx">04</span>
         <span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="3" y="13" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg></span>
         <h3 data-i18n="pp.c4.t">长按下键切换应用</h3>
         <p data-i18n="pp.c4.d">屏幕上列出 Mac 正在运行的应用，上下键选择、OK 确认，该应用的窗口就前置并聚焦。录音中长按下键则取消本次录音。</p>
       </article>
-      <article class="card reveal">
+      <article class="card reveal" data-delay="120">
+        <span class="idx">05</span>
         <span class="icon"><svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>
         <h3 data-i18n="pp.c5.t">Agent 完成时响铃</h3>
         <p data-i18n="pp.c5.d">在 设置 › Vibe Coding 一键配置 Claude Code / Codex 的 hooks：任务完成显示 DONE 并响铃，等你确认时显示 YOUR TURN、每 20 秒提醒一次，按任意键关闭。</p>
       </article>
-      <article class="card reveal">
+      <article class="card reveal" data-delay="60">
+        <span class="idx">06</span>
         <span class="icon"><svg viewBox="0 0 24 24"><path d="M7 7h10M7 12h10M7 17h6"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg></span>
         <h3 data-i18n="pp.c6.t">一块点阵屏</h3>
         <p data-i18n="pp.c6.d">整块屏幕只用一种圆点：模式图标、跟着声音跳动的声波、处理中的扫描光、完成状态都由同一批点组成，切换时点会重排。不显示你说的内容；彩色只留给录音、完成和 Agent 提醒。离线时是一只点阵时钟。</p>

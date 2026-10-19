@@ -1,19 +1,25 @@
-// Passport 页:英文词条 + 首屏设备画面轮播(真实固件截图交叉淡入,按键随画面"按下")。依赖 main.js 的 IB;刷写逻辑在 flasher.js。
+// Passport 页:英文词条 + 首屏设备画面轮播(真实固件截图交叉淡入,按键随画面"按下")+ 指针悬停时的轻微倾斜。
+// 依赖 main.js 的 IB;刷写逻辑在 flasher.js。
 (() => {
   'use strict';
 
   IB.i18n.add({
     'doc.title': 'Passport — InputBetter',
-    'pp.title': 'A vibe-coding remote that fits in your hand.',
+    'cta.short': 'Download', 'cta.download': 'Download for macOS',
+    'nav.home': 'Home', 'nav.passport': 'Passport', 'nav.support': 'Support',
+    'ft.license': 'MIT open source', 'ft.support': 'Support',
+    'pp.eyebrow': 'Optional companion hardware',
+    'pp.title': 'A vibe-coding remote in your hand.',
     'pp.lead': 'Flash the InputBetter firmware onto a FoloToy AI Passport and it becomes a three-button remote with a screen: hold to talk and the words land at your cursor on the Mac; Up is Return, Down is Esc; and it chimes when Claude Code or Codex finishes or needs your input.',
     'pp.flash': 'Flash firmware in your browser',
+    'pp.optional': 'No hardware? No problem — InputBetter is complete on its own. Passport is just one more input method for people who like to tinker.',
     'pp.fact1': 'USB-C or Bluetooth', 'pp.fact1d': 'Plug in and go — no pairing',
     'pp.fact2': 'Hints follow your keys', 'pp.fact2d': 'Remap a key and the icon updates',
     'pp.fact3': 'Open-source firmware', 'pp.fact3d': 'MIT, written for this project',
     'pp.k.up': 'Up', 'pp.k.upd': 'Return · hold to switch mode',
     'pp.k.down': 'Down', 'pp.k.downd': 'Esc · hold to switch apps',
     'pp.k.okd': 'Hold to talk',
-    'pp.feat.eyebrow': 'With InputBetter', 'pp.feat.title': 'Three keys turn speech into action.',
+    'pp.feat.eyebrow': 'What it does', 'pp.feat.title': 'Three keys turn speech into action.',
     'pp.feat.lead': 'The device only reports key presses and renders what the Mac sends. Every meaning is decided by InputBetter on the Mac, so behavior improves with each app update.',
     'pp.c1.t': 'Hold OK to talk', 'pp.c1.d': 'Let go and the text is typed at the Mac’s cursor. Tap once to start and again to stop for hands-free use. The Passport mic can also be your dictation input.',
     'pp.c2.t': 'Up is Return, Down is Esc', 'pp.c2.d': 'The default mapping: Return sends the prompt, Esc interrupts the agent. In Settings › Passport you can switch either to ⌫ Backspace, ⌦ Delete, ⌘Z Undo, Tab, ⇧Tab, ⌘↩, ⌃C, “approve the first option”, or “type the last dictation again”.',
@@ -65,7 +71,7 @@
     index = i;
     shots.forEach((img, j) => img.classList.toggle('on', j === i));
     const img = shots[i];
-    device.dataset.key = img.dataset.key;
+    device.dataset.key = img.dataset.key || '';
     device.dataset.screen = img.dataset.screen;
     cap.style.opacity = 0;
     setTimeout(() => { cap.textContent = IB.t(`scr.${img.dataset.screen}`); cap.style.opacity = 1; }, 160);
@@ -78,6 +84,22 @@
   // 悬停时停在当前画面,方便看清
   device.addEventListener('pointerenter', () => clearInterval(timer));
   device.addEventListener('pointerleave', start);
+
+  // ---------- 指针悬停时的轻微倾斜(手机壳跟着鼠标转一点点) ----------
+  const stage = document.getElementById('ppStage');
+  if (stage && !IB.reduceMotion && matchMedia('(pointer: fine)').matches) {
+    stage.addEventListener('pointermove', (e) => {
+      const r = stage.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      device.style.setProperty('--ry', `${(px * 9).toFixed(2)}deg`);
+      device.style.setProperty('--rx', `${(-py * 7).toFixed(2)}deg`);
+    }, { passive: true });
+    stage.addEventListener('pointerleave', () => {
+      device.style.setProperty('--ry', '0deg');
+      device.style.setProperty('--rx', '0deg');
+    });
+  }
 
   addEventListener('DOMContentLoaded', () => {
     show(0);

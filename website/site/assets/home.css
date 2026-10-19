@@ -1,127 +1,250 @@
-/* 首页:照 Fable 设计稿 v5 方向 B「胶囊在它该在的地方」原样移植(scratchpad home-v5/b.html + _common.css),
-   底部胶囊演示是稿子里的 CSS keyframes(一轮 18 s)。之后按用户反馈补充(见文件末尾):深色主题背景(不用纯黑)与两团缓慢呼吸的淡光、
-   标语进场与周期扫光、字幕条原文行像 app 一样始终露出最新的词。
-   与站点公共样式的适配只有:导航用 style.css 的 .nav;按钮类名 .btn → .hbtn(避免和公共 .btn 冲突);h1 限定在首页。
-   结构:导航 / 标语 / 两个按钮 / 一行轮播功能 / 屏幕底边的状态胶囊(细条 → 录音 + 气泡 → 已输入 → 字幕条)。 */
-body.home{background:#0b0c10;height:100svh;overflow:hidden}   /* 深色主题,不用纯黑 */
-.home .page{position:relative;width:100vw;height:100svh;display:flex;flex-direction:column;padding:0}   /* 清掉公共 .page 的上下内边距 */
-.home .nav{position:relative;inset:auto;height:56px;flex:none;background:none;-webkit-backdrop-filter:none;backdrop-filter:none}   /* 稿子里导航在文档流里、无底色 */
-:root{color-scheme:dark}
-.home .nav-links a{color:rgba(255,255,255,.5);text-decoration:none;position:relative;transition:color .25s}
-.home .nav-links a::after{content:"";position:absolute;left:0;right:100%;bottom:-4px;height:1px;background:#fff;transition:right .3s cubic-bezier(.2,.8,.2,1)}
-.home .nav-links a:hover{color:#fff}.home .nav-links a:hover::after{right:0}
-.btns{display:flex;gap:12px;justify-content:center}
-.hbtn{height:44px;padding:0 22px;border-radius:22px;font-size:15px;font-weight:500;display:flex;align-items:center;text-decoration:none;position:relative;overflow:hidden;transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .25s}
-.hbtn:active{transform:scale(.97)}
-.hbtn.p{background:#fff;color:#000;min-width:150px;justify-content:center}
-.hbtn.p span{display:block;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .3s}
-.hbtn.p .alt{position:absolute;left:0;right:0;text-align:center;font-size:12.5px;color:rgba(0,0,0,.6);transform:translateY(18px);opacity:0}
-.hbtn.p:hover .main{transform:translateY(-18px);opacity:0}
-.hbtn.p:hover .alt{transform:none;opacity:1}
-.hbtn.p::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent);transform:skewX(-20deg);animation:sheen 6s infinite}
-@keyframes sheen{0%,70%{left:-60%}90%,100%{left:130%}}
-.hbtn.s{border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85)}
-.hbtn.s:hover{border-color:rgba(255,255,255,.45)}
-.feat{position:absolute;left:0;right:0;height:22px;text-align:center;font-size:15px;color:rgba(255,255,255,.55)}
-.feat span{position:absolute;left:0;right:0;opacity:0;animation:feat 16s infinite}
-.feat b{color:#fff;font-weight:500;margin-right:10px}
-.feat span:nth-child(2){animation-delay:4s}.feat span:nth-child(3){animation-delay:8s}.feat span:nth-child(4){animation-delay:12s}
-@keyframes feat{0%,2%{opacity:0;transform:translateY(6px);filter:blur(4px)}5%,22%{opacity:1;transform:none;filter:none}25%,100%{opacity:0;transform:translateY(-6px);filter:blur(4px)}}
-.glass{background:rgba(18,18,20,.92);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)}
-.bar{width:36px;height:6px;border-radius:3px;animation:breath 4s infinite ease-in-out}
-@keyframes breath{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 12px 1px rgba(255,255,255,.18)}}
-.pill{height:34px;border-radius:17px;display:flex;align-items:center;color:rgba(255,255,255,.85)}
-.pill .x,.pill .ok{width:26px;text-align:center;font-size:11px;font-weight:600}
-.pill .ok{color:#30d158}
-.reddot{width:18px;height:18px;display:flex;align-items:center;justify-content:center;position:relative}
-.reddot::before{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:rgba(255,69,58,.35);animation:ring .7s infinite alternate ease-in-out}
-.reddot::after{content:"";position:relative;width:7px;height:7px;border-radius:50%;background:#ff453a}
-@keyframes ring{from{transform:scale(.7)}to{transform:scale(1.15)}}
-.wave{width:92px;height:22px;display:flex;align-items:center;justify-content:flex-end;gap:4px;overflow:hidden}
-.wave i{display:block;width:2.2px;height:20px;border-radius:1.1px;background:#fff;transform-origin:center;animation:wv .55s infinite alternate ease-in-out}
-.wave i:nth-child(odd){animation-duration:.42s}.wave i:nth-child(3n){animation-duration:.68s}.wave i:nth-child(4n){animation-delay:-.2s}.wave i:nth-child(5n){animation-delay:-.35s}
-.wave i:nth-child(1){opacity:.2}.wave i:nth-child(2){opacity:.35}.wave i:nth-child(3){opacity:.5}.wave i:nth-child(4){opacity:.65}.wave i:nth-child(5){opacity:.8}
-@keyframes wv{from{transform:scaleY(.16)}to{transform:scaleY(.95)}}
-.pill.text{padding:0 14px;gap:8px;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.92)}
-.check{width:12px;height:12px}
-.check path{fill:none;stroke:#30d158;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20}
-.bubble{white-space:nowrap;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.92);padding:8px 14px;border-radius:14px;background:rgba(18,18,20,.9);border:1px solid rgba(255,255,255,.1)}
-.caption{width:570px;border-radius:18px;padding:10px 20px 11px;text-align:left;background:rgba(18,18,20,.94)}
-.caption .src{font-size:17px;font-weight:500;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden}
-.caption .src .live{color:rgba(255,255,255,.4)}
-.caption .dst{font-size:19px;font-weight:600;line-height:1.2;margin-top:4px}
-.caption .dst p+p{margin-top:.2em}
-.caption .dst .old{color:rgba(255,255,255,.84)}
-.caption .dst .tent{color:rgba(255,255,255,.55)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* 首页:一屏、不滚动。演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角取自 app/InputBetter/Pill):
+   细胶囊 36×6(idle)→ 悬停工具条(麦克风 46 + 录制 / 菜单 38+30,高 32)→ 录音胶囊(高 34,红点 + 92×22 波形)
+   → 识别中(18 轨道点 + 流光文字)→ ✓ 已输入(高 34)→ 展开成字幕条(宽 540,圆角 18,原文 17 / 译文 19)。
+   所有形态共用同一个胶囊表面,宽度和高度用同一个 spring 过渡,像 app 里的 Liquid Glass 变形。
+   交互与文案在 home.js;窄屏(<760px)允许滚动,只做不溢出的最小适配。 */
+body.home { height: 100svh; overflow: hidden; }
+.home .page { position: relative; z-index: 1; height: 100svh; display: grid; grid-template-rows: var(--nav-h) minmax(0, 1fr) auto; }
+.home .nav { position: relative; background: none; border: 0; }
+.home .nav-links a:not(.btn) { color: rgba(255, 255, 255, 0.5); }
+.home .nav-links a:not(.btn):hover { color: #fff; }
+.nav-dl { margin-left: 2px; }
 
-  .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative;transform:translateY(-56px)}
-  .home h1{font-size:76px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
-  .btns{margin-top:44px}
-  .feat{bottom:140px}
-  .dock{position:absolute;left:0;right:0;bottom:24px;height:120px;display:flex;justify-content:center;align-items:flex-end}
-  .dock>*{position:absolute;bottom:0;opacity:0;transform-origin:50% 100%}
-  .d-bar{animation:dBar 18s infinite}
-  .d-rec{animation:dRec 18s infinite;display:flex;flex-direction:column;align-items:center;gap:10px}
-  .d-rec .bubble{animation:bub 18s infinite;transform-origin:50% 100%}
-  .d-done{animation:dDone 18s infinite}
-  .d-done .check path{animation:draw 18s infinite}
-  .d-cap{animation:dCap 18s infinite}
-  .d-cap .w{display:inline-block;opacity:0;animation:cw 18s infinite}
-  .d-cap .w:nth-child(2){animation-delay:.5s}.d-cap .w:nth-child(3){animation-delay:1s}.d-cap .w:nth-child(4){animation-delay:1.5s}.d-cap .w:nth-child(5){animation-delay:2s}
-  .d-cap .l1{animation:l1 18s infinite}.d-cap .l2{animation:l2 18s infinite;display:grid;grid-template-rows:0fr}
-  .d-cap .l2>span{overflow:hidden;display:block}
-  @keyframes dBar{0%,7%{opacity:1}9%,36%{opacity:0}37%,39%{opacity:1}41%,89%{opacity:0}91%,100%{opacity:1}}
-  @keyframes dRec{0%,8%{opacity:0;transform:scaleX(.3)}10%,24%{opacity:1;transform:none}26%,100%{opacity:0;transform:none}}
-  @keyframes bub{0%,10%{opacity:0;transform:translateY(6px) scale(.9)}12%,23%{opacity:1;transform:none}26%,100%{opacity:0;transform:translateY(-10px)}}
-  @keyframes dDone{0%,25%{opacity:0;transform:scale(.9)}27%,34%{opacity:1;transform:none}36%,100%{opacity:0}}
-  @keyframes draw{0%,26%{stroke-dashoffset:20}30%,100%{stroke-dashoffset:0}}
-  @keyframes dCap{0%,40%{opacity:0;transform:translateY(8px) scaleX(.2)}43%,87%{opacity:1;transform:none}90%,100%{opacity:0}}
-  @keyframes cw{0%,44%{opacity:0;transform:translateY(4px)}47%,100%{opacity:1;transform:none}}
-  @keyframes l1{0%,58%{color:rgba(255,255,255,.55)}62%,70%{color:#fff}74%,100%{color:rgba(255,255,255,.84)}}
-  @keyframes l2{0%,70%{grid-template-rows:0fr;opacity:0}74%,100%{grid-template-rows:1fr;opacity:1}}
-
-.feat i{font-style:normal}   /* 句子包在 <i> 里只为中英文切换 */
-.d-cap .w{white-space:pre}   /* 修正稿子里词组末尾空格被吞掉(fewpuzzle → few puzzle) */
-
-/* 背景:深色底 + 两团很淡的冷色光(标语后方、底边胶囊处),各自缓慢呼吸;不加粒子、不跟随鼠标 */
-.home .page::before,.home .page::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:50%;filter:blur(40px)}
-.home .page{overflow:hidden}
-.home .page::before{left:0;right:0;margin:0 auto;top:22%;width:min(1100px,110vw);height:520px;
-  background:radial-gradient(closest-side,rgba(96,120,255,.16),rgba(96,120,255,.05) 55%,transparent);animation:glowA 12s ease-in-out infinite}
-.home .page::after{left:0;right:0;margin:0 auto;bottom:-260px;width:min(900px,100vw);height:420px;
-  background:radial-gradient(closest-side,rgba(120,150,255,.14),transparent);animation:glowB 9s ease-in-out infinite}
-@keyframes glowA{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
-@keyframes glowB{0%,100%{opacity:.6}50%{opacity:1}}
-.home .hero,.home .feat,.home .dock{z-index:1}
-.home .nav{z-index:2}   /* 标语区上移 56px 会盖住导航,导航必须在最上层,否则链接点不到 */
-
-/* 标语:进场时从模糊中浮现,按钮随后;之后每 8 s 有一道光从左到右扫过文字 */
-.home h1{background:linear-gradient(100deg,#fff 0 40%,#b9c6ff 50%,#fff 60% 100%) 0 0/250% 100% no-repeat;
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-  animation:heroIn 1s cubic-bezier(.2,.8,.2,1) both,titleSheen 8s ease-in-out 1.6s infinite}
-.home .btns{animation:heroIn 1s cubic-bezier(.2,.8,.2,1) .25s both}
-@keyframes heroIn{from{opacity:0;transform:translateY(14px);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
-@keyframes titleSheen{0%{background-position:100% 0}35%,100%{background-position:0 0}}
-
-/* 字幕条原文:和 app 一样始终露出最新的词——词组出现前不占宽度,整行靠右对齐,超出的旧词从左边移出 */
-.d-cap .src{display:flex;justify-content:flex-end;align-items:flex-end}
-.d-cap .w{flex:none;overflow:hidden;max-width:0}
-.d-cap .w{animation-name:cwGrow}
-@keyframes cwGrow{0%,44%{opacity:0;max-width:0;transform:translateY(4px)}47%,100%{opacity:1;max-width:12em;transform:none}}
-
-/* 窄屏(手机):允许滚动,字幕条按屏宽缩小(稿子只给了桌面尺寸,这里只做不溢出的最小适配) */
-@media (max-width:760px){
-  body.home{height:auto;overflow:auto}
-  .home .page{height:auto;min-height:100svh}
-  .home h1{font-size:40px}
-  .hero{transform:none;padding:96px 16px 220px}
-  .feat{bottom:150px;padding:0 16px;font-size:13px}
-  .caption{width:calc(100vw - 32px)}
-  .bubble{white-space:normal;max-width:calc(100vw - 48px)}
+/* ---------- 标语 ---------- */
+.hero {
+  position: relative; min-height: 0; padding: 0 var(--gutter);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
 }
-/* 矮屏(稿子 1280x720:h1 56;功能行距底稿子写 112,会和展开的字幕条重叠,改为 136) */
-@media (max-height:760px) and (min-width:761px){
-  .home h1{font-size:56px}
-  .feat{bottom:136px}
+.hero h1 {
+  margin: 0; font-size: clamp(44px, 6.4vw, 88px); line-height: 1.04; letter-spacing: -0.048em; font-weight: 600;
+  background: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%) 0 0 / 240% 100% no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: rise 0.95s var(--ease) 0.05s both, titleSheen 9s ease-in-out 2.2s infinite;
+}
+@keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
+.lede {
+  max-width: min(32em, 86vw); margin: 20px 0 0; color: var(--muted);
+  font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7; opacity: 0;
+  animation: rise 0.9s var(--ease) 0.2s both;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* ---------- 演示舞台 ---------- */
+.stage {
+  position: relative; width: 100%; height: 240px; margin-top: clamp(16px, 3vh, 28px);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  opacity: 0; animation: rise 0.9s var(--ease) 0.32s both;
+}
+.pill {
+  position: relative; z-index: 2; margin-bottom: 34px; padding: 0; cursor: pointer;
+  width: 36px; height: 6px; border-radius: 99px; border: 1px solid transparent; background: transparent;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none;
+  transition: width 0.38s var(--spring), height 0.38s var(--spring), border-radius 0.38s var(--ease),
+              background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+/* 空闲时胶囊很小,热区放大到 128×46(app 里也是这么做的) */
+.pill::before { content: ""; position: absolute; inset: -20px -46px; border-radius: 24px; }
+.pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 9px; }
+.stage[data-state="idle"] .pill:hover .p-idle { border-color: rgba(255, 255, 255, 0.45); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.045), 0 0 26px rgba(139, 155, 255, 0.18); }
+
+.stage[data-state="tools"] .pill { width: 134px; height: 32px; border-radius: 16px; }
+.stage[data-state="rec"] .pill { width: 126px; height: 34px; border-radius: 17px; }
+.stage[data-state="proc"] .pill { width: 128px; height: 34px; border-radius: 17px; }
+.stage[data-state="done"] .pill { width: 96px; height: 34px; border-radius: 17px; }
+.stage[data-state="cap"] .pill { width: min(540px, calc(100vw - 48px)); height: 100px; border-radius: 18px; }
+.stage[data-state="rec"] .pill,
+.stage[data-state="proc"] .pill,
+.stage[data-state="done"] .pill,
+.stage[data-state="cap"] .pill {
+  background: rgba(16, 18, 24, 0.82); border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* 各形态的内容层:只显示当前状态的那一层 */
+.p-idle, .p-tools, .p-rec, .p-proc, .p-done, .p-cap {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: opacity 0.18s, visibility 0.18s;
+}
+.stage[data-state="idle"] .p-idle,
+.stage[data-state="tools"] .p-tools,
+.stage[data-state="rec"] .p-rec,
+.stage[data-state="proc"] .p-proc,
+.stage[data-state="done"] .p-done,
+.stage[data-state="cap"] .p-cap { opacity: 1; visibility: visible; }
+.stage[data-state="cap"] .p-cap { transition-delay: 0.12s; }
+
+/* 空闲:36×6 的玻璃细条,缓慢呼吸(app IdleCapsule) */
+.p-idle {
+  inset: 0; border-radius: inherit; background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: breath 2s ease-in-out infinite alternate;
+}
+@keyframes breath {
+  from { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.16); }
+  to { background: rgba(255, 255, 255, 0.13); border-color: rgba(255, 255, 255, 0.3); }
+}
+
+/* 悬停:麦克风 46 + (录制 38 / 菜单 30),两组玻璃胶囊 */
+.p-tools { gap: 10px; }
+.tb { display: grid; place-items: center; height: 32px; color: rgba(255, 255, 255, 0.88); }
+.tb svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.tb svg .fill { fill: currentColor; stroke: none; }
+.tb.mic {
+  width: 46px; border-radius: 16px; background: rgba(19, 21, 27, 0.82); border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.tb-group {
+  display: flex; height: 32px; border-radius: 16px; overflow: hidden;
+  background: rgba(19, 21, 27, 0.82); border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.tb.rec { width: 38px; }
+.tb.chev { width: 30px; border-left: 1px solid rgba(255, 255, 255, 0.09); }
+.tb.chev svg { width: 12px; height: 12px; }
+
+/* 录音:红点 + 92×22 波形(高 34,左右各 4) */
+.p-rec { gap: 6px; padding: 0 4px; }
+.rec-dot {
+  flex: none; width: 7px; height: 7px; margin-left: 2px; border-radius: 50%; background: var(--rec);
+  box-shadow: 0 0 6px var(--rec); animation: dotPulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes dotPulse { from { opacity: 0.5; box-shadow: 0 0 2px var(--rec); } to { opacity: 1; box-shadow: 0 0 7px var(--rec); } }
+.wave {
+  display: flex; align-items: center; justify-content: space-between; width: 92px; height: 22px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 26%); mask-image: linear-gradient(90deg, transparent, #000 26%);
+}
+.wave i {
+  flex: none; width: 2.2px; height: calc(var(--h, 1) * 22px); border-radius: 1.1px; background: #fff;
+  transform: scaleY(0.35); transform-origin: center; animation: bar 0.55s ease-in-out infinite alternate;
+  animation-delay: var(--d, 0s); animation-duration: var(--dur, 0.6s);
+}
+@keyframes bar { to { transform: scaleY(1); } }
+
+/* 识别中:18 px 的轨道点 + 流光文字 */
+.p-proc { gap: 8px; padding: 0 14px; }
+.orbit { position: relative; flex: none; width: 18px; height: 18px; animation: orbitSpin 1.15s linear infinite; }
+.orbit i {
+  position: absolute; left: 50%; top: 50%; width: 4.2px; height: 4.2px; margin: -2.1px; border-radius: 50%;
+  background: #fff; opacity: calc(1 - var(--i) * 0.15);
+  transform: rotate(calc(var(--i) * 60deg)) translateY(-7px);
+}
+@keyframes orbitSpin { to { transform: rotate(360deg); } }
+.shimmer {
+  font: 600 12.5px/1 inherit; letter-spacing: 0.01em; white-space: nowrap;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.42) 0 38%, #fff 50%, rgba(255, 255, 255, 0.42) 62% 100%) 0 0 / 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer { to { background-position: -260% 0; } }
+
+/* 已输入 */
+.p-done { gap: 7px; padding: 0 14px; font: 600 12.5px/1 inherit; color: rgba(255, 255, 255, 0.92); white-space: nowrap; }
+.p-done svg { flex: none; width: 15px; height: 15px; }
+.p-done .ok-fill { fill: var(--ok); }
+.p-done .ok-check { fill: none; stroke: #0b0d12; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 字幕条:标题栏 20 + 原文 17 + 译文 19,内边距 10 / 20 / 11(app SubtitleSurface) */
+.p-cap { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; padding: 10px 20px 11px; text-align: left; }
+.cap-head { display: flex; align-items: center; gap: 8px; height: 20px; }
+.live {
+  flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--rec);
+  box-shadow: 0 0 7px rgba(255, 69, 58, 0.7); animation: livePulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes livePulse { from { opacity: 0.55; } to { opacity: 1; } }
+.cap-head .app { font: 600 11px/1 inherit; color: rgba(255, 255, 255, 0.55); }
+.cap-head .chip { font: 600 10px/1 inherit; color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 3px 8px; }
+.cap-spacer { flex: 1; }
+.cap-tools { display: flex; gap: 2px; }
+.cap-tools svg { width: 22px; height: 22px; padding: 5px; fill: none; stroke: rgba(255, 255, 255, 0.62); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.cap-src {
+  font: 500 17px/1.35 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cap-dst {
+  font: 600 19px/1.3 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+/* 进入字幕态时原文先出、译文后到,复刻「边说边译」的节奏 */
+.stage[data-state="cap"] .cap-src { animation: capIn 0.45s var(--ease) both; }
+.stage[data-state="cap"] .cap-dst { animation: capIn 0.5s var(--ease) 0.45s both; }
+@keyframes capIn { from { opacity: 0; transform: translateY(6px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* 录音时的实时文字气泡(app:13.5 medium,内边距 14×8,圆角 14,在胶囊上方 10) */
+.bubble {
+  position: absolute; bottom: 78px; left: 50%; max-width: 430px; padding: 8px 14px;
+  border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(18, 20, 26, 0.8);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  font: 500 13.5px/1.45 inherit; color: rgba(255, 255, 255, 0.92); text-align: center; white-space: nowrap;
+  opacity: 0; visibility: hidden; transform: translate(-50%, 6px) scale(0.94); transform-origin: bottom center;
+  transition: opacity 0.18s, transform 0.2s var(--spring), visibility 0.18s;
+}
+.stage[data-state="rec"] .bubble {
+  opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1);
+}
+
+.stage-hint { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--faint); letter-spacing: 0.01em; transition: opacity 0.2s; }
+.stage[data-state="rec"] .stage-hint, .stage[data-state="proc"] .stage-hint { opacity: 0; }
+
+/* ---------- 下载 ---------- */
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; opacity: 0; animation: rise 0.9s var(--ease) 0.44s both; }
+.dl .lbl, .dl .meta { display: flex; align-items: center; gap: 9px; transition: transform 0.45s var(--ease), opacity 0.3s; }
+.dl .meta { position: absolute; inset: 0; justify-content: center; font-size: 12.5px; font-weight: 600; color: rgba(0, 0, 0, 0.62); transform: translateY(16px); opacity: 0; }
+.dl:hover .lbl { transform: translateY(-16px); opacity: 0; }
+.dl:hover .meta { transform: none; opacity: 1; }
+.line-meta { margin: 18px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.54s both; }
+
+/* ---------- Passport 入口:可选的配套硬件,低调但找得到 ---------- */
+.geek {
+  justify-self: center; align-self: end; display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 22px; padding: 7px 13px 7px 8px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(255, 255, 255, 0.018); color: var(--muted); font-size: 12.5px;
+  opacity: 0; animation: rise 0.9s var(--ease) 0.64s both;
+  transition: border-color 0.3s, background 0.3s, color 0.3s, transform 0.3s var(--spring);
+}
+.geek:hover { border-color: rgba(139, 155, 255, 0.4); background: rgba(139, 155, 255, 0.07); color: var(--fg); transform: translateY(-1px); }
+.geek-icon { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: rgba(139, 155, 255, 0.13); color: var(--accent); }
+.geek-icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.geek-text { display: flex; align-items: baseline; gap: 7px; }
+.geek-text b { font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.geek-text span { font-size: 11.5px; color: var(--faint); }
+.geek-arrow { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--faint); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.3s, stroke 0.3s; }
+.geek:hover .geek-arrow { transform: translateX(3px); stroke: var(--accent); }
+
+/* ---------- 矮屏与窄屏 ---------- */
+@media (max-height: 800px) and (min-width: 761px) {
+  .hero h1 { font-size: clamp(40px, 5.2vw, 60px); }
+  .lede { margin-top: 14px; }
+  .stage { height: 218px; margin-top: 12px; }
+  .cta { margin-top: 16px; }
+  .line-meta { margin-top: 12px; }
+  .geek { margin-bottom: 14px; }
+}
+@media (max-width: 760px) {
+  body.home { height: auto; overflow: auto; }
+  .home .page { height: auto; min-height: 100svh; grid-template-rows: auto 1fr auto; }
+  .hero { padding: 30px var(--gutter) 12px; }
+  .hero h1 { font-size: clamp(36px, 11vw, 50px); }
+  .lede { font-size: 14.5px; margin-top: 16px; }
+  .stage { height: 250px; margin-top: 18px; }
+  .bubble { bottom: 74px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
+  .stage[data-state="cap"] .pill { width: calc(100vw - 40px); height: 124px; }
+  .p-cap { padding: 10px 16px 12px; }
+  .cap-src { font-size: 14px; white-space: normal; }
+  .cap-dst { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .cap-tools { display: none; }
+  .cta { margin-top: 20px; width: 100%; max-width: 340px; }
+  .cta .btn { flex: 1; }
+  .line-meta { font-size: 11.5px; margin-top: 16px; padding: 0 8px; }
+  .geek { margin: 10px auto 26px; }
+  .geek-text span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero h1, .lede, .stage, .cta, .line-meta, .geek { opacity: 1; filter: none; transform: none; }
+  .p-idle, .rec-dot, .live, .shimmer, .orbit, .wave i { animation: none; }
+  .stage[data-state="cap"] .cap-src, .stage[data-state="cap"] .cap-dst { animation: none; }
+  .bubble { transition: none; }
 }

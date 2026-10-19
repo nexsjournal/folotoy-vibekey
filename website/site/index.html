@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>InputBetter — 说出来，就写好了</title>
 <meta name="description" content="InputBetter：macOS 本地语音输入与实时双语字幕。按住快捷键说话，文字落到光标处；选一个应用，它的声音实时变成双语字幕。开源，默认在本机识别，配套 FoloToy AI Passport 硬件。">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#07080c">
 <meta property="og:title" content="InputBetter — 说出来，就写好了">
 <meta property="og:description" content="macOS 本地语音输入与实时双语字幕，开源，默认在本机识别。">
 <meta property="og:image" content="/assets/icon.png">
@@ -15,7 +15,10 @@
 <link rel="stylesheet" href="/assets/home.css">
 </head>
 <body class="home">
-<!-- 首页:照设计稿 v5 方向 B 原样移植(样式与动画说明见 assets/home.css 文件头)。 -->
+<!-- 首页:一屏不滚动。核心是一个可以按住说话的胶囊,松开后文字逐字出现、译文浮现;
+     再按一次切换下一个场景(听写 → 实时字幕 → Passport),在互动里介绍项目。交互逻辑在 home.js。 -->
+<div class="backdrop" aria-hidden="true"><div class="backdrop-grid"></div></div>
+
 <div class="page">
   <header class="nav">
     <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="26" height="26"><span>InputBetter</span></a>
@@ -24,25 +27,79 @@
       <a href="/support/" data-i18n="nav.support">支持</a>
       <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
       <button class="lang" type="button" aria-label="Switch language">EN</button>
+      <a class="btn primary small nav-dl" href="{{DMG_URL}}" data-i18n="cta.short">下载</a>
     </nav>
   </header>
+
   <main class="hero">
     <h1 data-i18n="hero.title">说出来，就写好了。</h1>
-    <div class="btns">
-      <a class="hbtn p" href="{{DMG_URL}}"><span class="main" data-i18n="cta.download">下载 macOS 版</span><span class="alt"><span data-i18n="hero.req">macOS 26+ · Apple 芯片</span> · {{SIZE}}</span></a>
-      <a class="hbtn s" href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    <p class="lede" data-i18n="hero.lede">按住快捷键说话，松开，文字就落到光标处；选一个应用，它的声音会变成实时双语字幕。</p>
+
+    <!-- 演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角见 app/InputBetter/Pill):
+         细胶囊 → 悬停工具条 → 录音波形 + 实时文字 → 识别中 → 已输入 → 展开成字幕条。
+         进来自己演示一遍,也可以按住 / 点一下自己玩。交互与文案在 home.js -->
+    <div class="stage" id="stage" data-state="idle">
+      <div class="bubble" id="bubble" aria-hidden="true">帮我把这段会议纪要整理成三点。</div>
+
+      <button class="pill" id="pill" type="button">
+        <span class="p-idle" aria-hidden="true"></span>
+
+        <span class="p-tools" aria-hidden="true">
+          <span class="tb mic"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></span>
+          <span class="tb-group">
+            <span class="tb rec"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2" class="fill"/></svg></span>
+            <span class="tb chev"><svg viewBox="0 0 24 24"><path d="m6 14.5 6-6 6 6"/></svg></span>
+          </span>
+        </span>
+
+        <span class="p-rec" aria-hidden="true"><i class="rec-dot"></i><span class="wave" id="wave"></span></span>
+
+        <span class="p-proc" aria-hidden="true"><span class="orbit" id="orbit"></span><span class="shimmer" id="procText">正在识别…</span></span>
+
+        <span class="p-done" aria-hidden="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" class="ok-fill"/><path d="m7.5 12.4 3 3 6-6.4" class="ok-check"/></svg>
+          <span id="doneText">已输入</span>
+        </span>
+
+        <span class="p-cap" aria-hidden="true">
+          <span class="cap-head">
+            <i class="live"></i>
+            <span class="app">Chrome</span>
+            <span class="chip" id="capChip">译 · 中文</span>
+            <span class="cap-spacer"></span>
+            <span class="cap-tools">
+              <svg viewBox="0 0 24 24"><path d="M4 6h9M8.5 6v13M15 10h5M17.5 10v9"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M6 4.5h9l3 3v12H6z"/><path d="M9 9h6M9 12.5h6M9 16h4"/></svg>
+              <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+            </span>
+          </span>
+          <span class="cap-src" id="capSrc"></span>
+          <span class="cap-dst" id="capDst"></span>
+        </span>
+      </button>
+
+      <p class="stage-hint" id="stageHint">按住说话 · 点一下也可以</p>
     </div>
+    <p class="sr-only" id="pillStatus" role="status" aria-live="polite"></p>
+
+    <div class="cta">
+      <a class="btn primary dl" href="{{DMG_URL}}">
+        <span class="lbl"><span data-i18n="cta.download">下载 macOS 版</span><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/></svg></span>
+        <span class="meta">{{SIZE}} · macOS 26+ · Apple 芯片</span>
+      </a>
+      <a class="btn ghost" href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <p class="line-meta" data-i18n="meta.line">v{{VERSION}} · macOS 26+ · Apple 芯片 · 本地识别 · MIT 开源</p>
   </main>
-  <div class="feat"><span><b data-i18n="f1.t">听写输入</b><i data-i18n="f1.d">按住 ⌥ 空格说话，松开就输入到光标处</i></span><span><b data-i18n="f2.t">实时双语字幕</b><i data-i18n="f2.d">选一个应用，它的声音实时变成双语字幕</i></span><span><b data-i18n="f3.t">本地识别</b><i data-i18n="f3.d">Whisper、SenseVoice、Apple Speech 都在本机运行</i></span><span><b data-i18n="f4.t">AI Passport</b><i data-i18n="f4.d">配套硬件：按住 OK 说话，上下键回车 / Esc</i></span></div>
-  <div class="dock" aria-hidden="true">
-    <div class="bar glass d-bar"></div>
-    <div class="d-rec"><div class="bubble" data-i18n="demo.bubble">帮我把这段会议纪要整理成三点</div><div class="pill glass"><span class="x">✕</span><span class="reddot"></span><div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="ok">✓</span><span style="width:6px"></span></div></div>
-    <div class="pill glass text d-done"><svg class="check" viewBox="0 0 12 12"><path d="M2 6.4 4.8 9 10 3.2"/></svg> <span data-i18n="pill.done">已输入</span></div>
-    <div class="caption glass d-cap">
-      <div class="src"><span class="w">We have a few </span><span class="w">puzzle games </span><span class="w">you could try, </span><span class="w">and some of them </span><span class="w live">are pretty hard</span></div>
-      <div class="dst"><p class="l1">我们有几个益智游戏你可以试试，</p><p class="l2"><span>其中有些<span class="tent">还挺难的</span></span></p></div>
-    </div>
-  </div>
+
+  <!-- Passport 是可选的配套硬件(主要给喜欢折腾的用户),入口要显眼但不抢注意力 -->
+  <a class="geek" href="/passport/">
+    <span class="geek-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="3"/><path d="M10 6h4M10 18h4"/><path d="M17.8 7.5h.01M17.8 12h.01M17.8 16.5h.01"/></svg>
+    </span>
+    <span class="geek-text"><b data-i18n="geek.title">Passport 硬件</b><span data-i18n="geek.sub">可选的配套硬件，给爱折腾的人</span></span>
+    <svg class="geek-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6.5 18.5 12 13 17.5"/></svg>
+  </a>
 </div>
 
 <script src="/assets/main.js" defer></script>

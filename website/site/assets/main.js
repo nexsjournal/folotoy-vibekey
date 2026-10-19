@@ -1,4 +1,5 @@
-// InputBetter 官网公共脚本:中英文切换、导航状态、滚动浮现、卡片光斑。三个页面共用;每页的动画在各自的脚本里。
+// InputBetter 官网公共脚本:中英文切换、导航状态、滚动进度、滚动浮现、卡片光斑、跟随指针的柔光。
+// 三个页面共用;每页自己的动画在各自的脚本里。
 //
 // 中英文机制:中文写在 HTML 里(data-i18n 的元素,其文本即中文原文),英文在这里的 en 字典;
 // 页面脚本用 IB.i18n.add(en, zh) 追加自己的词条,用 IB.i18n.onChange(fn) 订阅切换。
@@ -83,12 +84,53 @@
     apply();
   }));
 
+  // 跟随指针的一团柔光:只在精确指针、允许动效时开启;用 rAF 缓动,避免直接跟手显得生硬。
+  function cursorGlow() {
+    if (IB.reduceMotion || !matchMedia('(pointer: fine)').matches) return;
+    const backdrop = document.querySelector('.backdrop') || document.body;
+    const glow = document.createElement('div');
+    glow.className = 'cursor-glow';
+    glow.setAttribute('aria-hidden', 'true');
+    backdrop.append(glow);
+    document.documentElement.classList.add('has-cursor');
+    let x = innerWidth / 2, y = innerHeight * 0.35, tx = x, ty = y, raf = 0;
+    const move = (e) => { tx = e.clientX; ty = e.clientY; if (!raf) raf = requestAnimationFrame(tick); };
+    function tick() {
+      raf = 0;
+      x += (tx - x) * 0.12;
+      y += (ty - y) * 0.12;
+      glow.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      if (Math.abs(tx - x) > 0.5 || Math.abs(ty - y) > 0.5) raf = requestAnimationFrame(tick);
+    }
+    addEventListener('pointermove', move, { passive: true });
+    addEventListener('pointerdown', move, { passive: true });
+  }
+
+  // 顶部阅读进度:只给能滚动的页面(首页一屏,不会出现)。
+  function scrollProgress() {
+    const bar = document.createElement('div');
+    bar.className = 'scroll-progress';
+    bar.setAttribute('aria-hidden', 'true');
+    document.body.append(bar);
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.width = max > 8 ? `${Math.min(100, (scrollY / max) * 100)}%` : '0%';
+      bar.style.opacity = max > 8 ? '0.85' : '0';
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onScroll, { passive: true });
+    update();
+  }
+
   // 页面脚本(defer,排在本脚本之后)注册完词条后再统一应用一次,避免先中文后英文的闪烁。
   addEventListener('DOMContentLoaded', () => {
     apply();
 
     const nav = document.querySelector('.nav');
-    const onScroll = () => nav.classList.toggle('scrolled', scrollY > 8);
+    const onScroll = () => nav && nav.classList.toggle('scrolled', scrollY > 8);
     onScroll();
     addEventListener('scroll', onScroll, { passive: true });
 
@@ -100,5 +142,7 @@
       io.observe(el);
     });
     IB.glow('.card');
+    cursorGlow();
+    scrollProgress();
   });
 })();
