@@ -49,10 +49,26 @@
           <span class="vid-time">2:14 / 8:32</span>
         </div>
         <div class="vid-stage">
+          <span class="vid-progress"><i></i></span>
           <span class="vid-orb a"></span><span class="vid-orb b"></span>
-          <span class="vid-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <div class="vid-person">
+            <span class="vid-avatar">AR</span>
+            <span class="vid-name">Alex Rivera</span>
+            <span class="vid-wave" id="vidWave" aria-hidden="true"></span>
+          </div>
         </div>
       </div>
+
+      <div class="app-menu" id="appMenu" aria-hidden="true">
+        <span class="menu-title" data-i18n="menu.title">选择应用的声音</span>
+        <span class="menu-row on"><i class="app-dot chrome"></i><span>Chrome</span><small data-i18n="menu.playing">正在播放</small></span>
+        <span class="menu-row"><i class="app-dot safari"></i><span>Safari</span></span>
+        <span class="menu-row"><i class="app-dot notes"></i><span>Notes</span></span>
+      </div>
+
+      <span class="demo-cursor" id="demoCursor" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4.5 3 20 11.5l-6.4 1.1-3.2 6.4z"/></svg>
+      </span>
 
       <div class="dict-window" id="dictInput" aria-hidden="true">
         <div class="win-bar">

@@ -110,13 +110,49 @@ body.home { height: 100svh; overflow: hidden; }
 .vid-orb.b { width: 320px; height: 320px; right: -60px; top: 10px; background: #3a3a8f; animation: orbB 18s ease-in-out infinite alternate; }
 @keyframes orbA { to { transform: translate(40px, 26px) scale(1.12); } }
 @keyframes orbB { to { transform: translate(-34px, 20px) scale(1.08); } }
-.vid-play {
-  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
-  display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+.vid-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, 0.08); z-index: 2; }
+.vid-progress i { display: block; height: 100%; width: 12%; background: #ff4d4d; animation: vidProg 9s linear infinite; }
+@keyframes vidProg { from { width: 12%; } to { width: 68%; } }
+.vid-person { position: absolute; left: 50%; top: 2%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.vid-avatar {
+  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%;
+  background: linear-gradient(150deg, #5b6b9a, #2b3350); border: 1px solid rgba(255, 255, 255, 0.18);
+  font: 600 16px/1 inherit; color: #dfe4ff; letter-spacing: 0.02em;
 }
-.vid-play svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
+.vid-name { font-size: 11.5px; color: rgba(255, 255, 255, 0.65); }
+.vid-wave { display: flex; align-items: center; gap: 2px; height: 16px; }
+.vid-wave i {
+  width: 2.4px; height: calc(var(--h, 1) * 14px); border-radius: 1.2px; background: #ff5a5a; opacity: 0.85;
+  transform-origin: center; animation: vidBar 0.7s ease-in-out infinite alternate; animation-delay: var(--d, 0s);
+}
+@keyframes vidBar { to { transform: scaleY(0.35); } }
+
+/* 光标 + 应用列表:演示「点胶囊的录应用声音 → 选 Chrome → 字幕条出现」 */
+.demo-cursor {
+  position: absolute; left: 0; top: 0; z-index: 6; width: 22px; height: 22px; opacity: 0;
+  transform: translate(0, 0); transition: transform 0.5s var(--ease), opacity 0.2s;
+  pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.demo-cursor.on { opacity: 1; }
+.demo-cursor svg { width: 22px; height: 22px; fill: #fff; stroke: rgba(0, 0, 0, 0.55); stroke-width: 1.1; stroke-linejoin: round; transition: transform 0.12s; }
+.demo-cursor.click svg { transform: scale(0.82); }
+.app-menu {
+  position: absolute; left: 50%; bottom: 70px; z-index: 5; width: 236px; padding: 6px;
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(20, 22, 28, 0.97);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  opacity: 0; visibility: hidden; transform: translate(-50%, 6px);
+  transition: opacity 0.2s, transform 0.25s var(--spring), visibility 0.2s;
+}
+.app-menu.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.menu-title { display: block; padding: 5px 9px 4px; font-size: 10.5px; color: var(--faint); }
+.menu-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+.menu-row small { margin-left: auto; font-size: 10px; color: var(--faint); }
+.menu-row.on { background: rgba(139, 155, 255, 0.16); color: var(--fg); }
+.menu-row.on small { color: #b9c3ff; }
+.app-dot { flex: none; width: 14px; height: 14px; border-radius: 50%; }
+.app-dot.chrome { background: conic-gradient(#ea4335, #fbbc05, #34a853, #4285f4, #ea4335); }
+.app-dot.safari { background: linear-gradient(135deg, #5cc0ff, #1d6ff2); }
+.app-dot.notes { background: #f7d154; }
 
 /* 屏幕里的目标窗口:一个很小的「笔记」窗口,文字最终落在它的光标处(app 是把文字粘到当前应用) */
 .dict-window {

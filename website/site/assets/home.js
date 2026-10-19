@@ -16,6 +16,7 @@
   const capDst0 = $('capDst0'), capDst1 = $('capDst1'), capDst2 = $('capDst2');
   const dictInput = $('dictInput'), dictPh = $('dictPh'), dictText = $('dictText'), dictTitle = $('dictTitle');
   const wave = $('wave'), orbit = $('orbit');
+  const screen = document.querySelector('.screen'), cursor = $('demoCursor'), appMenu = $('appMenu'), vidWave = $('vidWave');
 
   // 演示文案:中文界面演示英文视频译成中文,英文界面反过来,顺便展示双语字幕
   const demo = {
@@ -51,11 +52,13 @@
     'meta.line': 'v{{VERSION}} · {{SIZE}} · macOS 26+ · Apple silicon · On-device · MIT open source',
     'geek.title': 'Passport hardware',
     'ft.license': 'MIT open source', 'ft.support': 'Support',
+    'menu.title': 'Choose an app’s audio', 'menu.playing': 'Playing',
   }, {
     'hero.eyebrow': 'macOS 语音输入',
     'meta.line': 'v{{VERSION}} · {{SIZE}} · macOS 26+ · Apple 芯片 · 本地识别 · MIT 开源',
     'geek.title': 'Passport 硬件',
     'ft.license': 'MIT 开源', 'ft.support': '支持',
+    'menu.title': '选择应用的声音', 'menu.playing': '正在播放',
   });
 
   let state = 'idle';
@@ -85,6 +88,14 @@
   }
   function startWave() { clearInterval(waveTimer); waveTick(); waveTimer = setInterval(waveTick, 45); }
   function stopWave() { clearInterval(waveTimer); waveTimer = 0; }
+
+  // 视频里说话人的声波
+  for (let i = 0; i < 20; i += 1) {
+    const bar = document.createElement('i');
+    bar.style.setProperty('--h', (0.3 + 0.7 * Math.abs(Math.sin(i * 1.1))).toFixed(2));
+    bar.style.setProperty('--d', `${(-i * 0.05).toFixed(2)}s`);
+    vidWave.append(bar);
+  }
 
   // 轨道点(处理中)
   for (let i = 0; i < 6; i += 1) {
@@ -183,6 +194,48 @@
     headTimer = setTimeout(() => stage.classList.remove('show-head'), 1800);
   }
 
+  /** 字幕的真实入口:把光标移到胶囊上 → 展开工具条 → 点「录应用声音」→ 选 Chrome → 字幕条出现。 */
+  function startCaptionsFlow() {
+    resetDemoExtras();
+    set('tools');
+    const sr = screen.getBoundingClientRect();
+    const pr = pill.getBoundingClientRect();
+    cursorTo(pr.left - sr.left + pr.width / 2 - 4, pr.top - sr.top - 20);
+    cursor.classList.add('on');
+    at(420, () => {
+      const r = pill.getBoundingClientRect();
+      cursorTo(r.left - sr.left + 75, r.top - sr.top + 16);
+    });
+    at(850, () => {
+      cursor.classList.add('click');
+      appMenu.classList.add('on');
+      at(140, () => cursor.classList.remove('click'));
+    });
+    at(1400, () => {
+      const row = appMenu.querySelector('.menu-row.on');
+      if (row) {
+        const rr = row.getBoundingClientRect();
+        cursorTo(rr.left - sr.left + rr.width / 2 - 6, rr.top - sr.top + rr.height / 2 - 3);
+      }
+    });
+    at(1950, () => {
+      cursor.classList.add('click');
+      appMenu.classList.remove('on');
+      at(140, () => cursor.classList.remove('click'));
+    });
+    at(2300, () => {
+      cursor.classList.remove('on');
+      enterCap();
+    });
+  }
+  function cursorTo(x, y) { cursor.style.transform = `translate(${x}px, ${y}px)`; }
+  function resetDemoExtras() {
+    clearTimeout(headTimer);
+    cursor.classList.remove('on', 'click');
+    appMenu.classList.remove('on');
+    stage.classList.remove('show-head');
+  }
+
   // ---------- 自动循环:听写 → 已输入 → 字幕,一遍结束停 1 s 再来 ----------
   function cycle() {
     clearTimers();
@@ -195,15 +248,16 @@
     at(3300, enterProc);
     at(4200, enterDone);
     at(5000, () => set('idle'));
-    at(5600, enterCap);
-    at(12400, () => set('idle'));
-    at(13400, cycle);
+    at(5600, startCaptionsFlow);
+    at(12800, () => set('idle'));
+    at(13800, cycle);
   }
 
   // ---------- 用户按住 / 点击:自己玩一遍 ----------
   function begin() {
     mode = 'manual';
     clearTimers();
+    resetDemoExtras();
     enterRec();
   }
   function finish() {
