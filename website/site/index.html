@@ -32,12 +32,13 @@
   </header>
 
   <main class="hero">
+    <span class="eyebrow" data-i18n="hero.eyebrow">macOS 语音输入</span>
     <h1 data-i18n="hero.title">说出来，就写好了。</h1>
     <p class="lede" data-i18n="hero.lede">按住快捷键说话，松开，文字就落到光标处；选一个应用，它的声音会变成实时双语字幕。</p>
 
     <!-- 演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角见 app/InputBetter/Pill):
-         细胶囊 → 悬停工具条 → 录音波形 + 实时文字 → 识别中 → 已输入 → 展开成字幕条。
-         进来自己演示一遍,也可以按住 / 点一下自己玩。交互与文案在 home.js -->
+         听写场景(悬停工具条 → 录音 + 实时文字 → 识别中 → 已输入)和实时字幕场景(展开成字幕条,
+         原文两行、译文两行)循环演示;按住 / 点一下胶囊可以自己玩一遍。交互与文案在 home.js -->
     <div class="stage" id="stage" data-state="idle">
       <div class="bubble" id="bubble" aria-hidden="true">帮我把这段会议纪要整理成三点。</div>
 
@@ -65,16 +66,22 @@
           <span class="cap-head">
             <i class="live"></i>
             <span class="app">Chrome</span>
-            <span class="chip" id="capChip">译 · 中文</span>
+            <span class="chip" id="capTarget">译 · 中文</span>
+            <span class="chip soft" id="capMethod">系统翻译</span>
+            <span class="chip soft" id="capLines">原文 2 行</span>
             <span class="cap-spacer"></span>
             <span class="cap-tools">
-              <svg viewBox="0 0 24 24"><path d="M4 6h9M8.5 6v13M15 10h5M17.5 10v9"/></svg>
-              <svg viewBox="0 0 24 24"><path d="M6 4.5h9l3 3v12H6z"/><path d="M9 9h6M9 12.5h6M9 16h4"/></svg>
-              <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+              <span class="t" aria-hidden="true">A−</span><span class="t" aria-hidden="true">A+</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5h9l3 3v12H6z"/><path d="M9 9h6M9 12.5h6M9 16h4"/></svg>
+              <span class="divider" aria-hidden="true"></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9.5 6 6 6-6"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
             </span>
           </span>
-          <span class="cap-src" id="capSrc"></span>
-          <span class="cap-dst" id="capDst"></span>
+          <span class="cap-src" id="capSrc"><span id="capSrc1"></span><span id="capSrc2"></span></span>
+          <span class="cap-dst" id="capDst"><span class="old" id="capDst1"></span><span id="capDst2"></span></span>
         </span>
       </button>
 
@@ -92,14 +99,17 @@
     <p class="line-meta" data-i18n="meta.line">v{{VERSION}} · macOS 26+ · Apple 芯片 · 本地识别 · MIT 开源</p>
   </main>
 
-  <!-- Passport 是可选的配套硬件(主要给喜欢折腾的用户),入口要显眼但不抢注意力 -->
-  <a class="geek" href="/passport/">
-    <span class="geek-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="3"/><path d="M10 6h4M10 18h4"/><path d="M17.8 7.5h.01M17.8 12h.01M17.8 16.5h.01"/></svg>
-    </span>
-    <span class="geek-text"><b data-i18n="geek.title">Passport 硬件</b><span data-i18n="geek.sub">可选的配套硬件，给爱折腾的人</span></span>
-    <svg class="geek-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6.5 18.5 12 13 17.5"/></svg>
-  </a>
+  <footer class="footer">
+    <span>© 2026 InputBetter · <span data-i18n="ft.license">MIT 开源</span></span>
+    <nav aria-label="页脚">
+      <a class="passport-link" href="/passport/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="3"/><path d="M10 6h4M10 18h4"/></svg>
+        <span data-i18n="geek.title">Passport 硬件</span>
+      </a>
+      <a href="/support/" data-i18n="ft.support">支持</a>
+      <a href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </footer>
 </div>
 
 <script src="/assets/main.js" defer></script>

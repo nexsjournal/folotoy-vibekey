@@ -1,7 +1,9 @@
 /* 支持页:单列、克制。页头 → 留言表单 → 常见问题(手风琴,grid-template-rows 0fr → 1fr 平滑展开)。
    表单元素 id 与 support.js 一一对应,不要改名。 */
 body.support { background: var(--bg); }
-.sp { max-width: 760px; padding-top: calc(var(--nav-h) + clamp(48px, 8vh, 96px)); padding-bottom: 80px; }
+/* 和 Passport / 首页共用同一个版心与起始高度,内容列窄一些便于阅读 */
+.sp { max-width: var(--max); padding-top: calc(var(--nav-h) + clamp(44px, 8vh, 92px)); padding-bottom: 80px; }
+.sp-head, .sp-form, .sp-faq { max-width: 760px; }
 .sp-head { max-width: 34em; }
 .sp-title { font-size: clamp(32px, 4.2vw, 44px); line-height: 1.1; letter-spacing: -0.035em; margin: 16px 0 14px; }
 .sp-lead { color: var(--muted); font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.7; }

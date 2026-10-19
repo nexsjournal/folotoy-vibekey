@@ -5,7 +5,6 @@
 .pp-hero {
   display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   align-items: center; gap: clamp(28px, 5vw, 72px);
-  min-height: calc(100svh - var(--nav-h) - clamp(60px, 10vh, 120px));
   padding-bottom: clamp(30px, 6vh, 70px);
 }
 .pp-copy > * { opacity: 0; animation: ppUp 0.9s var(--ease) forwards; }

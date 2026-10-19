@@ -1,39 +1,43 @@
-/* 首页:一屏、不滚动。演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角取自 app/InputBetter/Pill):
+/* 首页:一屏、不滚动,页面框架和 Passport / 支持页一致(同一个导航、同一个起始高度、同一个页脚)。
+   演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角取自 app/InputBetter/Pill):
    细胶囊 36×6(idle)→ 悬停工具条(麦克风 46 + 录制 / 菜单 38+30,高 32)→ 录音胶囊(高 34,红点 + 92×22 波形)
-   → 识别中(18 轨道点 + 流光文字)→ ✓ 已输入(高 34)→ 展开成字幕条(宽 540,圆角 18,原文 17 / 译文 19)。
-   所有形态共用同一个胶囊表面,宽度和高度用同一个 spring 过渡,像 app 里的 Liquid Glass 变形。
-   交互与文案在 home.js;窄屏(<760px)允许滚动,只做不溢出的最小适配。 */
+   → 识别中 → ✓ 已输入(高 34)→ 展开成字幕条(宽 680,圆角 18,原文 17×2 行 / 译文 19×2 行,标题栏带翻译方式与工具)。
+   听写和字幕两个场景循环播放,按住 / 点一下胶囊可以自己玩;交互与文案在 home.js。
+   窄屏(<760px)允许滚动,只做不溢出的最小适配。 */
 body.home { height: 100svh; overflow: hidden; }
-.home .page { position: relative; z-index: 1; height: 100svh; display: grid; grid-template-rows: var(--nav-h) minmax(0, 1fr) auto; }
-.home .nav { position: relative; background: none; border: 0; }
+.home .page { position: relative; z-index: 1; height: 100svh; padding: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.home .nav { background: none; border: 0; }
 .home .nav-links a:not(.btn) { color: rgba(255, 255, 255, 0.5); }
 .home .nav-links a:not(.btn):hover { color: #fff; }
 .nav-dl { margin-left: 2px; }
 
-/* ---------- 标语 ---------- */
+/* ---------- 页面头部:和其他页一样的起始高度与 eyebrow ---------- */
 .hero {
-  position: relative; min-height: 0; padding: 0 var(--gutter);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  position: relative; min-height: 0;
+  padding: calc(var(--nav-h) + clamp(44px, 8vh, 92px)) var(--gutter) 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center;
 }
+.hero .eyebrow { justify-content: center; text-transform: none; letter-spacing: 0.12em; opacity: 0; animation: rise 0.8s var(--ease) 0.02s both; }
+.hero .eyebrow::after { content: ""; width: 20px; height: 1px; background: currentColor; opacity: 0.75; }
 .hero h1 {
-  margin: 0; font-size: clamp(44px, 6.4vw, 88px); line-height: 1.04; letter-spacing: -0.048em; font-weight: 600;
+  margin: 16px 0 0; font-size: clamp(42px, 6.2vw, 84px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
   background: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%) 0 0 / 240% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: rise 0.95s var(--ease) 0.05s both, titleSheen 9s ease-in-out 2.2s infinite;
+  animation: rise 0.95s var(--ease) 0.1s both, titleSheen 9s ease-in-out 2.2s infinite;
 }
 @keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
 .lede {
-  max-width: min(32em, 86vw); margin: 20px 0 0; color: var(--muted);
+  max-width: min(32em, 86vw); margin: 18px 0 0; color: var(--muted);
   font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7; opacity: 0;
-  animation: rise 0.9s var(--ease) 0.2s both;
+  animation: rise 0.9s var(--ease) 0.24s both;
 }
 @keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
 
 /* ---------- 演示舞台 ---------- */
 .stage {
-  position: relative; width: 100%; height: 240px; margin-top: clamp(16px, 3vh, 28px);
+  position: relative; width: 100%; height: 250px; margin-top: clamp(18px, 3.5vh, 30px);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  opacity: 0; animation: rise 0.9s var(--ease) 0.32s both;
+  opacity: 0; animation: rise 0.9s var(--ease) 0.34s both;
 }
 .pill {
   position: relative; z-index: 2; margin-bottom: 34px; padding: 0; cursor: pointer;
@@ -51,7 +55,7 @@ body.home { height: 100svh; overflow: hidden; }
 .stage[data-state="rec"] .pill { width: 126px; height: 34px; border-radius: 17px; }
 .stage[data-state="proc"] .pill { width: 128px; height: 34px; border-radius: 17px; }
 .stage[data-state="done"] .pill { width: 96px; height: 34px; border-radius: 17px; }
-.stage[data-state="cap"] .pill { width: min(540px, calc(100vw - 48px)); height: 100px; border-radius: 18px; }
+.stage[data-state="cap"] .pill { width: min(680px, calc(100vw - 48px)); height: 150px; border-radius: 18px; }
 .stage[data-state="rec"] .pill,
 .stage[data-state="proc"] .pill,
 .stage[data-state="done"] .pill,
@@ -72,7 +76,7 @@ body.home { height: 100svh; overflow: hidden; }
 .stage[data-state="proc"] .p-proc,
 .stage[data-state="done"] .p-done,
 .stage[data-state="cap"] .p-cap { opacity: 1; visibility: visible; }
-.stage[data-state="cap"] .p-cap { transition-delay: 0.12s; }
+.stage[data-state="cap"] .p-cap { transition-delay: 0.1s; }
 
 /* 空闲:36×6 的玻璃细条,缓慢呼吸(app IdleCapsule) */
 .p-idle {
@@ -105,7 +109,7 @@ body.home { height: 100svh; overflow: hidden; }
 .tb.chev { width: 30px; border-left: 1px solid rgba(255, 255, 255, 0.09); }
 .tb.chev svg { width: 12px; height: 12px; }
 
-/* 录音:红点 + 92×22 波形(高 34,左右各 4) */
+/* 录音:红点 + 92×22 波形(高 34,左右各 4);波形高度由 home.js 每 45 ms 滚动一次 */
 .p-rec { gap: 6px; padding: 0 4px; }
 .rec-dot {
   flex: none; width: 7px; height: 7px; margin-left: 2px; border-radius: 50%; background: var(--rec);
@@ -116,12 +120,7 @@ body.home { height: 100svh; overflow: hidden; }
   display: flex; align-items: center; justify-content: space-between; width: 92px; height: 22px;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 26%); mask-image: linear-gradient(90deg, transparent, #000 26%);
 }
-.wave i {
-  flex: none; width: 2.2px; height: calc(var(--h, 1) * 22px); border-radius: 1.1px; background: #fff;
-  transform: scaleY(0.35); transform-origin: center; animation: bar 0.55s ease-in-out infinite alternate;
-  animation-delay: var(--d, 0s); animation-duration: var(--dur, 0.6s);
-}
-@keyframes bar { to { transform: scaleY(1); } }
+.wave i { flex: none; width: 2.2px; height: calc(var(--h, 0.2) * 22px); border-radius: 1.1px; background: #fff; }
 
 /* 识别中:18 px 的轨道点 + 流光文字 */
 .p-proc { gap: 8px; padding: 0 14px; }
@@ -146,31 +145,32 @@ body.home { height: 100svh; overflow: hidden; }
 .p-done .ok-fill { fill: var(--ok); }
 .p-done .ok-check { fill: none; stroke: #0b0d12; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* 字幕条:标题栏 20 + 原文 17 + 译文 19,内边距 10 / 20 / 11(app SubtitleSurface) */
+/* 字幕条:标题栏 20 + 原文 17×2 行 + 译文 19×2 行,内边距 10 / 20 / 11(app SubtitleSurface) */
 .p-cap { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; padding: 10px 20px 11px; text-align: left; }
-.cap-head { display: flex; align-items: center; gap: 8px; height: 20px; }
+.cap-head { display: flex; align-items: center; gap: 8px; height: 20px; animation: capIn 0.4s var(--ease) 0.12s both; }
 .live {
   flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--rec);
   box-shadow: 0 0 7px rgba(255, 69, 58, 0.7); animation: livePulse 0.9s ease-in-out infinite alternate;
 }
 @keyframes livePulse { from { opacity: 0.55; } to { opacity: 1; } }
 .cap-head .app { font: 600 11px/1 inherit; color: rgba(255, 255, 255, 0.55); }
-.cap-head .chip { font: 600 10px/1 inherit; color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 3px 8px; }
+.cap-head .chip { flex: none; font: 600 10px/1 inherit; color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+.cap-head .chip.soft { color: rgba(255, 255, 255, 0.52); border-color: rgba(255, 255, 255, 0.16); }
 .cap-spacer { flex: 1; }
-.cap-tools { display: flex; gap: 2px; }
+.cap-tools { display: flex; align-items: center; gap: 2px; }
+.cap-tools .t { display: grid; place-items: center; width: 22px; height: 22px; font: 600 9.5px/1 inherit; color: rgba(255, 255, 255, 0.7); }
 .cap-tools svg { width: 22px; height: 22px; padding: 5px; fill: none; stroke: rgba(255, 255, 255, 0.62); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.cap-src {
-  font: 500 17px/1.35 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.cap-dst {
-  font: 600 19px/1.3 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.95);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-/* 进入字幕态时原文先出、译文后到,复刻「边说边译」的节奏 */
-.stage[data-state="cap"] .cap-src { animation: capIn 0.45s var(--ease) both; }
-.stage[data-state="cap"] .cap-dst { animation: capIn 0.5s var(--ease) 0.45s both; }
+.cap-tools .divider { width: 1px; height: 14px; margin: 0 4px; background: rgba(255, 255, 255, 0.18); }
+
+.cap-src { display: flex; flex-direction: column; min-width: 0; font: 500 17px/1.35 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.6); }
+.cap-src span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-src span:first-child { animation: capIn 0.45s var(--ease) 0.2s both; }
+.cap-src span:last-child { animation: capIn 0.45s var(--ease) 0.7s both; }
+.cap-dst { display: flex; flex-direction: column; min-width: 0; font: 600 19px/1.3 inherit; letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.95); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.cap-dst span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-dst .old { color: rgba(255, 255, 255, 0.82); }
+.cap-dst span:first-child { animation: capIn 0.5s var(--ease) 1.15s both; }
+.cap-dst span:last-child { animation: capIn 0.5s var(--ease) 1.75s both; }
 @keyframes capIn { from { opacity: 0; transform: translateY(6px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
 
 /* 录音时的实时文字气泡(app:13.5 medium,内边距 14×8,圆角 14,在胶囊上方 10) */
@@ -182,69 +182,62 @@ body.home { height: 100svh; overflow: hidden; }
   opacity: 0; visibility: hidden; transform: translate(-50%, 6px) scale(0.94); transform-origin: bottom center;
   transition: opacity 0.18s, transform 0.2s var(--spring), visibility 0.18s;
 }
-.stage[data-state="rec"] .bubble {
-  opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1);
-}
+.stage[data-state="rec"] .bubble { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); }
 
 .stage-hint { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--faint); letter-spacing: 0.01em; transition: opacity 0.2s; }
 .stage[data-state="rec"] .stage-hint, .stage[data-state="proc"] .stage-hint { opacity: 0; }
 
 /* ---------- 下载 ---------- */
-.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; opacity: 0; animation: rise 0.9s var(--ease) 0.44s both; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 18px; opacity: 0; animation: rise 0.9s var(--ease) 0.46s both; }
 .dl .lbl, .dl .meta { display: flex; align-items: center; gap: 9px; transition: transform 0.45s var(--ease), opacity 0.3s; }
 .dl .meta { position: absolute; inset: 0; justify-content: center; font-size: 12.5px; font-weight: 600; color: rgba(0, 0, 0, 0.62); transform: translateY(16px); opacity: 0; }
 .dl:hover .lbl { transform: translateY(-16px); opacity: 0; }
 .dl:hover .meta { transform: none; opacity: 1; }
-.line-meta { margin: 18px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.54s both; }
+.line-meta { margin: 16px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.56s both; }
 
-/* ---------- Passport 入口:可选的配套硬件,低调但找得到 ---------- */
-.geek {
-  justify-self: center; align-self: end; display: inline-flex; align-items: center; gap: 10px;
-  margin-bottom: 22px; padding: 7px 13px 7px 8px; border: 1px solid var(--line); border-radius: 999px;
-  background: rgba(255, 255, 255, 0.018); color: var(--muted); font-size: 12.5px;
-  opacity: 0; animation: rise 0.9s var(--ease) 0.64s both;
-  transition: border-color 0.3s, background 0.3s, color 0.3s, transform 0.3s var(--spring);
+/* 页脚的 Passport 入口:和其他页共用一个页脚,这里用一个浅色胶囊让它显眼一点 */
+.footer .passport-link {
+  display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; padding: 4px 10px;
+  border: 1px solid rgba(139, 155, 255, 0.28); border-radius: 999px; background: rgba(139, 155, 255, 0.07);
+  color: var(--fg); transition: border-color 0.3s, background 0.3s;
 }
-.geek:hover { border-color: rgba(139, 155, 255, 0.4); background: rgba(139, 155, 255, 0.07); color: var(--fg); transform: translateY(-1px); }
-.geek-icon { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: rgba(139, 155, 255, 0.13); color: var(--accent); }
-.geek-icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.geek-text { display: flex; align-items: baseline; gap: 7px; }
-.geek-text b { font-size: 12.5px; font-weight: 600; color: var(--fg); }
-.geek-text span { font-size: 11.5px; color: var(--faint); }
-.geek-arrow { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--faint); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.3s, stroke 0.3s; }
-.geek:hover .geek-arrow { transform: translateX(3px); stroke: var(--accent); }
+.footer .passport-link svg { width: 12px; height: 12px; fill: none; stroke: var(--accent); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.footer .passport-link:hover { border-color: rgba(139, 155, 255, 0.5); background: rgba(139, 155, 255, 0.13); color: var(--fg); }
 
 /* ---------- 矮屏与窄屏 ---------- */
 @media (max-height: 800px) and (min-width: 761px) {
-  .hero h1 { font-size: clamp(40px, 5.2vw, 60px); }
+  .hero { padding-top: calc(var(--nav-h) + clamp(36px, 6vh, 64px)); }
+  .hero h1 { font-size: clamp(38px, 5vw, 58px); }
   .lede { margin-top: 14px; }
-  .stage { height: 218px; margin-top: 12px; }
-  .cta { margin-top: 16px; }
+  .stage { height: 220px; margin-top: 14px; }
+  .stage[data-state="cap"] .pill { height: 146px; }
+  .p-cap { padding: 8px 20px 9px; gap: 5px; }
+  .cta { margin-top: 14px; }
   .line-meta { margin-top: 12px; }
-  .geek { margin-bottom: 14px; }
 }
 @media (max-width: 760px) {
   body.home { height: auto; overflow: auto; }
-  .home .page { height: auto; min-height: 100svh; grid-template-rows: auto 1fr auto; }
-  .hero { padding: 30px var(--gutter) 12px; }
-  .hero h1 { font-size: clamp(36px, 11vw, 50px); }
-  .lede { font-size: 14.5px; margin-top: 16px; }
-  .stage { height: 250px; margin-top: 18px; }
-  .bubble { bottom: 74px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
-  .stage[data-state="cap"] .pill { width: calc(100vw - 40px); height: 124px; }
-  .p-cap { padding: 10px 16px 12px; }
-  .cap-src { font-size: 14px; white-space: normal; }
-  .cap-dst { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .home .page { height: auto; min-height: 100svh; grid-template-rows: 1fr auto; }
+  .hero { padding: 96px var(--gutter) 16px; }
+  .hero h1 { font-size: clamp(34px, 10.5vw, 48px); }
+  .lede { font-size: 14.5px; margin-top: 14px; }
+  .stage { height: 280px; margin-top: 20px; }
+  .bubble { bottom: 78px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
+  .stage[data-state="cap"] .pill { width: calc(100vw - 40px); height: 140px; }
+  .p-cap { padding: 9px 16px 10px; gap: 5px; }
+  .cap-head { gap: 6px; }
+  .cap-head .chip.soft { display: none; }
   .cap-tools { display: none; }
-  .cta { margin-top: 20px; width: 100%; max-width: 340px; }
+  .cap-src { font-size: 14px; }
+  .cap-dst { font-size: 16px; }
+  .cta { margin-top: 18px; width: 100%; max-width: 340px; }
   .cta .btn { flex: 1; }
-  .line-meta { font-size: 11.5px; margin-top: 16px; padding: 0 8px; }
-  .geek { margin: 10px auto 26px; }
-  .geek-text span { display: none; }
+  .line-meta { font-size: 11.5px; margin-top: 14px; padding: 0 8px; }
+  .footer .passport-link { margin-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero h1, .lede, .stage, .cta, .line-meta, .geek { opacity: 1; filter: none; transform: none; }
-  .p-idle, .rec-dot, .live, .shimmer, .orbit, .wave i { animation: none; }
-  .stage[data-state="cap"] .cap-src, .stage[data-state="cap"] .cap-dst { animation: none; }
+  .hero .eyebrow, .hero h1, .lede, .stage, .cta, .line-meta { opacity: 1; filter: none; transform: none; }
+  .p-idle, .rec-dot, .live, .shimmer, .orbit { animation: none; }
+  .cap-head, .cap-src span, .cap-dst span { animation: none; }
   .bubble { transition: none; }
 }

@@ -6,9 +6,9 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `website/site/index.html` | 首页:一屏不滚动。中间是照 app 的状态胶囊 1:1 做的演示(细胶囊 → 悬停工具条 → 录音波形 + 实时文字气泡 → 识别中 → 已输入 → 展开成字幕条),进页面约 0.8 s 自己演一遍,之后停在字幕条;按住 / 点一下可以再演一次。标语、下载 / GitHub 按钮始终在,底下一行版本与系统要求,底部一个低调的 Passport 入口 |
+| `website/site/index.html` | 首页:一屏不滚动,导航 / 页脚 / 起始高度和另外两页一致。中间是照 app 的状态胶囊 1:1 做的演示(细胶囊 → 悬停工具条 → 录音波形 + 逐字出现的实时文字 → 识别中 → 已输入 → 展开成字幕条),听写和实时字幕两个场景循环播放(约 14 s 一轮);按住 / 点一下可以自己玩一遍,之后回到循环。标语、下载 / GitHub 按钮始终在,底下一行版本与系统要求,页脚里放 Passport 入口 |
 | `website/site/passport/index.html` | Passport 页(可选的配套硬件):设备轮播(真实固件截图,鼠标移上去轻微倾斜)、功能卡片、按键表、规格、`#firmware` 网页刷写区;文案明确"没有硬件 app 也完整可用",入口主要给极客用户 |
-| `website/site/support/index.html` | 支持页:一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;页脚是安装包版本与 SHA-256 |
+| `website/site/support/index.html` | 支持页:一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;内容列(760)左对齐到和 Passport / 首页同一个版心,页脚是安装包版本与 SHA-256 |
 | `website/site/assets/style.css`、`main.js` | 三页共用:色彩令牌、背景(点阵 + 冷光)、导航、按钮、页脚、滚动浮现、跟随指针的柔光、顶部阅读进度;中英文切换(`IB.i18n`)。`main.js` 把旧链接 `/#firmware` 转到 `/passport/#firmware` |
 | `website/site/assets/home.*`、`passport.*`、`support.*` | 各页自己的布局、动画与英文词条 |
 | `website/site/assets/passport/*.png` | 设备屏幕截图,由 `firmware/tools/ui-preview/run.sh` 生成后无损压成调色板 PNG(每张 3–10 KB) |
@@ -22,7 +22,7 @@
 
 页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换(首页用 `{{VERSION}}`、`{{DMG_URL}}`、`{{SIZE}}`,支持页页脚用 `{{VERSION}}`、`{{SHA256}}`;`deploy.sh` 的线上校验:首页的下载链接是新安装包、支持页有新 SHA-256)。部署时页面里引用的 `/assets/*.css`、`*.js` 会加上内容哈希 `?v=…`(assets 长缓存,文件一改地址就变,浏览器不会用旧样式 / 脚本配新页面)。中文写在 HTML 里(`data-i18n` 元素的文本就是中文原文),英文在各页脚本通过 `IB.i18n.add` 注册的字典里;默认跟随浏览器语言,可手动切换并记在 localStorage。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
 
-首页演示的尺寸、字号、圆角都照 app 的胶囊来(`app/InputBetter/Pill`:空闲细条 36×6、录音胶囊高 34、字幕条原文 17 / 译文 19、圆角 18),改 app 的胶囊外观时记得同步 `home.css`。
+首页演示的尺寸、字号、圆角都照 app 的胶囊来(`app/InputBetter/Pill`:空闲细条 36×6、录音胶囊高 34、字幕条原文 17×2 行 / 译文 19×2 行、圆角 18;开启翻译后字幕条至少 680 宽,和 app 的 `headerMin` 一致),改 app 的胶囊外观时记得同步 `home.css`。三页共用同一个导航、页脚和起始高度(`--nav-h + clamp(44px, 8vh, 92px)`)。
 
 本地预览:
 
