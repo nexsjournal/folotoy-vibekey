@@ -40,6 +40,19 @@
          听写场景(悬停工具条 → 录音 + 实时文字 → 识别中 → 已输入)和实时字幕场景(展开成字幕条,
          原文两行、译文两行)循环演示;按住 / 点一下胶囊可以自己玩一遍。交互与文案在 home.js -->
     <div class="stage" id="stage" data-state="idle">
+      <div class="screen">
+      <div class="dict-window" id="dictInput" aria-hidden="true">
+        <div class="win-bar">
+          <span class="lights"><i></i><i></i><i></i></span>
+          <span class="win-title" id="dictTitle">笔记</span>
+        </div>
+        <div class="win-body">
+          <span class="ph" id="dictPh">按住快捷键说话，文字会出现在这里</span>
+          <span class="text" id="dictText"></span>
+          <span class="caret" id="dictCaret"></span>
+        </div>
+      </div>
+
       <div class="bubble" id="bubble" aria-hidden="true">帮我把这段会议纪要整理成三点。</div>
 
       <button class="pill" id="pill" type="button">
@@ -64,11 +77,11 @@
 
         <span class="p-cap" aria-hidden="true">
           <span class="cap-head">
-            <i class="live"></i>
+            <span class="live" aria-hidden="true"><i></i></span>
             <span class="app">Chrome</span>
-            <span class="chip" id="capTarget">译 · 中文</span>
-            <span class="chip soft" id="capMethod">系统翻译</span>
-            <span class="chip soft" id="capLines">原文 2 行</span>
+            <span class="chip target" id="capTarget"><span id="capTargetText">译 · 中文</span><i class="sep"></i><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span>
+            <span class="chip soft" id="capMethod"><span id="capMethodText">系统翻译</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span>
+            <span class="chip soft" id="capLines"><span id="capLinesText">原文 2 行</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span>
             <span class="cap-spacer"></span>
             <span class="cap-tools">
               <span class="t" aria-hidden="true">A−</span><span class="t" aria-hidden="true">A+</span>
@@ -81,22 +94,20 @@
             </span>
           </span>
           <span class="cap-src" id="capSrc"><span id="capSrc1"></span><span id="capSrc2"></span></span>
-          <span class="cap-dst" id="capDst"><span class="old" id="capDst1"></span><span id="capDst2"></span></span>
+          <span class="cap-dst" id="capDst"><span class="old" id="capDst0"></span><span class="old" id="capDst1"></span><span id="capDst2"></span></span>
         </span>
       </button>
-
-      <p class="stage-hint" id="stageHint">按住说话 · 点一下也可以</p>
+      </div>
     </div>
     <p class="sr-only" id="pillStatus" role="status" aria-live="polite"></p>
 
     <div class="cta">
       <a class="btn primary dl" href="{{DMG_URL}}">
         <span class="lbl"><span data-i18n="cta.download">下载 macOS 版</span><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/></svg></span>
-        <span class="meta">{{SIZE}} · macOS 26+ · Apple 芯片</span>
       </a>
       <a class="btn ghost" href="https://github.com/racall/InputBetter" target="_blank" rel="noopener">GitHub</a>
     </div>
-    <p class="line-meta" data-i18n="meta.line">v{{VERSION}} · macOS 26+ · Apple 芯片 · 本地识别 · MIT 开源</p>
+    <p class="line-meta" data-i18n="meta.line">v{{VERSION}} · {{SIZE}} · macOS 26+ · Apple 芯片 · 本地识别 · MIT 开源</p>
   </main>
 
   <footer class="footer">

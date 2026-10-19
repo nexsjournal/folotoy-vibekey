@@ -90,7 +90,7 @@ p { margin: 0; }
 .nav-links a[aria-current="page"]::after { right: 0; background: var(--accent); }
 .lang {
   background: none; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted);
-  font: 600 12px/1 inherit; cursor: pointer; padding: 6px 11px; transition: color 0.2s, border-color 0.2s;
+  font-weight: 600; font-size: 12px; line-height: 1; cursor: pointer; padding: 6px 11px; transition: color 0.2s, border-color 0.2s;
 }
 .lang:hover { color: var(--fg); border-color: rgba(255, 255, 255, 0.3); }
 
@@ -105,7 +105,7 @@ p { margin: 0; }
 .btn {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
   height: 46px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer; overflow: hidden;
-  font: 600 15px/1 inherit; white-space: nowrap;
+  font-weight: 600; font-size: 15px; line-height: 1; white-space: nowrap;
   transition: transform 0.4s var(--spring), background 0.3s, border-color 0.3s, box-shadow 0.4s, color 0.3s;
 }
 .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -127,7 +127,7 @@ p { margin: 0; }
 main { flex: 1; width: 100%; }
 .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 .page { padding-top: calc(var(--nav-h) + clamp(44px, 8vh, 92px)); padding-bottom: 96px; }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 600 12px/1 inherit; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 12px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .eyebrow::before { content: ""; width: 20px; height: 1px; background: currentColor; opacity: 0.75; }
 .section { padding: clamp(64px, 10vh, 120px) 0 0; }
 .section-head { max-width: 660px; margin-bottom: clamp(26px, 4vh, 44px); }
