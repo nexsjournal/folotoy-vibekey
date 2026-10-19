@@ -113,11 +113,11 @@ body.home { height: 100svh; overflow: hidden; }
 .vid-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, 0.08); z-index: 2; }
 .vid-progress i { display: block; height: 100%; width: 12%; background: #ff4d4d; animation: vidProg 9s linear infinite; }
 @keyframes vidProg { from { width: 12%; } to { width: 68%; } }
-.vid-person { position: absolute; left: 50%; top: 2%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.vid-person { position: absolute; left: 28px; top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .vid-avatar {
-  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%;
+  display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
   background: linear-gradient(150deg, #5b6b9a, #2b3350); border: 1px solid rgba(255, 255, 255, 0.18);
-  font: 600 16px/1 inherit; color: #dfe4ff; letter-spacing: 0.02em;
+  font-weight: 600; font-size: 14px; line-height: 1; color: #dfe4ff; letter-spacing: 0.02em;
 }
 .vid-name { font-size: 11.5px; color: rgba(255, 255, 255, 0.65); }
 .vid-wave { display: flex; align-items: center; gap: 2px; height: 16px; }
@@ -285,16 +285,17 @@ body.home { height: 100svh; overflow: hidden; }
 .cap-tools svg { width: 24px; height: 22px; padding: 5px 6px; fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .cap-tools .divider { width: 1px; height: 14px; margin: 0 4px; background: rgba(255, 255, 255, 0.18); }
 
-.cap-src { display: flex; flex-direction: column; min-width: 0; font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: 0; color: rgba(255, 255, 255, 0.6); }
+.cap-src { display: flex; flex-direction: column; justify-content: flex-end; min-height: 40.8px; min-width: 0; font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: 0; color: rgba(255, 255, 255, 0.6); }
 .cap-src span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cap-src span:first-child { animation: capIn 0.45s var(--ease) 0.15s both; }
-.cap-src span:last-child { animation: capIn 0.45s var(--ease) 0.5s both; }
-.cap-dst { display: flex; flex-direction: column; gap: 3.8px; min-width: 0; margin-top: 4px; font-weight: 600; font-size: 19px; line-height: 1.2; letter-spacing: 0; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
-.cap-dst span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: capIn 0.5s var(--ease) both; }
-.cap-dst span:nth-child(1) { color: rgba(255, 255, 255, 0.68); animation-delay: 0.8s; }
-.cap-dst span:nth-child(2) { color: rgba(255, 255, 255, 0.82); animation-delay: 1.15s; }
-.cap-dst span:nth-child(3) { color: #fff; animation-delay: 1.55s; }
-@keyframes capIn { from { opacity: 0; transform: translateY(6px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+.cap-dst { position: relative; height: 76px; margin-top: 4px; overflow: hidden; }
+.dst-stack { display: flex; flex-direction: column; gap: 3.8px; transition: transform 0.35s var(--ease); }
+.dst-line {
+  flex: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600; font-size: 19px; line-height: 1.2; letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.95); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  animation: capIn 0.45s var(--ease) both;
+}
+@keyframes capIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
 /* 录音时的实时文字气泡(app:13.5 medium,内边距 14×8,圆角 14,在胶囊上方 10) */
 .bubble {

@@ -12,8 +12,7 @@
   const stage = $('stage'), pill = $('pill'), bubble = $('bubble');
   const procText = $('procText'), doneText = $('doneText'), status = $('pillStatus');
   const capTargetText = $('capTargetText'), capMethodText = $('capMethodText'), capLinesText = $('capLinesText');
-  const capSrc1 = $('capSrc1'), capSrc2 = $('capSrc2');
-  const capDst0 = $('capDst0'), capDst1 = $('capDst1'), capDst2 = $('capDst2');
+  const capSrcLine = $('capSrcLine'), dstStack = $('dstStack');
   const dictInput = $('dictInput'), dictPh = $('dictPh'), dictText = $('dictText'), dictTitle = $('dictTitle');
   const wave = $('wave'), orbit = $('orbit');
   const screen = document.querySelector('.screen'), cursor = $('demoCursor'), appMenu = $('appMenu'), vidWave = $('vidWave');
@@ -26,8 +25,7 @@
       proc: '识别中', done: '已输入', hint: '按住说话 · 点一下也可以',
       label: '语音输入演示：按住说话，松开输入',
       target: '译 · 中文', method: '系统翻译', lines: '原文 2 行',
-      src: ['We have a few puzzle games you could try,', 'and some of them are pretty hard.'],
-      dst: ['这周末要不要一起玩？', '我们有几个益智游戏你可以试试，', '其中有些还挺难的。'],
+
     },
     en: {
       live: 'Summarize these meeting notes in three points.',
@@ -35,11 +33,19 @@
       proc: 'Transcribing', done: 'Typed', hint: 'Hold to talk — or click',
       label: 'Dictation demo: hold to talk, release to type',
       target: '译 · English', method: 'System', lines: '2 source lines',
-      src: ['我们有几个益智游戏你可以试试，', '其中有些还挺难的。'],
-      dst: ['Want to play this weekend?', 'We have a few puzzle games you could try,', 'and some of them are pretty hard.'],
+
     },
   };
   const d = () => demo[IB.lang] || demo.zh;
+
+  // 字幕场景的三句台词:原文逐词出现,译文一行行往上滚(和 app 的滚动字幕一样)
+  const captionScript = [
+    { en: 'We have a few puzzle games you could try,', zh: '我们有几个益智游戏你可以试试，' },
+    { en: 'and some of them are pretty hard.', zh: '其中有些还挺难的。' },
+    { en: 'Want to play one this weekend?', zh: '这个周末要不要玩一个？' },
+  ];
+  const captionSource = (line) => (IB.lang === 'en' ? line.zh : line.en);
+  const captionTranslation = (line) => (IB.lang === 'en' ? line.en : line.zh);
 
   IB.i18n.add({
     'doc.title': 'InputBetter — Just say it.',
@@ -64,7 +70,7 @@
   let state = 'idle';
   let mode = 'auto';
   let timers = [];
-  let liveTimer = 0, liveStart = 0, waveTimer = 0, fieldTimer = 0, headTimer = 0;
+  let liveTimer = 0, liveStart = 0, waveTimer = 0, fieldTimer = 0, headTimer = 0, captionRun = 0;
   const levels = Array.from({ length: 23 }, () => 0.2);
   const bars = [];
 
@@ -135,17 +141,13 @@
     capTargetText.textContent = t.target;
     capMethodText.textContent = t.method;
     capLinesText.textContent = t.lines;
-    capSrc1.textContent = t.src[0];
-    capSrc2.textContent = t.src[1];
-    capDst0.textContent = t.dst[0];
-    capDst1.textContent = t.dst[1];
-    capDst2.textContent = t.dst[2];
     pill.setAttribute('aria-label', t.label);
     if (dictInput.classList.contains('has-text')) {
       clearInterval(fieldTimer);
       fieldTimer = 0;
       dictText.textContent = t.live;
     }
+    if (state === 'cap') enterCap();
     if (state === 'rec') startLive();
     else if (state !== 'proc') bubble.textContent = t.live;
   }
@@ -192,6 +194,73 @@
     stage.classList.add('show-head');
     clearTimeout(headTimer);
     headTimer = setTimeout(() => stage.classList.remove('show-head'), 1800);
+    const run = ++captionRun;
+    if (IB.reduceMotion) fillCaptions();
+    else playCaptions(run);
+  }
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** 原文逐字出现,说完一句把译文推进下面的滚动区。 */
+  async function playCaptions(run) {
+    capSrcLine.textContent = '';
+    dstStack.innerHTML = '';
+    for (const line of captionScript) {
+      if (run !== captionRun) return;
+      capSrcLine.textContent = '';
+      const text = captionSource(line);
+      for (let i = 1; i <= text.length; i += 1) {
+        if (run !== captionRun) return;
+        capSrcLine.textContent = text.slice(0, i);
+        await sleep(18);
+      }
+      if (run !== captionRun) return;
+      await sleep(260);
+      if (run !== captionRun) return;
+      pushTranslation(captionTranslation(line));
+      await sleep(900);
+    }
+  }
+
+  function fillCaptions() {
+    capSrcLine.textContent = captionSource(captionScript[2]);
+    dstStack.innerHTML = '';
+    captionScript.forEach((line) => {
+      const el = document.createElement('span');
+      el.className = 'dst-line';
+      el.textContent = captionTranslation(line);
+      dstStack.append(el);
+    });
+    updateTranslationColors();
+  }
+
+  /** 新译文从下面进,旧的往上滚,只保留三行,亮度按新旧递减。 */
+  function pushTranslation(text) {
+    const el = document.createElement('span');
+    el.className = 'dst-line';
+    el.textContent = text;
+    dstStack.append(el);
+    const lines = [...dstStack.children];
+    if (lines.length > 3) {
+      const first = lines[0];
+      const step = first.getBoundingClientRect().height + 3.8;
+      dstStack.style.transform = `translateY(-${step}px)`;
+      setTimeout(() => {
+        first.remove();
+        dstStack.style.transition = 'none';
+        dstStack.style.transform = 'none';
+        requestAnimationFrame(() => { dstStack.style.transition = ''; });
+      }, 360);
+    }
+    updateTranslationColors();
+  }
+
+  function updateTranslationColors() {
+    const lines = [...dstStack.children];
+    lines.forEach((line, i) => {
+      const age = lines.length - 1 - i;
+      line.style.color = `rgba(255, 255, 255, ${Math.max(0.6, 1 - age * 0.16).toFixed(2)})`;
+    });
   }
 
   /** 字幕的真实入口:把光标移到胶囊上 → 展开工具条 → 点「录应用声音」→ 选 Chrome → 字幕条出现。 */
@@ -231,6 +300,10 @@
   function cursorTo(x, y) { cursor.style.transform = `translate(${x}px, ${y}px)`; }
   function resetDemoExtras() {
     clearTimeout(headTimer);
+    captionRun += 1;
+    capSrcLine.textContent = '';
+    dstStack.innerHTML = '';
+    dstStack.style.transform = 'none';
     cursor.classList.remove('on', 'click');
     appMenu.classList.remove('on');
     stage.classList.remove('show-head');
@@ -249,8 +322,8 @@
     at(4200, enterDone);
     at(5000, () => set('idle'));
     at(5600, startCaptionsFlow);
-    at(12800, () => set('idle'));
-    at(13800, cycle);
+    at(14800, () => set('idle'));
+    at(15800, cycle);
   }
 
   // ---------- 用户按住 / 点击:自己玩一遍 ----------
