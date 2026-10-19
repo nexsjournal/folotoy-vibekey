@@ -36,10 +36,16 @@ body.home { height: 100svh; overflow: hidden; }
   background-repeat: no-repeat;
   -webkit-background-clip: text; background-clip: text;
   transform-origin: 50% 100%; backface-visibility: hidden;
+  animation: charGlow 6s ease-in-out infinite;
+  animation-delay: calc(1.6s + var(--i) * 0.09s);
 }
 .hero h1.split.play .char {
-  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: calc(0.1s + var(--i) * 0.04s);
+  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both, charGlow 6s ease-in-out infinite;
+  animation-delay: calc(0.1s + var(--i) * 0.04s), calc(1.6s + var(--i) * 0.09s);
+}
+@keyframes charGlow {
+  0%, 56%, 100% { text-shadow: none; }
+  70% { text-shadow: 0 0 22px rgba(174, 185, 255, 0.85), 0 0 46px rgba(174, 185, 255, 0.35); }
 }
 @keyframes charFlip {
   from { transform: translateY(0.42em) rotateX(-55deg); filter: blur(7px); }
@@ -48,9 +54,9 @@ body.home { height: 100svh; overflow: hidden; }
 /* 高光扫过:一层只裁到文字的高光,叠加在渐变字上 */
 .hero h1.split::after {
   content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.95) 50%, transparent 62%) 0 0 / 260% 100% no-repeat;
+  background: linear-gradient(100deg, transparent 38%, rgba(190, 200, 255, 0.95) 50%, transparent 62%) 0 0 / 260% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: sheen 6s ease-in-out 1.7s infinite;
+  animation: sheen 5s ease-in-out 1.2s infinite;
 }
 @keyframes sheen { 0%, 24% { background-position: 120% 0; } 56%, 100% { background-position: -20% 0; } }
 @keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
@@ -125,8 +131,8 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* 字幕场景:Chrome 里正在播放的视频,双语字幕浮在视频下方(和 app 的字幕条一样) */
 .video-window {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1;
-  width: min(760px, 86%); height: 220px; overflow: hidden;
+  position: absolute; inset: 0; z-index: 1;
+  width: auto; height: auto; overflow: hidden;
   border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0c0e13;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0.35s;
@@ -159,7 +165,7 @@ body.home { height: 100svh; overflow: hidden; }
 .vc-track { flex: 1; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
 .vc-track i { display: block; width: 26%; height: 100%; background: #ff4d4d; }
 .vc-fs svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.vid-person { position: absolute; left: 50%; top: calc(50% - 15px); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.vid-person { position: absolute; left: 50%; top: calc((100% - 181px) / 2 - 44px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
 .vid-avatar {
   display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
   background: linear-gradient(150deg, #5b6b9a, #2b3350); border: 1px solid rgba(255, 255, 255, 0.18);
@@ -299,9 +305,9 @@ body.home { height: 100svh; overflow: hidden; }
    默认只显示字幕(无标题栏,和 app 一样),鼠标移上去 / 刚展开时显示标题栏;
    宽 570(默认字号下 app 的 maxWidth),内边距 20 / 上 9(有标题栏 10) / 下 11,
    原文 17×2 行,译文 19×3 行、行距 3.8,亮度按新旧 1 / 0.82 / 0.68。 */
-.stage[data-state="cap"] .pill { width: min(570px, 88%); height: 141px; border-radius: 18px; }
+.stage[data-state="cap"] .pill { width: min(570px, 88%); height: 141px; border-radius: 18px; margin-bottom: 40px; }
 .stage[data-state="cap"] .pill:hover,
-.stage[data-state="cap"].show-head .pill { height: 168px; }
+.stage[data-state="cap"].show-head .pill { height: 168px; margin-bottom: 40px; }
 .p-cap { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; padding: 9px 20px 11px; text-align: left; }
 .stage[data-state="cap"] .pill:hover .p-cap,
 .stage[data-state="cap"].show-head .p-cap { padding-top: 10px; }
@@ -379,9 +385,8 @@ body.home { height: 100svh; overflow: hidden; }
   .lede { margin-top: 14px; }
   .stage { margin-top: 18px; }
   .screen { height: 361px; }
-  .video-window { width: min(620px, 86%); height: 160px; }
-  .stage[data-state="cap"] .pill { height: 118px; }
-  .stage[data-state="cap"] .pill:hover { height: 145px; }
+  .stage[data-state="cap"] .pill { height: 118px; margin-bottom: 36px; }
+  .stage[data-state="cap"] .pill:hover { height: 145px; margin-bottom: 36px; }
   .cap-src { min-height: 20.4px; }
   .dict-window { top: 30px; width: 72%; height: 106px; }
   .win-bar { height: 30px; }
@@ -399,10 +404,9 @@ body.home { height: 100svh; overflow: hidden; }
   .stage { margin-top: 18px; }
   .screen { width: calc(100vw - 24px); height: 390px; }
   .bubble { bottom: 66px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
-  .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; }
-  .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 155px; }
+  .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; margin-bottom: 36px; }
+  .stage[data-state="cap"] .pill:hover { height: 155px; margin-bottom: 36px; }
   .dict-window { top: 40px; width: 86%; height: 120px; }
-  .video-window { width: 92%; height: 190px; }
   .win-body { font-size: 14px; }
   .p-cap { padding: 9px 16px 10px; gap: 5px; }
   .cap-head { gap: 6px; }

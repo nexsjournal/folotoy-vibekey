@@ -420,6 +420,16 @@
 
   IB.i18n.onChange(render);
   render();
+  // 标题不是只演一次:每 9 秒重放逐字入场,配合常驻光波
+  if (!IB.reduceMotion) {
+    setInterval(() => {
+      const h1 = document.querySelector('.hero h1');
+      if (!h1 || !h1.classList.contains('split') || document.hidden) return;
+      h1.classList.remove('play');
+      void h1.offsetWidth;
+      h1.classList.add('play');
+    }, 9000);
+  }
   if (IB.reduceMotion) set('cap');
   else cycle();
 })();
