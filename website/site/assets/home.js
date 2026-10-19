@@ -314,7 +314,9 @@
     fx.canvas.height = Math.round(h * dpr);
     fx.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { points } = sampleTitlePoints(chars);
-    const count = window.innerWidth < 1100 ? 1100 : 1800;
+    const area = textWidth * textHeight;
+    const baseCount = Math.min(1800, Math.max(650, Math.round(area / 28)));
+    const count = window.innerWidth < 1100 ? Math.round(baseCount * 0.7) : baseCount;
     const shuffled = points.slice();
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
