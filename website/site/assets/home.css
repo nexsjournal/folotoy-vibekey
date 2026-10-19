@@ -17,7 +17,7 @@ body.home { height: 100svh; overflow: hidden; }
   padding: calc(var(--nav-h) + 14px) var(--gutter) 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
 }
-.hero .eyebrow { justify-content: center; text-transform: none; letter-spacing: 0.12em; opacity: 0; animation: rise 0.8s var(--ease) 0.02s both; }
+.hero .eyebrow { justify-content: center; text-transform: none; letter-spacing: 0.12em; animation: rise 0.8s var(--ease) 0.02s both; }
 .hero .eyebrow::after { content: ""; width: 20px; height: 1px; background: currentColor; opacity: 0.75; }
 .hero h1 {
   margin: 14px 0 0; font-size: clamp(42px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
@@ -31,13 +31,13 @@ body.home { height: 100svh; overflow: hidden; }
   font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7; opacity: 0;
   animation: rise 0.9s var(--ease) 0.24s both;
 }
-@keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes rise { from { transform: translateY(12px); filter: blur(5px); } to { transform: none; filter: none; } }
 
 /* ---------- 演示舞台 ---------- */
 .stage {
   position: relative; width: 100%; margin-top: 24px;
   display: flex; justify-content: center;
-  opacity: 0; animation: rise 0.9s var(--ease) 0.34s both;
+  animation: rise 0.9s var(--ease) 0.34s both;
 }
 /* 一块 Mac 屏幕:顶部菜单栏(右侧是 InputBetter 的麦克风状态项),窗口在中间,胶囊浮在底部 */
 .menubar {
@@ -120,18 +120,27 @@ body.home { height: 100svh; overflow: hidden; }
 .vid-bar .lights i:nth-child(1) { background: #ff5f57; }
 .vid-bar .lights i:nth-child(2) { background: #febc2e; }
 .vid-bar .lights i:nth-child(3) { background: #28c840; }
-.vid-tab { flex: none; padding: 2px 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; }
+.vid-tab { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; }
+.vid-tab .yt { display: grid; place-items: center; width: 14px; height: 10px; border-radius: 3px; background: #ff0033; }
+.vid-tab .yt svg { width: 6px; height: 6px; fill: #fff; }
 .vid-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: 11px; }
 .vid-time { flex: none; color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .vid-stage { position: relative; height: calc(100% - 34px); overflow: hidden; background: linear-gradient(160deg, #0b1420, #111a2a 45%, #0a0e14); }
+.vid-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 110% at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.45)); }
 .vid-orb { position: absolute; border-radius: 50%; filter: blur(42px); opacity: 0.55; }
 .vid-orb.a { width: 360px; height: 360px; left: -70px; top: -60px; background: #2c6f7a; animation: orbA 14s ease-in-out infinite alternate; }
 .vid-orb.b { width: 320px; height: 320px; right: -60px; top: 10px; background: #3a3a8f; animation: orbB 18s ease-in-out infinite alternate; }
-@keyframes orbA { to { transform: translate(40px, 26px) scale(1.12); } }
-@keyframes orbB { to { transform: translate(-34px, 20px) scale(1.08); } }
-.vid-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, 0.08); z-index: 2; }
-.vid-progress i { display: block; height: 100%; width: 12%; background: #ff4d4d; animation: vidProg 9s linear infinite; }
-@keyframes vidProg { from { width: 12%; } to { width: 68%; } }
+.vid-controls {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 30px; padding: 0 12px;
+  display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.72);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+}
+.vc-play { display: grid; place-items: center; width: 14px; height: 14px; }
+.vc-play svg { width: 11px; height: 11px; fill: currentColor; }
+.vc-time { font-variant-numeric: tabular-nums; }
+.vc-track { flex: 1; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+.vc-track i { display: block; width: 26%; height: 100%; background: #ff4d4d; }
+.vc-fs svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 .vid-person { position: absolute; left: 28px; top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .vid-avatar {
   display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
@@ -329,12 +338,12 @@ body.home { height: 100svh; overflow: hidden; }
 
 
 /* ---------- 下载 ---------- */
-.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; opacity: 0; animation: rise 0.9s var(--ease) 0.46s both; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; animation: rise 0.9s var(--ease) 0.46s both; }
 .dl .lbl { display: flex; align-items: center; gap: 9px; }
 .dl:hover .lbl svg { animation: nudge 0.55s var(--ease); }
 .dl:hover { box-shadow: 0 0 0 6px rgba(139, 155, 255, 0.1), 0 18px 46px rgba(0, 0, 0, 0.55); }
 @keyframes nudge { 0%, 100% { transform: none; } 35% { transform: translateY(4px); } 70% { transform: translateY(-1px); } }
-.line-meta { margin: 14px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.56s both; }
+.line-meta { margin: 14px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; animation: rise 0.9s var(--ease) 0.56s both; }
 
 /* 页脚的 Passport 入口:和其他页共用一个页脚,这里用一个浅色胶囊让它显眼一点 */
 .footer .passport-link {
