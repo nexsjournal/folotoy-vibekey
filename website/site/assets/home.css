@@ -141,7 +141,7 @@ body.home { height: 100svh; overflow: hidden; }
 .vc-track { flex: 1; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
 .vc-track i { display: block; width: 26%; height: 100%; background: #ff4d4d; }
 .vc-fs svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.vid-person { position: absolute; left: 28px; top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.vid-person { position: absolute; left: 50%; top: calc(50% - 15px); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
 .vid-avatar {
   display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
   background: linear-gradient(150deg, #5b6b9a, #2b3350); border: 1px solid rgba(255, 255, 255, 0.18);
