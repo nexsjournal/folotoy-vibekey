@@ -25,40 +25,37 @@ body.home { height: 100svh; overflow: hidden; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: rise 0.95s var(--ease) 0.1s both, titleSheen 9s ease-in-out 2.2s infinite;
 }
+/* 标题上缓慢移动的渐变光带:每个字带同一段渐变,靠 --shift 让整条光带连续移动 */
+@property --shift {
+  syntax: "<length>"; inherits: true; initial-value: 0px;
+}
 /* 逐字入场:每个字带自己那一段渐变(静止时拼成一条连续的渐变),3D 翻起 */
 .hero h1.split {
-  background: none; white-space: nowrap; perspective: 900px; animation: none;
-  clip-path: none;
+  background: none; white-space: nowrap; perspective: 900px; clip-path: none;
+  --shift: 0px;
+  animation: bandShift 5s linear infinite;
+}
+@keyframes bandShift {
+  from { --shift: 0px; }
+  to { --shift: calc(var(--w, 400px) * -1); }
 }
 .hero h1.split .char {
   display: inline-block; white-space: pre; color: transparent;
-  background-image: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%);
-  background-repeat: no-repeat;
+  background-image: linear-gradient(100deg, #fff 0 34%, #8b9bff 48%, #fff 62% 100%);
+  background-repeat: repeat;
+  background-position: calc(var(--off, 0px) + var(--shift)) 0;
   -webkit-background-clip: text; background-clip: text;
   transform-origin: 50% 100%; backface-visibility: hidden;
-  animation: charGlow 6s ease-in-out infinite;
-  animation-delay: calc(1.6s + var(--i) * 0.09s);
 }
 .hero h1.split.play .char {
-  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both, charGlow 6s ease-in-out infinite;
-  animation-delay: calc(0.1s + var(--i) * 0.04s), calc(1.6s + var(--i) * 0.09s);
+  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(0.1s + var(--i) * 0.04s);
 }
-@keyframes charGlow {
-  0%, 56%, 100% { text-shadow: none; }
-  70% { text-shadow: 0 0 22px rgba(174, 185, 255, 0.85), 0 0 46px rgba(174, 185, 255, 0.35); }
-}
+
 @keyframes charFlip {
   from { transform: translateY(0.42em) rotateX(-55deg); filter: blur(7px); }
   to { transform: none; filter: none; }
 }
-/* 高光扫过:一层只裁到文字的高光,叠加在渐变字上 */
-.hero h1.split::after {
-  content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 38%, rgba(190, 200, 255, 0.95) 50%, transparent 62%) 0 0 / 260% 100% no-repeat;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: sheen 5s ease-in-out 1.2s infinite;
-}
-@keyframes sheen { 0%, 24% { background-position: 120% 0; } 56%, 100% { background-position: -20% 0; } }
 @keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
 .lede {
   max-width: min(32em, 86vw); margin: 16px 0 0; color: var(--muted);

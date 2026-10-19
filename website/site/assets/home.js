@@ -165,11 +165,12 @@
       const last = chars[chars.length - 1].getBoundingClientRect();
       const width = last.right - first.left;
       if (width <= 0) return;
+      h1.style.setProperty('--w', `${width}px`);
       chars.forEach((span, i) => {
         span.style.setProperty('--i', String(i));
         const r = span.getBoundingClientRect();
         span.style.backgroundSize = `${width}px 100%`;
-        span.style.backgroundPosition = `-${r.left - first.left}px 0`;
+        span.style.setProperty('--off', `${-(r.left - first.left)}px`);
       });
       if (!reflow) h1.classList.add('play');
     };
