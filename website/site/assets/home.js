@@ -172,7 +172,6 @@
         span.style.backgroundSize = `${width}px 100%`;
         span.style.setProperty('--off', `${-(r.left - first.left)}px`);
       });
-      if (!reflow) h1.classList.add('play');
       requestAnimationFrame(refreshTitleFx);
     };
     requestAnimationFrame(measure);
@@ -239,33 +238,71 @@
       const dx = p.x - fx.pointer.x;
       const dy = p.y - fx.pointer.y;
       const d = Math.hypot(dx, dy) || 1;
-      const force = 3 + Math.random() * 4;
+      const force = 3.4 + Math.random() * 4.6;
       p.vx += (dx / d) * force;
       p.vy += (dy / d) * force;
     }
   }
 
-  /** 重新按标题文字范围排布光尘;跨断点、换语言、窗口缩放时都会重来一次。 */
+  /** 从标题字形里采样粒子坐标:粒子组成文字,hover 散开,移出回位。 */
+  function sampleTitlePoints(chars) {
+    const first = chars[0];
+    const last = chars[chars.length - 1];
+    const textLeft = first.offsetLeft;
+    const textTop = first.offsetTop;
+    const width = last.offsetLeft + last.offsetWidth - textLeft;
+    const height = Math.max(...chars.map((c) => c.offsetHeight));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(width * dpr);
+    canvas.height = Math.ceil(height * dpr);
+    const g = canvas.getContext('2d');
+    g.scale(dpr, dpr);
+    const style = getComputedStyle(first);
+    g.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    for (const ch of chars) {
+      g.fillText(ch.textContent, ch.offsetLeft - textLeft, ch.offsetTop - textTop + ch.offsetHeight / 2);
+    }
+    const data = g.getImageData(0, 0, canvas.width, canvas.height).data;
+    const points = [];
+    const step = 3;
+    for (let y = 0; y < canvas.height; y += step) {
+      for (let x = 0; x < canvas.width; x += step) {
+        if (data[(y * canvas.width + x) * 4 + 3] > 110) {
+          points.push({ x: x / dpr, y: y / dpr });
+        }
+      }
+    }
+    return { points, width, height };
+  }
+
+  /** 重新按标题字形排布粒子;跨断点、换语言、窗口缩放时都会重来一次。 */
   function refreshTitleFx() {
     if (!fx.ctx) return;
     const h1 = document.querySelector('.hero h1');
     const chars = h1 ? [...h1.querySelectorAll('.char')] : [];
-    if (!chars.length || IB.reduceMotion || window.matchMedia('(max-width: 760px)').matches) {
+    const disable = () => {
+      h1.classList.remove('fx-ready');
       fx.el.style.display = 'none';
       fx.particles = [];
+    };
+    if (!chars.length || IB.reduceMotion || window.matchMedia('(max-width: 760px)').matches) {
+      disable();
       return;
     }
     fx.el.style.display = '';
     const first = chars[0];
     const last = chars[chars.length - 1];
-    // 用 layout 偏移,不用 getBoundingClientRect:入场动画的 transform 会让它测歪
     const textLeft = first.offsetLeft;
-    const textRight = last.offsetLeft + last.offsetWidth;
     const textTop = first.offsetTop;
-    const textH = Math.max(first.offsetHeight, last.offsetHeight);
+    const textWidth = last.offsetLeft + last.offsetWidth - textLeft;
+    const textHeight = Math.max(...chars.map((c) => c.offsetHeight));
     const padX = 54, padTop = 30, padBottom = 30;
-    const w = textRight - textLeft + padX * 2;
-    const h = textH + padTop + padBottom;
+    const w = textWidth + padX * 2;
+    const h = textHeight + padTop + padBottom;
     fx.el.style.left = `${h1.offsetLeft + textLeft - padX}px`;
     fx.el.style.top = `${h1.offsetTop + textTop - padTop}px`;
     fx.el.style.width = `${w}px`;
@@ -276,20 +313,27 @@
     fx.canvas.width = Math.round(w * dpr);
     fx.canvas.height = Math.round(h * dpr);
     fx.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const inner = { x: padX, y: padTop, w: w - padX * 2, h: h - padTop - padBottom };
-    const count = window.innerWidth < 1100 ? 54 : 96;
-    fx.particles = Array.from({ length: count }, () => {
-      const x = inner.x + Math.random() * inner.w;
-      const y = inner.y + Math.random() * inner.h;
+    const { points } = sampleTitlePoints(chars);
+    const count = window.innerWidth < 1100 ? 1100 : 1800;
+    const shuffled = points.slice();
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    fx.particles = shuffled.slice(0, Math.min(count, shuffled.length)).map((pt) => {
+      const hx = pt.x + padX;
+      const hy = pt.y + padTop;
       return {
-        hx: x, hy: y, x, y, vx: 0, vy: 0,
-        r: 0.8 + Math.random() * 1.7,
-        amp: 4 + Math.random() * 10,
-        speed: 0.15 + Math.random() * 0.3,
+        hx, hy,
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: 0, vy: 0,
+        r: 0.8 + Math.random() * 0.8,
         phase: Math.random() * Math.PI * 2,
-        alpha: 0.3 + Math.random() * 0.6,
+        alpha: 0.55 + Math.random() * 0.4,
       };
     });
+    h1.classList.add('fx-ready');
     fx.ctx.clearRect(0, 0, w, h);
   }
 
@@ -309,23 +353,24 @@
         const dx = p.x - fx.pointer.x;
         const dy = p.y - fx.pointer.y;
         const d = Math.hypot(dx, dy) || 1;
-        if (d < 150) {
-          const force = (1 - d / 150) * 0.7;
+        if (d < 170) {
+          const force = (1 - d / 170) * 0.85;
           p.vx += (dx / d) * force;
           p.vy += (dy / d) * force;
         }
       }
-      const tx = p.hx + Math.cos(t * p.speed + p.phase) * p.amp;
-      const ty = p.hy + Math.sin(t * p.speed * 0.9 + p.phase) * p.amp * 0.55;
-      p.vx += (tx - p.x) * 0.016;
-      p.vy += (ty - p.y) * 0.016;
-      p.vx *= 0.9;
-      p.vy *= 0.9;
+      const tx = p.hx + Math.sin(t * 0.8 + p.phase) * 0.8;
+      const ty = p.hy + Math.cos(t * 0.7 + p.phase) * 0.8;
+      p.vx += (tx - p.x) * 0.03;
+      p.vy += (ty - p.y) * 0.03;
+      p.vx *= 0.86;
+      p.vy *= 0.86;
       p.x += p.vx;
       p.y += p.vy;
-      const twinkle = 0.75 + 0.25 * Math.sin(t * 1.7 + p.phase);
-      ctx.globalAlpha = Math.min(1, p.alpha * twinkle * (fx.hovered ? 1.25 : 1));
-      const size = p.r * 6;
+      const flow = 0.72 + 0.28 * Math.sin(p.hx * 0.02 - t * 1.4);
+      const twinkle = 0.85 + 0.15 * Math.sin(t * 2 + p.phase);
+      ctx.globalAlpha = Math.min(1, p.alpha * flow * twinkle * (fx.hovered ? 1.15 : 1));
+      const size = p.r * 5;
       ctx.drawImage(sprite, p.x - size / 2, p.y - size / 2, size, size);
     }
     ctx.globalAlpha = 1;
@@ -576,16 +621,6 @@
   IB.i18n.onChange(render);
   render();
   bindTitleFx();
-  // 标题不是只演一次:每 9 秒重放逐字入场,配合常驻光波
-  if (!IB.reduceMotion) {
-    setInterval(() => {
-      const h1 = document.querySelector('.hero h1');
-      if (!h1 || !h1.classList.contains('split') || document.hidden) return;
-      h1.classList.remove('play');
-      void h1.offsetWidth;
-      h1.classList.add('play');
-    }, 9000);
-  }
   if (IB.reduceMotion) set('cap');
   else cycle();
 })();

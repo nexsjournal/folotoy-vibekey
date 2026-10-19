@@ -51,8 +51,8 @@ body.home { height: 100svh; overflow: hidden; }
   animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   animation-delay: calc(0.1s + var(--i) * 0.04s);
 }
-.hero h1.split .char { transition: transform 0.35s var(--ease); }
-.hero h1.split:hover .char { transform: translateY(-2px); }
+.hero h1.fx-ready { color: transparent; }
+.hero h1.fx-ready .char { background-image: none; }
 
 /* 标题粒子层:光尘在字周围漂浮,鼠标移入被吹散,移出弹回 */
 .title-fx { position: absolute; z-index: 2; pointer-events: none; }
