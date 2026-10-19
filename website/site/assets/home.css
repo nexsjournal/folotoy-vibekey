@@ -14,20 +14,20 @@ body.home { height: 100svh; overflow: hidden; }
 /* ---------- 页面头部:和其他页一样的起始高度与 eyebrow ---------- */
 .hero {
   position: relative; min-height: 0;
-  padding: calc(var(--nav-h) + 20px) var(--gutter) 20px;
+  padding: calc(var(--nav-h) + 14px) var(--gutter) 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
 }
 .hero .eyebrow { justify-content: center; text-transform: none; letter-spacing: 0.12em; opacity: 0; animation: rise 0.8s var(--ease) 0.02s both; }
 .hero .eyebrow::after { content: ""; width: 20px; height: 1px; background: currentColor; opacity: 0.75; }
 .hero h1 {
-  margin: 16px 0 0; font-size: clamp(42px, 6.2vw, 84px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
+  margin: 14px 0 0; font-size: clamp(42px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
   background: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%) 0 0 / 240% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: rise 0.95s var(--ease) 0.1s both, titleSheen 9s ease-in-out 2.2s infinite;
 }
 @keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
 .lede {
-  max-width: min(32em, 86vw); margin: 18px 0 0; color: var(--muted);
+  max-width: min(32em, 86vw); margin: 16px 0 0; color: var(--muted);
   font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7; opacity: 0;
   animation: rise 0.9s var(--ease) 0.24s both;
 }
@@ -35,15 +35,34 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* ---------- 演示舞台 ---------- */
 .stage {
-  position: relative; width: 100%; margin-top: 32px;
+  position: relative; width: 100%; margin-top: 24px;
   display: flex; justify-content: center;
   opacity: 0; animation: rise 0.9s var(--ease) 0.34s both;
 }
-/* 演示的布局容器:不画外框,笔记窗口和胶囊直接浮在页面背景上 */
+/* 一块 Mac 屏幕:顶部菜单栏(右侧是 InputBetter 的麦克风状态项),窗口在中间,胶囊浮在底部 */
+.menubar {
+  position: absolute; top: 0; left: 8px; right: 8px; height: 26px; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+  color: rgba(255, 255, 255, 0.55); font-size: 10.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.mb-left, .mb-right { display: flex; align-items: center; gap: 7px; }
+.mb-left i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); }
+.mb-right svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .screen {
-  position: relative; width: min(920px, 94vw); height: 300px;
+  position: relative; width: min(920px, 94vw); height: 444px;
   display: flex; align-items: flex-end; justify-content: center;
 }
+
+.keycap {
+  position: absolute; left: 50%; bottom: 64px; z-index: 3; transform: translate(-50%, 4px);
+  padding: 5px 9px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(28, 30, 37, 0.9); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.7);
+  opacity: 0; visibility: hidden; transition: opacity 0.2s, transform 0.15s, visibility 0.2s;
+}
+.keycap.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.keycap.press { transform: translate(-50%, 2px) scale(0.94); }
 
 .pill {
   position: relative; z-index: 2; margin-bottom: 22px; padding: 0; cursor: pointer;
@@ -88,8 +107,8 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* 字幕场景:Chrome 里正在播放的视频,双语字幕浮在视频下方(和 app 的字幕条一样) */
 .video-window {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1;
-  width: min(760px, 86%); height: 100%; overflow: hidden;
+  position: absolute; top: 26px; left: 50%; transform: translateX(-50%); z-index: 1;
+  width: min(760px, 86%); height: 220px; overflow: hidden;
   border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0c0e13;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0.35s;
@@ -156,7 +175,7 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* 屏幕里的目标窗口:一个很小的「笔记」窗口,文字最终落在它的光标处(app 是把文字粘到当前应用) */
 .dict-window {
-  position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 1;
+  position: absolute; top: 110px; left: 50%; transform: translateX(-50%); z-index: 1;
   width: min(680px, 82%); height: 132px; display: flex; flex-direction: column; overflow: hidden;
   border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.12); background: #15171c;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -310,12 +329,12 @@ body.home { height: 100svh; overflow: hidden; }
 
 
 /* ---------- 下载 ---------- */
-.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 40px; opacity: 0; animation: rise 0.9s var(--ease) 0.46s both; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; opacity: 0; animation: rise 0.9s var(--ease) 0.46s both; }
 .dl .lbl { display: flex; align-items: center; gap: 9px; }
 .dl:hover .lbl svg { animation: nudge 0.55s var(--ease); }
 .dl:hover { box-shadow: 0 0 0 6px rgba(139, 155, 255, 0.1), 0 18px 46px rgba(0, 0, 0, 0.55); }
 @keyframes nudge { 0%, 100% { transform: none; } 35% { transform: translateY(4px); } 70% { transform: translateY(-1px); } }
-.line-meta { margin: 16px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.56s both; }
+.line-meta { margin: 14px 0 0; font-size: 12px; color: var(--faint); letter-spacing: 0.01em; opacity: 0; animation: rise 0.9s var(--ease) 0.56s both; }
 
 /* 页脚的 Passport 入口:和其他页共用一个页脚,这里用一个浅色胶囊让它显眼一点 */
 .footer .passport-link {
@@ -331,15 +350,16 @@ body.home { height: 100svh; overflow: hidden; }
   .hero { padding: calc(var(--nav-h) + 8px) var(--gutter) 12px; }
   .hero h1 { font-size: clamp(38px, 5vw, 58px); }
   .lede { margin-top: 14px; }
-  .stage { margin-top: 20px; }
-  .screen { height: 250px; }
+  .stage { margin-top: 18px; }
+  .screen { height: 361px; }
+  .menubar { height: 24px; }
+  .video-window { top: 24px; width: min(620px, 86%); height: 160px; }
   .stage[data-state="cap"] .pill { height: 118px; }
-  .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 145px; }
+  .stage[data-state="cap"] .pill:hover { height: 145px; }
+  .cap-src { min-height: 20.4px; }
   .dict-window { top: 30px; width: 72%; height: 106px; }
   .win-bar { height: 30px; }
   .win-body { font-size: 14px; }
-  .stage[data-state="cap"] .pill { height: 148px; }
-  .cap-dst span:nth-child(1) { display: none; }
   .p-cap { padding: 8px 20px 9px; gap: 5px; }
   .cta { margin-top: 28px; }
   .line-meta { margin-top: 12px; }
@@ -351,14 +371,14 @@ body.home { height: 100svh; overflow: hidden; }
   .hero h1 { font-size: clamp(34px, 10.5vw, 48px); }
   .lede { font-size: 14.5px; margin-top: 14px; }
   .stage { margin-top: 18px; }
-  .screen { width: calc(100vw - 24px); height: 300px; }
+  .screen { width: calc(100vw - 24px); height: 390px; }
+  .video-window { top: 26px; }
   .bubble { bottom: 66px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
   .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; }
   .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 155px; }
   .dict-window { top: 40px; width: 86%; height: 120px; }
-  .video-window { width: 92%; }
+  .video-window { width: 92%; height: 190px; }
   .win-body { font-size: 14px; }
-  .cap-dst span:nth-child(1) { display: none; }
   .p-cap { padding: 9px 16px 10px; gap: 5px; }
   .cap-head { gap: 6px; }
   .cap-head .chip.soft { display: none; }

@@ -16,6 +16,7 @@
   const dictInput = $('dictInput'), dictPh = $('dictPh'), dictText = $('dictText'), dictTitle = $('dictTitle');
   const wave = $('wave'), orbit = $('orbit');
   const screen = document.querySelector('.screen'), cursor = $('demoCursor'), appMenu = $('appMenu'), vidWave = $('vidWave');
+  const keycap = $('keycap'), mbApp = $('mbApp');
 
   // 演示文案:中文界面演示英文视频译成中文,英文界面反过来,顺便展示双语字幕
   const demo = {
@@ -175,6 +176,7 @@
 
   function enterRec() {
     resetInput();
+    mbApp.textContent = 'Notes';
     set('rec');
     startWave();
     startLive();
@@ -188,12 +190,10 @@
     set('done');
     typeResult();
   }
-  /** 展开字幕条:标题栏先露 1.8 s(像鼠标悬停),之后只剩字幕,和 app 一样。 */
+  /** 展开字幕条:默认只显示字幕,标题栏只在鼠标悬停时出现(和 app 一样)。 */
   function enterCap() {
+    mbApp.textContent = 'Chrome';
     set('cap');
-    stage.classList.add('show-head');
-    clearTimeout(headTimer);
-    headTimer = setTimeout(() => stage.classList.remove('show-head'), 1800);
     const run = ++captionRun;
     if (IB.reduceMotion) fillCaptions();
     else playCaptions(run);
@@ -306,6 +306,7 @@
     dstStack.style.transform = 'none';
     cursor.classList.remove('on', 'click');
     appMenu.classList.remove('on');
+    keycap.classList.remove('on', 'press');
     stage.classList.remove('show-head');
   }
 
@@ -315,9 +316,12 @@
     if (IB.reduceMotion) { set('cap'); return; }
     if (document.hidden) { at(2000, cycle); return; }
     resetInput();
+    mbApp.textContent = 'Finder';
     set('idle');
-    at(900, () => set('tools'));
-    at(1600, enterRec);
+    at(1000, () => keycap.classList.add('on'));
+    at(1600, () => keycap.classList.add('press'));
+    at(1620, enterRec);
+    at(1950, () => keycap.classList.remove('on', 'press'));
     at(3300, enterProc);
     at(4200, enterDone);
     at(5000, () => set('idle'));
