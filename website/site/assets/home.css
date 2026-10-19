@@ -48,8 +48,19 @@ body.home { height: 100svh; overflow: hidden; }
   transform-origin: 50% 100%; backface-visibility: hidden;
 }
 .hero h1.split.play .char {
-  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   animation-delay: calc(0.1s + var(--i) * 0.04s);
+}
+.hero h1.split .char { transition: transform 0.35s var(--ease); }
+.hero h1.split:hover .char { transform: translateY(-2px); }
+
+/* 标题粒子层:光尘在字周围漂浮,鼠标移入被吹散,移出弹回 */
+.title-fx { position: absolute; z-index: 2; pointer-events: none; }
+.title-fx canvas { display: block; width: 100%; height: 100%; }
+.title-light {
+  position: absolute; left: 0; top: 0; width: 340px; height: 220px; margin: -110px 0 0 -170px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(139, 155, 255, 0.34), transparent 68%);
+  filter: blur(6px); mix-blend-mode: screen; opacity: 0; transition: opacity 0.35s;
 }
 
 @keyframes charFlip {
@@ -418,6 +429,9 @@ body.home { height: 100svh; overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero .eyebrow, .hero h1, .lede, .stage, .cta, .line-meta { opacity: 1; filter: none; transform: none; }
+  .hero h1.split { animation: none; }
+  .hero h1.split .char { animation: none; transition: none; }
+  .title-fx { display: none; }
   .p-idle, .rec-dot, .live, .shimmer, .orbit { animation: none; }
   .cap-head, .cap-src span, .cap-dst span { animation: none; }
   .bubble { transition: none; }

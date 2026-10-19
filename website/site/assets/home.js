@@ -173,8 +173,162 @@
         span.style.setProperty('--off', `${-(r.left - first.left)}px`);
       });
       if (!reflow) h1.classList.add('play');
+      requestAnimationFrame(refreshTitleFx);
     };
     requestAnimationFrame(measure);
+  }
+
+  // ---------- 标题光尘 / 鼠标散开 ----------
+  const fx = { el: null, canvas: null, ctx: null, light: null, particles: [], hovered: false, pointer: null, w: 0, h: 0, dpr: 1, sprite: null, raf: 0 };
+
+  function bindTitleFx() {
+    const h1 = document.querySelector('.hero h1');
+    const el = $('titleFx'), canvas = $('titleCanvas'), light = $('titleLight');
+    if (!h1 || !el || !canvas) return;
+    fx.el = el; fx.canvas = canvas; fx.light = light;
+    fx.ctx = canvas.getContext('2d');
+    fx.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    fx.sprite = makeParticleSprite();
+    h1.addEventListener('pointerenter', (event) => {
+      if (!fx.particles.length) return;
+      fx.hovered = true;
+      fx.pointer = fxPoint(event);
+      burstParticles();
+      moveLight(fx.pointer);
+      if (fx.light) fx.light.style.opacity = '1';
+    });
+    h1.addEventListener('pointermove', (event) => {
+      if (!fx.particles.length) return;
+      fx.pointer = fxPoint(event);
+      moveLight(fx.pointer);
+    });
+    h1.addEventListener('pointerleave', () => {
+      fx.hovered = false;
+      fx.pointer = null;
+      if (fx.light) fx.light.style.opacity = '0';
+    });
+    if (!fx.raf) loopParticles();
+  }
+
+  function fxPoint(event) {
+    const r = fx.el.getBoundingClientRect();
+    return { x: event.clientX - r.left, y: event.clientY - r.top };
+  }
+
+  function moveLight(p) {
+    if (fx.light) fx.light.style.transform = `translate(${p.x}px, ${p.y}px)`;
+  }
+
+  function makeParticleSprite() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 32;
+    const g = c.getContext('2d');
+    const gradient = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.25, 'rgba(214, 221, 255, 0.9)');
+    gradient.addColorStop(0.55, 'rgba(160, 175, 255, 0.35)');
+    gradient.addColorStop(1, 'rgba(160, 175, 255, 0)');
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, 32, 32);
+    return c;
+  }
+
+  function burstParticles() {
+    if (!fx.pointer) return;
+    for (const p of fx.particles) {
+      const dx = p.x - fx.pointer.x;
+      const dy = p.y - fx.pointer.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const force = 3 + Math.random() * 4;
+      p.vx += (dx / d) * force;
+      p.vy += (dy / d) * force;
+    }
+  }
+
+  /** 重新按标题文字范围排布光尘;跨断点、换语言、窗口缩放时都会重来一次。 */
+  function refreshTitleFx() {
+    if (!fx.ctx) return;
+    const h1 = document.querySelector('.hero h1');
+    const chars = h1 ? [...h1.querySelectorAll('.char')] : [];
+    if (!chars.length || IB.reduceMotion || window.matchMedia('(max-width: 760px)').matches) {
+      fx.el.style.display = 'none';
+      fx.particles = [];
+      return;
+    }
+    fx.el.style.display = '';
+    const first = chars[0];
+    const last = chars[chars.length - 1];
+    // 用 layout 偏移,不用 getBoundingClientRect:入场动画的 transform 会让它测歪
+    const textLeft = first.offsetLeft;
+    const textRight = last.offsetLeft + last.offsetWidth;
+    const textTop = first.offsetTop;
+    const textH = Math.max(first.offsetHeight, last.offsetHeight);
+    const padX = 54, padTop = 30, padBottom = 30;
+    const w = textRight - textLeft + padX * 2;
+    const h = textH + padTop + padBottom;
+    fx.el.style.left = `${h1.offsetLeft + textLeft - padX}px`;
+    fx.el.style.top = `${h1.offsetTop + textTop - padTop}px`;
+    fx.el.style.width = `${w}px`;
+    fx.el.style.height = `${h}px`;
+    fx.w = w; fx.h = h;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    fx.dpr = dpr;
+    fx.canvas.width = Math.round(w * dpr);
+    fx.canvas.height = Math.round(h * dpr);
+    fx.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const inner = { x: padX, y: padTop, w: w - padX * 2, h: h - padTop - padBottom };
+    const count = window.innerWidth < 1100 ? 54 : 96;
+    fx.particles = Array.from({ length: count }, () => {
+      const x = inner.x + Math.random() * inner.w;
+      const y = inner.y + Math.random() * inner.h;
+      return {
+        hx: x, hy: y, x, y, vx: 0, vy: 0,
+        r: 0.8 + Math.random() * 1.7,
+        amp: 4 + Math.random() * 10,
+        speed: 0.15 + Math.random() * 0.3,
+        phase: Math.random() * Math.PI * 2,
+        alpha: 0.3 + Math.random() * 0.6,
+      };
+    });
+    fx.ctx.clearRect(0, 0, w, h);
+  }
+
+  let fxLast = 0;
+  function loopParticles() {
+    fx.raf = requestAnimationFrame(loopParticles);
+    const { ctx, sprite } = fx;
+    if (!ctx || !sprite || !fx.particles.length) return;
+    const now = performance.now();
+    if (now - fxLast < 16) return;
+    fxLast = now;
+    const t = now / 1000;
+    ctx.clearRect(0, 0, fx.w, fx.h);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of fx.particles) {
+      if (fx.hovered && fx.pointer) {
+        const dx = p.x - fx.pointer.x;
+        const dy = p.y - fx.pointer.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < 150) {
+          const force = (1 - d / 150) * 0.7;
+          p.vx += (dx / d) * force;
+          p.vy += (dy / d) * force;
+        }
+      }
+      const tx = p.hx + Math.cos(t * p.speed + p.phase) * p.amp;
+      const ty = p.hy + Math.sin(t * p.speed * 0.9 + p.phase) * p.amp * 0.55;
+      p.vx += (tx - p.x) * 0.016;
+      p.vy += (ty - p.y) * 0.016;
+      p.vx *= 0.9;
+      p.vy *= 0.9;
+      p.x += p.vx;
+      p.y += p.vy;
+      const twinkle = 0.75 + 0.25 * Math.sin(t * 1.7 + p.phase);
+      ctx.globalAlpha = Math.min(1, p.alpha * twinkle * (fx.hovered ? 1.25 : 1));
+      const size = p.r * 6;
+      ctx.drawImage(sprite, p.x - size / 2, p.y - size / 2, size, size);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function render() {
@@ -421,6 +575,7 @@
 
   IB.i18n.onChange(render);
   render();
+  bindTitleFx();
   // 标题不是只演一次:每 9 秒重放逐字入场,配合常驻光波
   if (!IB.reduceMotion) {
     setInterval(() => {

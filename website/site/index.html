@@ -34,6 +34,10 @@
   <main class="hero">
     <span class="eyebrow" data-i18n="hero.eyebrow">macOS 语音输入</span>
     <h1 data-i18n="hero.title">说出来，就写好了。</h1>
+    <div class="title-fx" id="titleFx" aria-hidden="true">
+      <span class="title-light" id="titleLight"></span>
+      <canvas id="titleCanvas"></canvas>
+    </div>
     <p class="lede" data-i18n="hero.lede">按住快捷键说话，松开，文字就落到光标处；选一个应用，它的声音会变成实时双语字幕。</p>
 
     <!-- 演示界面照 app 的状态胶囊 1:1 还原(尺寸 / 字号 / 圆角见 app/InputBetter/Pill):
