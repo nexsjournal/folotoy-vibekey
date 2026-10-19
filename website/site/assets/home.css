@@ -86,6 +86,38 @@ body.home { height: 100svh; overflow: hidden; }
 .stage[data-state="cap"] .p-cap { opacity: 1; visibility: visible; }
 .stage[data-state="cap"] .p-cap { transition-delay: 0.1s; }
 
+/* 字幕场景:Chrome 里正在播放的视频,双语字幕浮在视频下方(和 app 的字幕条一样) */
+.video-window {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1;
+  width: min(760px, 86%); height: 100%; overflow: hidden;
+  border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0c0e13;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0.35s;
+}
+.stage[data-state="cap"] .video-window { opacity: 1; visibility: visible; }
+.vid-bar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: rgba(255, 255, 255, 0.04); border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.vid-bar .lights { display: flex; gap: 6px; }
+.vid-bar .lights i { width: 10px; height: 10px; border-radius: 50%; background: #3a3d44; }
+.vid-bar .lights i:nth-child(1) { background: #ff5f57; }
+.vid-bar .lights i:nth-child(2) { background: #febc2e; }
+.vid-bar .lights i:nth-child(3) { background: #28c840; }
+.vid-tab { flex: none; padding: 2px 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; }
+.vid-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: 11px; }
+.vid-time { flex: none; color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.vid-stage { position: relative; height: calc(100% - 34px); overflow: hidden; background: linear-gradient(160deg, #0b1420, #111a2a 45%, #0a0e14); }
+.vid-orb { position: absolute; border-radius: 50%; filter: blur(42px); opacity: 0.55; }
+.vid-orb.a { width: 360px; height: 360px; left: -70px; top: -60px; background: #2c6f7a; animation: orbA 14s ease-in-out infinite alternate; }
+.vid-orb.b { width: 320px; height: 320px; right: -60px; top: 10px; background: #3a3a8f; animation: orbB 18s ease-in-out infinite alternate; }
+@keyframes orbA { to { transform: translate(40px, 26px) scale(1.12); } }
+@keyframes orbB { to { transform: translate(-34px, 20px) scale(1.08); } }
+.vid-play {
+  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+  display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.vid-play svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
+
 /* 屏幕里的目标窗口:一个很小的「笔记」窗口,文字最终落在它的光标处(app 是把文字粘到当前应用) */
 .dict-window {
   position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 1;
@@ -287,6 +319,7 @@ body.home { height: 100svh; overflow: hidden; }
   .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; }
   .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 155px; }
   .dict-window { top: 40px; width: 86%; height: 120px; }
+  .video-window { width: 92%; }
   .win-body { font-size: 14px; }
   .cap-dst span:nth-child(1) { display: none; }
   .p-cap { padding: 9px 16px 10px; gap: 5px; }
