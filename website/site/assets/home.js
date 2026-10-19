@@ -16,7 +16,7 @@
   const dictInput = $('dictInput'), dictPh = $('dictPh'), dictText = $('dictText'), dictTitle = $('dictTitle');
   const wave = $('wave'), orbit = $('orbit');
   const screen = document.querySelector('.screen'), cursor = $('demoCursor'), appMenu = $('appMenu'), vidWave = $('vidWave');
-  const keycap = $('keycap'), mbApp = $('mbApp');
+  const keycap = $('keycap');
 
   // 演示文案:中文界面演示英文视频译成中文,英文界面反过来,顺便展示双语字幕
   const demo = {
@@ -133,6 +133,49 @@
   }
 
   // ---------- 文案 ----------
+  /** 标题逐字入场:每个字单独裁一段连续的渐变,手机端保持普通标题。 */
+  const titleQuery = window.matchMedia('(max-width: 760px)');
+  function splitTitle(reflow = false) {
+    const h1 = document.querySelector('.hero h1');
+    if (!h1) return;
+    const text = h1.textContent;
+    h1.dataset.text = text;
+    if (titleQuery.matches) {
+      if (h1.classList.contains('split')) {
+        h1.classList.remove('split', 'play');
+        h1.textContent = text;
+      }
+      return;
+    }
+    h1.textContent = '';
+    const chars = [];
+    for (const ch of text) {
+      if (ch === ' ' || ch === '\n') { h1.append(document.createTextNode(ch)); continue; }
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = ch;
+      h1.append(span);
+      chars.push(span);
+    }
+    h1.classList.add('split');
+    h1.classList.remove('play');
+    const measure = () => {
+      if (!chars.length) return;
+      const first = chars[0].getBoundingClientRect();
+      const last = chars[chars.length - 1].getBoundingClientRect();
+      const width = last.right - first.left;
+      if (width <= 0) return;
+      chars.forEach((span, i) => {
+        span.style.setProperty('--i', String(i));
+        const r = span.getBoundingClientRect();
+        span.style.backgroundSize = `${width}px 100%`;
+        span.style.backgroundPosition = `-${r.left - first.left}px 0`;
+      });
+      if (!reflow) h1.classList.add('play');
+    };
+    requestAnimationFrame(measure);
+  }
+
   function render() {
     const t = d();
     procText.textContent = t.proc;
@@ -148,6 +191,7 @@
       fieldTimer = 0;
       dictText.textContent = t.live;
     }
+    splitTitle();
     if (state === 'cap') enterCap();
     if (state === 'rec') startLive();
     else if (state !== 'proc') bubble.textContent = t.live;
@@ -176,7 +220,6 @@
 
   function enterRec() {
     resetInput();
-    mbApp.textContent = 'Notes';
     set('rec');
     startWave();
     startLive();
@@ -192,7 +235,6 @@
   }
   /** 展开字幕条:默认只显示字幕,标题栏只在鼠标悬停时出现(和 app 一样)。 */
   function enterCap() {
-    mbApp.textContent = 'Chrome';
     set('cap');
     const run = ++captionRun;
     if (IB.reduceMotion) fillCaptions();
@@ -316,7 +358,6 @@
     if (IB.reduceMotion) { set('cap'); return; }
     if (document.hidden) { at(2000, cycle); return; }
     resetInput();
-    mbApp.textContent = 'Finder';
     set('idle');
     at(1000, () => keycap.classList.add('on'));
     at(1600, () => keycap.classList.add('press'));

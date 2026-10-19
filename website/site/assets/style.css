@@ -158,11 +158,10 @@ main { flex: 1; width: 100%; }
 
 /* ---------- 页脚 ---------- */
 .footer {
-  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 24px;
-  padding: 22px var(--gutter); color: var(--faint); font-size: 12.5px;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 24px;
+  padding: 22px var(--gutter); color: var(--faint); font-size: 12.5px; text-align: center;
   border-top: 1px solid var(--line); background: rgba(7, 8, 12, 0.4);
 }
-.footer nav { display: flex; gap: 18px; }
 .footer a { transition: color 0.2s; }
 .footer a:hover { color: var(--fg); }
 .footer .sha { font: 11px ui-monospace, Menlo, monospace; color: #4a5160; word-break: break-all; flex-basis: 100%; }

@@ -20,15 +20,43 @@ body.home { height: 100svh; overflow: hidden; }
 .hero .eyebrow { justify-content: center; text-transform: none; letter-spacing: 0.12em; animation: rise 0.8s var(--ease) 0.02s both; }
 .hero .eyebrow::after { content: ""; width: 20px; height: 1px; background: currentColor; opacity: 0.75; }
 .hero h1 {
-  margin: 14px 0 0; font-size: clamp(42px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
+  position: relative; margin: 14px 0 0; font-size: clamp(42px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.048em; font-weight: 600;
   background: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%) 0 0 / 240% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: rise 0.95s var(--ease) 0.1s both, titleSheen 9s ease-in-out 2.2s infinite;
 }
+/* 逐字入场:每个字带自己那一段渐变(静止时拼成一条连续的渐变),3D 翻起 */
+.hero h1.split {
+  background: none; white-space: nowrap; perspective: 900px; animation: none;
+  clip-path: none;
+}
+.hero h1.split .char {
+  display: inline-block; white-space: pre; color: transparent;
+  background-image: linear-gradient(100deg, #fff 0 42%, #aeb9ff 51%, #fff 62% 100%);
+  background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  transform-origin: 50% 100%; backface-visibility: hidden;
+}
+.hero h1.split.play .char {
+  animation: charFlip 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(0.1s + var(--i) * 0.04s);
+}
+@keyframes charFlip {
+  from { transform: translateY(0.42em) rotateX(-55deg); filter: blur(7px); }
+  to { transform: none; filter: none; }
+}
+/* 高光扫过:一层只裁到文字的高光,叠加在渐变字上 */
+.hero h1.split::after {
+  content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.95) 50%, transparent 62%) 0 0 / 260% 100% no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: sheen 6s ease-in-out 1.7s infinite;
+}
+@keyframes sheen { 0%, 24% { background-position: 120% 0; } 56%, 100% { background-position: -20% 0; } }
 @keyframes titleSheen { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
 .lede {
   max-width: min(32em, 86vw); margin: 16px 0 0; color: var(--muted);
-  font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7; opacity: 0;
+  font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.7;
   animation: rise 0.9s var(--ease) 0.24s both;
 }
 @keyframes rise { from { transform: translateY(12px); filter: blur(5px); } to { transform: none; filter: none; } }
@@ -39,16 +67,6 @@ body.home { height: 100svh; overflow: hidden; }
   display: flex; justify-content: center;
   animation: rise 0.9s var(--ease) 0.34s both;
 }
-/* 一块 Mac 屏幕:顶部菜单栏(右侧是 InputBetter 的麦克风状态项),窗口在中间,胶囊浮在底部 */
-.menubar {
-  position: absolute; top: 0; left: 8px; right: 8px; height: 26px; z-index: 3;
-  display: flex; align-items: center; justify-content: space-between;
-  color: rgba(255, 255, 255, 0.55); font-size: 10.5px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-}
-.mb-left, .mb-right { display: flex; align-items: center; gap: 7px; }
-.mb-left i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); }
-.mb-right svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .screen {
   position: relative; width: min(920px, 94vw); height: 444px;
   display: flex; align-items: flex-end; justify-content: center;
@@ -107,7 +125,7 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* 字幕场景:Chrome 里正在播放的视频,双语字幕浮在视频下方(和 app 的字幕条一样) */
 .video-window {
-  position: absolute; top: 26px; left: 50%; transform: translateX(-50%); z-index: 1;
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1;
   width: min(760px, 86%); height: 220px; overflow: hidden;
   border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0c0e13;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
@@ -184,7 +202,7 @@ body.home { height: 100svh; overflow: hidden; }
 
 /* 屏幕里的目标窗口:一个很小的「笔记」窗口,文字最终落在它的光标处(app 是把文字粘到当前应用) */
 .dict-window {
-  position: absolute; top: 110px; left: 50%; transform: translateX(-50%); z-index: 1;
+  position: absolute; top: 100px; left: 50%; transform: translateX(-50%); z-index: 1;
   width: min(680px, 82%); height: 132px; display: flex; flex-direction: column; overflow: hidden;
   border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.12); background: #15171c;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -361,8 +379,7 @@ body.home { height: 100svh; overflow: hidden; }
   .lede { margin-top: 14px; }
   .stage { margin-top: 18px; }
   .screen { height: 361px; }
-  .menubar { height: 24px; }
-  .video-window { top: 24px; width: min(620px, 86%); height: 160px; }
+  .video-window { width: min(620px, 86%); height: 160px; }
   .stage[data-state="cap"] .pill { height: 118px; }
   .stage[data-state="cap"] .pill:hover { height: 145px; }
   .cap-src { min-height: 20.4px; }
@@ -381,7 +398,6 @@ body.home { height: 100svh; overflow: hidden; }
   .lede { font-size: 14.5px; margin-top: 14px; }
   .stage { margin-top: 18px; }
   .screen { width: calc(100vw - 24px); height: 390px; }
-  .video-window { top: 26px; }
   .bubble { bottom: 66px; max-width: calc(100vw - 56px); white-space: normal; font-size: 12.5px; }
   .stage[data-state="cap"] .pill { width: calc(100% - 24px); height: 128px; }
   .stage[data-state="cap"] .pill:hover, .stage[data-state="cap"].show-head .pill { height: 155px; }
