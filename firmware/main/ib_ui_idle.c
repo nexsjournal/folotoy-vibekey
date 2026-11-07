@@ -2,8 +2,8 @@
 //
 // 一屏只有"一个点阵图形 + 一行字":
 //   字形    当前模式的点阵图标(dict = 麦克风、tr = 两个对话气泡、sub = CC 框,ib_ui_dots),
-//           浅灰底色;每 4 s 一道扫描光自上而下掠过,经过的点变白并略微放大,让静止页面"活着"
-//   模式名  Montserrat 20,中心 y=220
+//           绿色点阵;每 4 s 一道扫描光自上而下掠过,经过的点变亮并略微放大。
+//   模式名  Roboto Mono 14,中心 y=220
 // 操作提示由右侧按键提示列承担。切换模式:点阵从旧字形重排成新字形(从左到右"重新像素化"),
 // 模式名纵向翻牌(旧的向上 / 下翻出淡出,新的从另一侧翻入)。按下 OK 时由 REC 页接着这一帧把点重排成一条线。
 #include "ib_ui_dots.h"
@@ -28,7 +28,7 @@ static int s_dir;                           // +1:下一个模式(旧名字向�
 static ib_ui_mode_t s_mode;
 static int32_t s_scan = -1;                 // 扫描光所在行(x16);-1 表示没有扫描
 
-static const char *const MODE_NAMES[IB_UI_MODE_COUNT] = { "DICTATE", "TRANSLATE", "SUBTITLES" };
+static const char *const MODE_NAMES[IB_UI_MODE_COUNT] = { "HOLD OK TO TALK", "TRANSLATE", "SUBTITLES" };
 static const ib_dots_glyph_t MODE_GLYPHS[IB_UI_MODE_COUNT] = {
     [IB_UI_MODE_DICT] = IB_DOTS_MIC, [IB_UI_MODE_TR] = IB_DOTS_TR, [IB_UI_MODE_SUB] = IB_DOTS_CC,
 };
@@ -37,18 +37,22 @@ static void fx_draw(lv_event_t *e)
 {
     ib_fx_t fx;
     ib_fx_begin(&fx, e);
+    // 控件只覆盖点阵区域:边框随图形一起刷新,不遮挡右侧实体键提示。
+    ib_fx_frame(&fx, 6, 4, IB_UI_CONTENT_W - 12, IB_DOTS_BOX_H - 8, 0, 1,
+                IB_C(IB_COLOR_MATRIX_FRAME), LV_OPA_COVER);
     uint32_t now = lv_tick_get();
     if (!ib_dots_settled(now) || s_scan < 0) {
         ib_dots_draw(&fx, now, 0);
         return;
     }
-    // 扫描光:离光带越近越亮(浅灰 → 白),正中的一行放大 1 px。
+    // 扫描光:离光带越近越亮,正中的一行放大 1 px。
     const ib_dots_t *g = ib_dots_current();
     for (int i = 0; i < g->n; i++) {
         const ib_dot_t *d = &g->d[i];
         int32_t dist = LV_ABS(d->r * 16 - s_scan);               // x16
         int32_t glow = dist < 24 ? (24 - dist) * IB_P_ONE / 24 : 0;
-        lv_color_t c = ib_gray_lerp(0xC8, 0xF0, glow);
+        lv_color_t c = lv_color_mix(IB_C(IB_COLOR_MATRIX_BRIGHT), IB_C(IB_COLOR_MATRIX_SOFT),
+                                    (uint8_t)(glow * 255 / IB_P_ONE));
         ib_dots_dot(&fx, ib_dots_x(d->c), ib_dots_y(d->r), c, dist < 8 ? 1 : 0);
     }
 }
@@ -102,10 +106,11 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
 {
     (void)ctx;
     lv_obj_t *root = ib_box_create(parent, 0, 0, IB_UI_CONTENT_W, IB_UI_PAGE_H);
+    ib_terminal_header(root, "> READY_", IB_COLOR_MATRIX_SOFT, IB_UI_CONTENT_W);
     s_fx = ib_fx_create(root, 0, IB_DOTS_BOX_Y, IB_UI_CONTENT_W, IB_DOTS_BOX_H, fx_draw, NULL);
     for (int i = 0; i < 2; i++) {
-        s_names[i] = ib_label_create(root, &lv_font_montserrat_20, IB_COLOR_TEXT,
-                                     ib_font_top(&lv_font_montserrat_20, NAME_CY), IB_UI_CONTENT_W);
+        s_names[i] = ib_label_create(root, &ib_terminal_font_14, IB_COLOR_TEXT,
+                                     ib_font_top(&ib_terminal_font_14, NAME_CY), IB_UI_CONTENT_W);
     }
     return root;
 }

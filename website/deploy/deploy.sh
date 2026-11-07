@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 部署 InputBetter 官网到 0os 服务器(共享 Caddy 反向代理 + *.0os.io 证书),做法与服务器上其他站点一致:
+# 部署 VibeKey 官网到 0os 服务器(共享 Caddy 反向代理 + *.0os.io 证书),做法与服务器上其他站点一致:
 #   website/deploy/deploy.sh <user@host> [ssh-key] [dmg]
-# - dmg 默认取 app/build/release/ 里最新的 InputBetter-*.dmg(由 app/scripts/release.sh 生成并公证);
+# - dmg 默认取 app/build/release/ 里最新的 VibeKey-*.dmg(由 app/scripts/release.sh 生成并公证);
 # - 固件取 firmware/build 的编译产物,由 scripts/package-firmware.sh 整理成 /firmware/manifest.json + 带版本目录的镜像
 #   (app 刷写和官网网页刷写都从这里下载;app 不再内置固件);
 # - 在本机临时目录组装站点:复制 website/site,放入 DMG 和固件,把页面里的 {{VERSION}} {{SIZE}} {{SHA256}} {{DMG_URL}} 换成实际值;
-# - 同步到服务器 /opt/inputbetter-web,重建 inputbetter-web 容器,安装 input.0os.io.caddy,校验并重载 Caddy;
+# - 同步到服务器 /opt/vibekey-web,重建 vibekey-web 容器,安装 input.0os.io.caddy,校验并重载 Caddy;
 # - 最后请求线上首页和安装包确认可用。
 # 服务器地址和密钥都从参数传入,不写进仓库。
 set -euo pipefail
@@ -14,16 +14,16 @@ target="${1:?usage: website/deploy/deploy.sh <user@host> [ssh-key] [dmg]}"
 key="${2:-}"
 ssh_opts=(-o ConnectTimeout=20)
 [[ -n "${key}" ]] && ssh_opts+=(-i "${key}")
-remote_dir=/opt/inputbetter-web
+remote_dir=/opt/vibekey-web
 site_file=input.0os.io.caddy
 domain=input.0os.io
 cd "$(dirname "$0")/../.."
 
-dmg="${3:-$(ls -t app/build/release/InputBetter-*.dmg 2>/dev/null | head -1)}"
+dmg="${3:-$(ls -t app/build/release/VibeKey-*.dmg 2>/dev/null | head -1)}"
 [[ -f "${dmg}" ]] || { echo "找不到 DMG,请先运行 app/scripts/release.sh" >&2; exit 1; }
 xcrun stapler validate "${dmg}" >/dev/null || { echo "${dmg} 没有公证票据,请用 release.sh 完成公证后再发布" >&2; exit 1; }
 file_name="$(basename "${dmg}")"
-version="${file_name#InputBetter-}"; version="${version%.dmg}"
+version="${file_name#VibeKey-}"; version="${version%.dmg}"
 size="$(awk -v b="$(stat -f%z "${dmg}")" 'BEGIN { printf "%.0f MB", b / 1000000 }')"
 sha="$(shasum -a 256 "${dmg}" | awk '{print $1}')"
 
@@ -67,7 +67,7 @@ else
     echo "warning: 没有 website/deploy/private/routes.caddy,官网留言和检查更新接口不可用" >&2
 fi
 rm -rf "${stage}/deploy/private"
-echo "==> Site for InputBetter ${version} (${size}) assembled"
+echo "==> Site for VibeKey ${version} (${size}) assembled"
 
 ssh "${ssh_opts[@]}" "${target}" 'test -f /opt/proxy/docker-compose.yml || { echo "The shared proxy is missing." >&2; exit 1; }
   docker network inspect web >/dev/null 2>&1 || { echo "The web network is missing." >&2; exit 1; }'

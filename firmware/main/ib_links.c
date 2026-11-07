@@ -26,12 +26,14 @@ bool ib_links_alive(const ib_links_t *l, ib_link_t link, int64_t now_ms)
 
 bool ib_links_any(const ib_links_t *l, int64_t now_ms)
 {
-    return ib_links_alive(l, IB_LINK_USB, now_ms) || ib_links_alive(l, IB_LINK_BLE, now_ms);
+    for (int i = 0; i < IB_LINK_COUNT; i++) if (ib_links_alive(l, (ib_link_t)i, now_ms)) return true;
+    return false;
 }
 
 ib_link_t ib_links_preferred(const ib_links_t *l, int64_t now_ms)
 {
     if (ib_links_alive(l, IB_LINK_USB, now_ms)) return IB_LINK_USB;
+    if (ib_links_alive(l, IB_LINK_WIFI, now_ms)) return IB_LINK_WIFI;
     if (ib_links_alive(l, IB_LINK_BLE, now_ms)) return IB_LINK_BLE;
     return IB_LINK_COUNT;
 }

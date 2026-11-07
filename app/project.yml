@@ -1,6 +1,6 @@
-name: InputBetter
+name: VibeKey
 options:
-  bundleIdPrefix: com.inputbetter
+  bundleIdPrefix: local.folobutton
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true
@@ -35,11 +35,11 @@ settings:
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: YES
 targets:
-  InputBetter:
+  VibeKey:
     type: application
     platform: macOS
     sources:
-      - path: InputBetter
+      - path: VibeKey
         excludes:
           - "*.entitlements"
           - "Info.plist"
@@ -58,24 +58,26 @@ targets:
       - package: AppUpdateKit
         product: AppUpdateInstaller
     entitlements:
-      path: InputBetter/InputBetter.entitlements
+      path: VibeKey/VibeKey.entitlements
       properties:
         com.apple.security.device.audio-input: true
         com.apple.security.device.bluetooth: true
     info:
-      path: InputBetter/Info.plist
+      path: VibeKey/Info.plist
       properties:
-        CFBundleName: InputBetter
-        CFBundleDisplayName: InputBetter
+        CFBundleName: VibeKey
+        CFBundleDisplayName: VibeKey
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         CFBundleLocalizations: [zh-Hans, en]
-        NSMicrophoneUsageDescription: InputBetter 需要使用麦克风，把你说的话转成文字输入。
-        NSAudioCaptureUsageDescription: InputBetter 需要录制所选应用播放的声音，用于生成实时字幕。
-        NSBluetoothAlwaysUsageDescription: InputBetter 通过蓝牙连接 Passport，接收按键并显示状态。
+        NSMicrophoneUsageDescription: VibeKey 需要使用麦克风，把你说的话转成文字输入。
+        NSAudioCaptureUsageDescription: VibeKey 需要录制所选应用播放的声音，用于生成实时字幕。
+        NSLocalNetworkUsageDescription: 通过同一 Wi-Fi 连接 Passport，传输按键、录音和设备状态。
+        NSBonjourServices: ["_folobutton._tcp"]
+        NSBluetoothAlwaysUsageDescription: VibeKey 通过蓝牙连接 Passport，接收按键并显示状态。
         NSSpeechRecognitionUsageDescription: 使用 Apple 语音识别引擎在本机转录语音。
         # 检查更新的接口与应用标识,来自 Config/App.xcconfig(本机 Update.local.xcconfig 填写);为空时不检查更新。
         IBUpdateFeedURL: $(IB_UPDATE_FEED_URL)
@@ -86,33 +88,35 @@ targets:
         SUPublicEDKey: $(IB_UPDATE_PUBLIC_ED_KEY)
         SUEnableAutomaticChecks: false
         CFBundleURLTypes:
-          - CFBundleURLName: com.inputbetter.agent
-            CFBundleURLSchemes: [inputbetter]
+          - CFBundleURLName: local.folobutton.dev.agent
+            CFBundleURLSchemes: [folobutton-dev]
     settings:
       base:
-        PRODUCT_NAME: InputBetter
-        PRODUCT_BUNDLE_IDENTIFIER: com.inputbetter.InputBetter
-        INFOPLIST_FILE: InputBetter/Info.plist
+        PRODUCT_NAME: VibeKey
+        PRODUCT_BUNDLE_IDENTIFIER: local.folobutton.dev
+        INFOPLIST_FILE: VibeKey/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-  InputBetterTests:
+  VibeKeyTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: InputBetterTests
+      - path: VibeKeyTests
     dependencies:
-      - target: InputBetter
+      - target: VibeKey
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.inputbetter.InputBetterTests
+        PRODUCT_BUNDLE_IDENTIFIER: local.folobutton.dev.tests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/InputBetter.app/Contents/MacOS/InputBetter
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VibeKey.app/Contents/MacOS/VibeKey
         BUNDLE_LOADER: $(TEST_HOST)
 schemes:
-  InputBetter:
+  VibeKey:
     build:
       targets:
-        InputBetter: all
-        InputBetterTests: [test]
+        VibeKey: all
+        VibeKeyTests: [test]
     test:
+      environmentVariables:
+        IB_TEST_MODE: "1"
       targets:
-        - InputBetterTests
+        - VibeKeyTests

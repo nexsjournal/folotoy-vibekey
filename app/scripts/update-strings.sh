@@ -3,6 +3,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 xcodegen generate --quiet
-xcodebuild -project InputBetter.xcodeproj -scheme InputBetter -configuration Debug \
+xcodebuild -project VibeKey.xcodeproj -scheme VibeKey -configuration Debug \
     -derivedDataPath build/DerivedData -destination 'platform=macOS' build | grep -E "error:|BUILD" || true
 python3 scripts/update-strings.py

@@ -1,5 +1,5 @@
-# InputBetter 官网:只服务静态文件的 nginx(非 root,监听 8080)。
-# 构建上下文是服务器上的 /opt/inputbetter-web(site/ + deploy/),由 deploy.sh 同步过去;DMG 已放进 site/download/。
+# VibeKey 官网:只服务静态文件的 nginx(非 root,监听 8080)。
+# 构建上下文是服务器上的 /opt/vibekey-web(site/ + deploy/),由 deploy.sh 同步过去;DMG 已放进 site/download/。
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY site /usr/share/nginx/html

@@ -62,7 +62,7 @@ int32_t ib_dots_y(int32_t r)
 lv_color_t ib_dots_color(uint8_t color)
 {
     switch (color) {
-    case IB_DOT_SOFT: return ib_gray(0xC8);
+    case IB_DOT_SOFT: return IB_C(IB_COLOR_MATRIX_SOFT);
     case IB_DOT_GRAY: return IB_C(IB_COLOR_RING);
     case IB_DOT_DIM: return IB_C(IB_COLOR_MUTE);
     case IB_DOT_REC: return IB_C(IB_COLOR_REC);

@@ -1,37 +1,46 @@
 #!/usr/bin/env bash
 # 编译 Release 并用 Developer ID 签名(Hardened Runtime + 安全时间戳),供 release.sh(打包 DMG)和 install.sh(装到本机)共用。
-# 凭据见 signing-env.sh。产物:app/build/ReleaseDerivedData/Build/Products/Release/InputBetter.app。
+# 凭据见 signing-env.sh。产物:app/build/ReleaseDerivedData/Build/Products/Release/VibeKey.app。
 # 第三方的 esptool 保留 Espressif 自己的 Developer ID 签名(已带 Hardened Runtime 与时间戳),不重签。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/package-lock-guard.sh
 source scripts/signing-env.sh
 
 version="$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
 derived="build/ReleaseDerivedData"
-app="${derived}/Build/Products/Release/InputBetter.app"
+app="${derived}/Build/Products/Release/VibeKey.app"
 
 # 打包烧录工具 esptool(发布版必须带上,否则用户无法在 app 里刷固件);固件本身刷写时从官网下载。
 ./scripts/bundle-device-assets.sh
 xcodegen generate --quiet
-echo "==> Building InputBetter ${version} (Release, ${DEVELOPER_ID})"
+echo "==> Building VibeKey ${version} (Release, ${DEVELOPER_ID})"
 rm -rf "${app}"
-xcodebuild -project InputBetter.xcodeproj -scheme InputBetter -configuration Release \
+set +e
+xcodebuild -project VibeKey.xcodeproj -scheme VibeKey -configuration Release \
     -derivedDataPath "${derived}" -destination 'platform=macOS' \
     CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="${DEVELOPER_ID}" DEVELOPMENT_TEAM="${team}" \
     OTHER_CODE_SIGN_FLAGS="--timestamp" CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
-    clean build | grep -E "error:|BUILD" || true
-[[ -d "${app}" ]] || { echo "构建失败" >&2; exit 1; }
+    clean build | grep -E "error:|BUILD|CodeSign .*failed"
+build_pipeline_status=("${PIPESTATUS[@]}")
+set -e
+build_status="${build_pipeline_status[0]}"
+[[ -x "${app}/Contents/MacOS/VibeKey" ]] || {
+    echo "构建失败: 未生成可执行文件 (xcodebuild exit ${build_status})" >&2
+    exit 1
+}
+if (( build_status != 0 )); then
+    echo "==> xcodebuild exit ${build_status}; repairing embedded signatures before final verification"
+fi
 # 测试包不随 app 分发。
-rm -rf "${app}/Contents/PlugIns/InputBetterTests.xctest"
+rm -rf "${app}/Contents/PlugIns/VibeKeyTests.xctest"
 
 # sherpa-onnx 的 onnxruntime.framework 里带了一个指向自己的符号链接(Versions/A/A -> A),
 # codesign 严格校验时报 "Too many levels of symbolic links",公证也会失败。
-# 删掉 app 里所有断开或循环的符号链接,再由内到外重新签名(先框架,后 app,app 保留原有的权限声明)。
-broken="$(find "${app}" -type l | while IFS= read -r link; do [[ -e "${link}" ]] || echo "${link}"; done)"
+broken="$(scripts/remove-broken-symlinks.sh "${app}")"
 if [[ -n "${broken}" ]]; then
     echo "==> Removing broken / looping symlinks:"
     echo "${broken}"
-    while IFS= read -r link; do rm -f "${link}"; done <<<"${broken}"
     for framework in "${app}"/Contents/Frameworks/*.framework; do
         codesign --force --sign "${DEVELOPER_ID}" --timestamp --options runtime "${framework}"
     done

@@ -26,7 +26,7 @@ lv_display_t *bsp_lvgl_init(void) {
         .panel_handle = bsp_display_panel(),
         .io_handle    = bsp_display_io(),
         // ⚠ C3 无 PSRAM,DMA 只能用内部 RAM。
-        // InputBetter 改动:20 行双缓冲(2 x 9.6KB),渲染下一块时上一块在 SPI DMA 中发送,
+        // VibeKey 改动:20 行双缓冲(2 x 9.6KB),渲染下一块时上一块在 SPI DMA 中发送,
         // 动画帧率明显更高;40 行双缓冲(≈37.5KB)会挤占 I2S 的 DMA 内存,不要再加大。
         .buffer_size   = (uint32_t)BSP_LCD_W * 20,
         .double_buffer = true,

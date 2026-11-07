@@ -1,4 +1,4 @@
-// main/ib_app.h: InputBetter 应用核心:事件队列与状态机(链路在线、Mac 下发状态、按键上报、麦克风、
+// main/ib_app.h: VibeKey 应用核心:事件队列与状态机(链路在线、Mac 下发状态、按键上报、麦克风、
 // Agent 通知、熄屏、电量、时钟)。屏幕绘制交给 ib_ui,链路收发交给 ib_usb / ib_ble,音频交给 ib_audio。
 #pragma once
 

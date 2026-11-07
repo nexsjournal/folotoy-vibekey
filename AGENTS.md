@@ -1,4 +1,4 @@
-# InputBetter
+# VibeKey
 
 本地语音输入 macOS app(听写输入 + 应用声音实时字幕),配套 FoloToy AI Passport 硬件固件。
 
@@ -15,21 +15,21 @@
 ## 常用命令
 
 ```bash
-cd app && ./scripts/build.sh                 # 编译 app → app/build/InputBetter.app(会顺带打包固件与 esptool)
+cd app && ./scripts/build.sh                 # 编译 app → app/build/VibeKey.app(会顺带打包固件与 esptool)
 cd app && ./scripts/test.sh                  # 单元测试
 ./scripts/clean.sh                           # 删除所有编译 / 测试 / 打包产物(--keep-downloads 保留 esptool 与 ESP-IDF 组件,--dry-run 只列出)
 cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成 String Catalog(英文在 app/Localization/en.json)
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
-./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)
+./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 VibeKey)
 cd app && ./scripts/release.sh               # 打包签名公证的 DMG + Sparkle 签名(凭据用环境变量或本机 app/Config/Release.local.env 传入,见 docs/website.md)
 cd app && ./scripts/publish-update.sh        # 部署官网后把新版本登记到更新后台,已安装的 app 会提示更新(地址密钥只在本机)
-cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/InputBetter.app 并启动
+cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/VibeKey.app 并启动
 ./scripts/package-firmware.sh                # 把 firmware/build 整理成官网固件清单与镜像(deploy.sh 会自动调用)
 website/preview.py                           # 本地预览官网(自动替换占位符,http://127.0.0.1:8788/)
 website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG 和固件);服务器地址和密钥不写进仓库
 ```
 
-调试构建支持的环境变量见 `app/InputBetter/Debug/DebugHooks.swift`:
+调试构建支持的环境变量见 `app/VibeKey/Debug/DebugHooks.swift`:
 
 - `IB_ONBOARDING_STEP` / `IB_SETTINGS_PANE`:直接打开某一页;
 - `IB_CLOUD_CONFIG=volcengine`(`CloudProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=models` 直接弹出该云端服务的配置表单;
@@ -42,6 +42,11 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - `IB_SHOW_PILL`:显示状态条;`IB_PILL_RESULT=typed|warning`:状态条停在听写完成卡片上(warning 是很长的失败说明),检查卡片宽度;
 - `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件;
 - `IB_UPDATE_DEMO=available|required`:用假数据弹出可选 / 强制更新窗口(不联网);`IB_UPDATE_FEED=url`:检查更新改用这个接口。
+- `IB_CODEX_PROBE=1`:读取当前 Codex 输入框并打印脱敏目标状态后退出;`IB_CODEX_PROBE_DELAY_MS=3000` 可留出切换前台 App 的时间,`IB_CODEX_PROBE_STABLE_MS=500` 设置两次目标读取的间隔(0 关闭稳定性检查)。
+
+正式安装版支持只读诊断：`open -n /Applications/VibeKey.app --args --diagnose-codex-access /tmp/vibekey-codex-access.json`。JSON 包含 App 自身的 AX 信任状态及脱敏目标状态；不启动串口或发送按键。附加 `--prepare-device-target` 可验证设备记住的应用能否自动前置并聚焦。附加 `--followup-thread <UUID>` 可验证打开 Codex 原对话、核对实际会话及聚焦输入框。两者均不输入或发送文字。
+
+实际采音／识别／翻译诊断：先退出常驻 App，再运行 `open -n /Applications/VibeKey.app --args --diagnose-voice-pipeline <测试音频绝对路径> /tmp/vibekey-voice-health.json`，结束后重新打开常驻 App。附加 `--require-wifi` 时等待已配对 Wi-Fi，暂停 USB 后通过无线真实采音（只记录统计量），未连上 Wi-Fi 则明确失败。硬件采样只记录数量与音量统计，不保存现场声音。
 
 ## 规则
 

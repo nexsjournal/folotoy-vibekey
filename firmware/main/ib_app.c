@@ -1,4 +1,4 @@
-// main/ib_app.c: InputBetter 应用核心(状态机)。
+// main/ib_app.c: VibeKey 应用核心(状态机)。
 //
 // 线程模型:
 //   button 组件任务    ib_app_on_button()   只投递按键事件
@@ -32,8 +32,10 @@
 #include "ib_protocol.h"
 #include "ib_ui.h"
 #include "ib_usb.h"
+#include "ib_wifi.h"
 
 #include "esp_app_desc.h"
+#include "esp_bt.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_random.h"
@@ -70,7 +72,7 @@ _Static_assert((int)IB_UI_KEY_UP == (int)IB_KEY_UP && (int)IB_UI_KEY_DOWN == (in
 typedef enum {
     EV_KEY,
     EV_COMMAND,
-    EV_BLE_LINK,
+    EV_LINK,
 } ev_type_t;
 
 typedef struct {
@@ -78,7 +80,7 @@ typedef struct {
     ib_link_t link;         // EV_COMMAND
     ib_key_t key;           // EV_KEY
     ib_key_ev_t key_ev;     // EV_KEY
-    bool subscribed;        // EV_BLE_LINK
+    bool subscribed;        // EV_LINK
     ib_cmd_t cmd;           // EV_COMMAND
 } app_event_t;
 
@@ -113,6 +115,15 @@ static ib_state_t s_home_st = IB_ST_IDLE;
 static char s_home_msg[IB_TEXT_MAX];
 static int64_t s_mic_tail_until;
 static char s_msg[IB_TEXT_MAX];
+static char s_caption_src[IB_CAPTION_MAX];
+static char s_caption_dst[IB_CAPTION_MAX];
+static char s_caption_app[IB_CAPTION_APP_MAX];
+static bool s_caption_live;
+// OFFLINE 页按 OK 请求 Mac 重新握手;CONNECTING → NO RESPONSE → 可再次尝试。
+static int64_t s_wake_until;
+static bool s_wake_failed;
+_Static_assert(IB_CAPTION_MAX == IB_UI_CAPTION_MAX, "caption buffer size mismatch");
+_Static_assert(IB_CAPTION_APP_MAX == IB_UI_CAPTION_APP_MAX, "caption app buffer size mismatch");
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
 static int64_t s_revert_at;             // done/err 自动回 IDLE 的时刻,0 表示无
 static bool s_list_ready;               // 收到过当前这轮的 list 命令
@@ -179,7 +190,7 @@ static void post_command(ib_link_t link, const char *line, size_t len)
 
 static void on_usb_line(const char *line, size_t len)
 {
-    post_command(IB_LINK_USB, line, len);
+    if (!ib_wifi_handle_usb_line(line, len)) post_command(IB_LINK_USB, line, len);
 }
 
 static void on_ble_line(const char *line, size_t len)
@@ -189,7 +200,14 @@ static void on_ble_line(const char *line, size_t len)
 
 static void on_ble_link(bool subscribed)
 {
-    app_event_t event = { .type = EV_BLE_LINK, .subscribed = subscribed };
+    app_event_t event = { .type = EV_LINK, .link = IB_LINK_BLE, .subscribed = subscribed };
+    xQueueSend(s_queue, &event, 0);
+}
+
+static void on_wifi_line(const char *line, size_t len) { post_command(IB_LINK_WIFI, line, len); }
+static void on_wifi_link(bool connected)
+{
+    app_event_t event = { .type = EV_LINK, .link = IB_LINK_WIFI, .subscribed = connected };
     xQueueSend(s_queue, &event, 0);
 }
 
@@ -199,7 +217,8 @@ static void audio_tx(ib_link_t link, const uint8_t *frame, size_t len)
     if (link == IB_LINK_USB) {
         ib_usb_send_bin(frame, len);
     } else {
-        ib_ble_send_audio(frame, len);
+        if (link == IB_LINK_BLE) ib_ble_send_audio(frame, len);
+        else ib_wifi_send(frame, len);
     }
 }
 
@@ -213,7 +232,8 @@ static void send_to(ib_link_t link, const char *msg, size_t len)
     if (link == IB_LINK_USB) {
         ib_usb_send(msg, len);
     } else {
-        ib_ble_send(msg, len);
+        if (link == IB_LINK_BLE) ib_ble_send(msg, len);
+        else ib_wifi_send((const uint8_t *)msg, len);
     }
 }
 
@@ -446,9 +466,13 @@ static void go_offline(void)
     s_revert_at = 0;
     s_mic_tail_until = 0;
     s_list_ready = false;
+    s_wake_until = 0;
+    s_wake_failed = false;
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
         ib_ui_set_level(0);
+        ib_ui_set_offline_hint((s_usb_present || s_ble_subscribed || ib_wifi_is_configured())
+                                   ? "PRESS OK TO RECONNECT" : "CHECK USB CABLE");
     }
     show_screen(IB_UI_OFFLINE);
     refresh_clock(now_ms(), true);
@@ -466,12 +490,18 @@ static void refresh_links(int64_t now)
     if (usb != s_usb_present) {
         s_usb_present = usb;
         refresh_battery(now, true);     // 更新充电图标
+        if (!s_online && s_ui_ok && s_wake_until == 0) {
+            ib_ui_set_offline_hint((usb || s_ble_subscribed || ib_wifi_is_configured())
+                                       ? "PRESS OK TO RECONNECT" : "CHECK USB CABLE");
+        }
     }
 
     bool online = ib_links_any(&s_links, now);
     if (online != s_online) {
         s_online = online;
         if (online) {
+            s_wake_until = 0;
+            s_wake_failed = false;
             show_screen(screen_for(s_st));      // 回到离线前 Mac 下发的页面
             wake(now);                          // 真正重连,用户需要看到
         } else {
@@ -487,6 +517,8 @@ static void refresh_links(int64_t now)
     ib_ui_link_t ui_link;
     if (pref == IB_LINK_USB || (pref == IB_LINK_COUNT && usb)) {
         ui_link = IB_UI_LINK_USB;
+    } else if (pref == IB_LINK_WIFI) {
+        ui_link = IB_UI_LINK_WIFI;
     } else if (pref == IB_LINK_BLE || s_ble_subscribed) {
         ui_link = IB_UI_LINK_BLE;
     } else {
@@ -507,6 +539,21 @@ static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
     if (ev == IB_KEY_EV_DOWN) {
         wake(now);
         if (s_ui_ok && !dark) ib_ui_key_press((ib_ui_key_t)key);
+    }
+    if (ev == IB_KEY_EV_DOWN && key == IB_KEY_OK && !s_online && s_screen == IB_UI_OFFLINE) {
+        char msg[IB_MSG_MAX];
+        size_t len = ib_format_wake(msg, sizeof(msg));
+        bool has_link = s_usb_present || s_ble_subscribed || ib_usb_host_present() || ib_wifi_is_configured();
+        if (len) {
+            if (s_usb_present || ib_usb_host_present()) ib_usb_send(msg, len);
+            if (s_ble_subscribed) ib_ble_send(msg, len);
+            if (ib_wifi_is_configured()) ib_wifi_send((const uint8_t *)msg, len);
+        }
+        if (s_ui_ok) ib_ui_set_offline_hint(has_link ? "CONNECTING..." : "CHECK USB CABLE");
+        s_wake_until = has_link ? now + 3000 : 0;
+        s_wake_failed = false;
+        ib_keys_reset(&s_keys);
+        return;
     }
     ib_key_action_t act = ib_keys_handle(&s_keys, key, ev, now, s_online, dark, agent_capturing());
     if (act.dismiss_agent) agent_clear();
@@ -544,6 +591,7 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
         send_to(link, msg,
                 ib_format_hello(msg, sizeof(msg), esp_app_get_description()->version, s_build_id, s_boot_id));
         send_battery(link);
+        if (link == IB_LINK_USB) ib_wifi_report_status();
         break;
     case IB_CMD_PING:
         send_to(link, msg, ib_format_pong(msg, sizeof(msg)));
@@ -589,6 +637,13 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
     case IB_CMD_LIST:
         apply_list(cmd);
         break;
+    case IB_CMD_CAPTION:
+        if (cmd->has_caption_src) memcpy(s_caption_src, cmd->caption_src, sizeof(s_caption_src));
+        if (cmd->has_caption_dst) memcpy(s_caption_dst, cmd->caption_dst, sizeof(s_caption_dst));
+        if (cmd->has_caption_app) memcpy(s_caption_app, cmd->caption_app, sizeof(s_caption_app));
+        s_caption_live = cmd->caption_live;
+        if (s_ui_ok) ib_ui_set_caption(s_caption_src, s_caption_dst, s_caption_app, s_caption_live);
+        break;
     case IB_CMD_BYE:
         break;
     }
@@ -598,6 +653,17 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
 
 static void refresh_timers(int64_t now)
 {
+    if (s_wake_until && now >= s_wake_until) {
+        if (!s_wake_failed) {
+            s_wake_failed = true;
+            s_wake_until = now + 2000;
+            if (!s_online && s_ui_ok) ib_ui_set_offline_hint("NO RESPONSE - TRY AGAIN");
+        } else {
+            s_wake_until = 0;
+            s_wake_failed = false;
+            if (!s_online && s_ui_ok) ib_ui_set_offline_hint("PRESS OK TO RECONNECT");
+        }
+    }
     if (s_revert_at && now >= s_revert_at) {
         s_revert_at = 0;
         // 离线时 go_offline 已清掉 s_revert_at,这里只会在在线时触发。
@@ -648,9 +714,9 @@ static void app_task(void *arg)
             case EV_COMMAND:
                 handle_command(ev.link, &ev.cmd, now);
                 break;
-            case EV_BLE_LINK:
-                s_ble_subscribed = ev.subscribed;
-                if (!ev.subscribed) ib_links_drop(&s_links, IB_LINK_BLE);
+            case EV_LINK:
+                if (ev.link == IB_LINK_BLE) s_ble_subscribed = ev.subscribed;
+                if (!ev.subscribed) ib_links_drop(&s_links, ev.link);
                 break;
             }
         }
@@ -688,7 +754,11 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
     // PHY 退回每次上电完整校准,BLE 照常启动。
     esp_err_t err = nvs_flash_init();
     if (err != ESP_OK) ESP_LOGW(TAG, "nvs init failed: %s", esp_err_to_name(err));
-    if (ib_ble_start(on_ble_line, on_ble_link) != ESP_OK) ESP_LOGE(TAG, "BLE link unavailable");
+    if (ib_wifi_is_configured()) {
+        // 官方 API 释放本轮不使用的 BLE 控制器内存；清除 Wi-Fi 后重启即可恢复 BLE。
+        esp_bt_mem_release(ESP_BT_MODE_BLE);
+    } else if (ib_ble_start(on_ble_line, on_ble_link) != ESP_OK) ESP_LOGE(TAG, "BLE link unavailable");
+    if (ib_wifi_start(on_wifi_line, on_wifi_link) != ESP_OK) ESP_LOGE(TAG, "Wi-Fi link unavailable");
 
     // boot id 在 RF 启用之后生成:此时 esp_random() 由射频噪声提供真随机数。
     s_boot_id = esp_random();

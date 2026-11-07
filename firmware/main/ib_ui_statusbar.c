@@ -1,7 +1,7 @@
 // main/ib_ui_statusbar.c: 状态栏实现(见 ib_ui_statusbar.h;docs/device-ui.md「状态栏」)。
 //
 // 全部 12 px 小字加字距,中灰,不与页面主文字争抢:
-//   左:链路 USB / BLE(在线中灰、离线深灰);录音时换成脉动红点 + 计时;字幕时换成闪烁白点 + LIVE(无边框)
+//   左:链路 USB / WIFI / BLE(离线时略暗，仍可在全屏背景上阅读);录音与字幕时切换为相应标记。
 //   右:电量是 5 颗小圆点(每颗 20%,与界面的点阵语言一致);≤20% 且未充电时唯一亮着的点变红(唯一的彩色提醒),
 //       充电时点从左到右循环点亮;百分比数字只在低电量或充电时出现(平时看点就够了)
 #include "ib_ui_statusbar.h"
@@ -102,9 +102,9 @@ void ib_bar_create(lv_obj_t *screen)
 
 void ib_bar_set_link(ib_ui_link_t link, bool online)
 {
-    const char *text = link == IB_UI_LINK_USB ? "USB" : link == IB_UI_LINK_BLE ? "BLE" : "";
+    const char *text = link == IB_UI_LINK_USB ? "USB" : link == IB_UI_LINK_BLE ? "BLE" : link == IB_UI_LINK_WIFI ? "WIFI" : "";
     lv_label_set_text_static(s_link, text);
-    lv_obj_set_style_text_color(s_link, IB_C(online ? IB_COLOR_TEXT_MID : IB_COLOR_RING), 0);
+    lv_obj_set_style_text_opa(s_link, online ? LV_OPA_COVER : LV_OPA_90, 0);
 }
 
 void ib_bar_set_battery(int soc, bool charging)

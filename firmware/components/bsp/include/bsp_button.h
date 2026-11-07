@@ -12,7 +12,7 @@ typedef enum {
     BSP_BTN_OK,
 } bsp_btn_t;
 
-// InputBetter 改动:只保留原始事件(按下 / 松开 / 长按开始),单击、双击由 Mac 端自行判断。
+// VibeKey 改动:只保留原始事件(按下 / 松开 / 长按开始),单击、双击由 Mac 端自行判断。
 typedef enum {
     BSP_BTN_PRESS = 0,   // 按下瞬间(已去抖)
     BSP_BTN_RELEASE,     // 松开瞬间(已去抖)

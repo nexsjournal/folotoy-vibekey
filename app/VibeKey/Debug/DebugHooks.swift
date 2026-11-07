@@ -1,0 +1,252 @@
+#if DEBUG
+import AppKit
+import ApplicationServices
+import AppUpdateKit
+import AVFoundation
+
+/// 仅调试构建可用的启动钩子(环境变量),用于自动化检查,不进入正式版本:
+/// - IB_DOWNLOAD=id1,id2       启动后下载这些模型;
+/// - IB_TRANSCRIBE_FILE=path   用 IB_TRANSCRIBE_MODELS(逗号分隔)里的模型识别该音频文件,打印结果与耗时后退出;
+/// - IB_SHOW_PILL=1            直接显示状态条(跳过引导);
+/// - IB_PILL_RESULT=typed|warning  状态条停在听写完成卡片上(warning 为很长的「翻译失败」说明),检查卡片宽度;
+/// - IB_SUBTITLE_APP=bundleID  启动后直接对该应用开字幕(IB_SUBTITLE_TRANSLATE=1 同时打开翻译,
+///   IB_TRANSLATION_METHOD=system / mt.deepl / llm 先切换翻译方式,会写入设置;IB_CAPTION_TRACE=1 打印翻译时序);
+/// - IB_SHOW_TRANSCRIPT=1      打开字幕记录窗口(IB_TRANSCRIPT_TAB=summary 打开「总结」页);
+/// - IB_SUMMARIZE_AFTER=秒      启动后过这么多秒触发一次「立即总结」;
+/// - IB_TRANSCRIPT_TRANSLATE_AFTER=秒  启动后过这么多秒在字幕记录里「全部重新翻译」一次,打印结果(配合 IB_DEMO_CAPTIONS);
+/// - IB_SUMMARIZE_ALL_AFTER=秒  启动后过这么多秒触发一次「总结全文」;
+/// - IB_DEMO_CAPTIONS=1        用示例双语字幕显示字幕条(不采集音频),检查排版;加 IB_SHOW_HEADER=1 一直显示标题栏;
+///   加 IB_STOP_PROMPT=1 显示后立即弹出「结束字幕？」气泡(检查气泡排版);
+/// - IB_SWITCH_LANGUAGE=en|zh-Hans  启动 2 秒后切换界面语言(检查即时切换)。
+/// - IB_FIRMWARE_MANIFEST=url  从这个地址获取 Passport 固件清单(代替官网,测试新固件用)。
+/// - IB_UPDATE_FEED=url        检查更新改用这个接口(代替 Info.plist 里配置的)。
+/// - IB_UPDATE_DEMO=available|required  用假数据(版本 99.0)弹出可选 / 强制更新提示,检查界面用,不联网。
+/// - IB_FLASH_FIRMWARE=1       Passport 通过 USB 连上后自动刷一次固件(验证「下载 → 写入」整条链路)。
+/// - IB_CLOUD_CONFIG=provider  (在 ModelList 里读取)模型列表出现时直接弹出该云端服务的配置表单,如 volcengine,配合 IB_SETTINGS_PANE=models。
+/// - IB_TRANSLATE_CONFIG=provider(在 SettingsNavigation 里读取)直接弹出该在线翻译服务的配置表单,如 deepl,配合 IB_SETTINGS_PANE=translation。
+/// - IB_CODEX_PROBE=1          读取当前 Codex 输入框并输出脱敏后的目标状态，然后退出。
+///   IB_CODEX_PROBE_STABLE_MS 可覆盖第二次读取的间隔（默认 300 ms），用于检查 AX 目标标识是否稳定。
+@MainActor
+enum DebugHooks {
+    static var env: [String: String] { ProcessInfo.processInfo.environment }
+
+    /// IB_FIRMWARE_MANIFEST 指定的固件清单地址;没设置时为 nil(用官网)。
+    static var firmwareManifestURL: URL? { env["IB_FIRMWARE_MANIFEST"].flatMap(URL.init(string:)) }
+
+    /// IB_UPDATE_FEED 指定的检查更新接口。
+    static var updateFeedURL: URL? { env["IB_UPDATE_FEED"].flatMap(URL.init(string:)) }
+
+    /// IB_UPDATE_DEMO 的假数据源:版本 99.0,`required` 时当前版本必须更新。
+    static var updateDemoFeed: (any UpdateFeed)? {
+        guard let mode = env["IB_UPDATE_DEMO"], let version = AppVersion("99.0") else { return nil }
+        let notes = ["zh": "- 示例：字幕条支持拖动调整宽度\n- 示例：听写翻译更快\n- 修复若干问题", "en": "- Sample: resize the caption bar by dragging\n- Sample: faster dictation translation\n- Bug fixes"]
+        let release = UpdateRelease(version: version, notes: notes, downloadURL: URL(string: "https://example.com/VibeKey-99.0.dmg")!, publishedAt: Date())
+        return StaticUpdateFeed(UpdateFeedResult(latest: release, requiredAtOrBelow: mode == "required" ? AppVersion("98") : nil))
+    }
+
+    static func run(app: AppState) {
+        if env["IB_CODEX_PROBE"] != nil {
+            Task {
+                if let delay = env["IB_CODEX_PROBE_DELAY_MS"].flatMap(Int.init) {
+                    try? await Task.sleep(for: .milliseconds(delay))
+                }
+                do {
+                    let adapter = AccessibilityCodexDesktopAdapter()
+                    let snapshot = try await adapter.inspectTarget()
+                    guard let snapshot else {
+                        let app = NSRunningApplication.runningApplications(
+                            withBundleIdentifier: AccessibilityCodexDesktopAdapter.bundleIdentifier
+                        ).first { !$0.isTerminated }
+                        let element = app.map { AXUIElementCreateApplication($0.processIdentifier) }
+                        var windowsValue: CFTypeRef?
+                        let windowsError = element.map {
+                            AXUIElementCopyAttributeValue(
+                                $0, kAXWindowsAttribute as CFString, &windowsValue
+                            ).rawValue
+                        } ?? AXError.failure.rawValue
+                        let windowsCount = (windowsValue as? [AXUIElement])?.count ?? -1
+                        print("[IB_CODEX_PROBE] unavailable trusted=\(AXIsProcessTrusted()) "
+                            + "pid=\(app?.processIdentifier ?? -1) axWindowsError=\(windowsError) "
+                            + "axWindows=\(windowsCount)")
+                        fflush(stdout)
+                        exit(2)
+                    }
+                    let stableDelay = env["IB_CODEX_PROBE_STABLE_MS"].flatMap(Int.init) ?? 300
+                    var targetStable = stableDelay == 0
+                    if stableDelay > 0 {
+                        try? await Task.sleep(for: .milliseconds(stableDelay))
+                        targetStable = try await adapter.inspectTarget()?.target == snapshot.target
+                    }
+                    print("[IB_CODEX_PROBE] frontmost=\(snapshot.isFrontmost) unlocked=\(snapshot.isUnlocked) "
+                        + "empty=\(snapshot.inputIsEmpty) inputChars=\(snapshot.inputText.count) "
+                        + "run=\(snapshot.runState) approval=\(snapshot.hasPendingApproval) "
+                        + "targetStable=\(targetStable) identity=\(snapshot.conversationIdentity)")
+                    if env["IB_CODEX_PROBE_TREE"] != nil {
+                        print("[IB_CODEX_PROBE_TREE] \(AccessibilityCodexDesktopAdapter.debugTreeSummary())")
+                    }
+                    fflush(stdout)
+                    exit(0)
+                } catch {
+                    let app = NSRunningApplication.runningApplications(
+                        withBundleIdentifier: AccessibilityCodexDesktopAdapter.bundleIdentifier
+                    ).first { !$0.isTerminated }
+                    let element = app.map { AXUIElementCreateApplication($0.processIdentifier) }
+                    var windowsValue: CFTypeRef?
+                    let windowsError = element.map {
+                        AXUIElementCopyAttributeValue(
+                            $0, kAXWindowsAttribute as CFString, &windowsValue
+                        ).rawValue
+                    } ?? AXError.failure.rawValue
+                    let windowsCount = (windowsValue as? [AXUIElement])?.count ?? -1
+                    print("[IB_CODEX_PROBE] error=\(error) trusted=\(AXIsProcessTrusted()) "
+                        + "pid=\(app?.processIdentifier ?? -1) axWindowsError=\(windowsError) "
+                        + "axWindows=\(windowsCount) "
+                        + "frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil")")
+                    print("[IB_CODEX_PROBE_TREE] \(AccessibilityCodexDesktopAdapter.debugTreeSummary())")
+                    fflush(stdout)
+                    exit(3)
+                }
+            }
+        }
+        if let ids = env["IB_DOWNLOAD"] {
+            for id in ids.split(separator: ",") { app.models.download(String(id)) }
+        }
+        if let path = env["IB_TRANSCRIBE_FILE"] {
+            let ids = (env["IB_TRANSCRIBE_MODELS"] ?? app.settings.dictationModelID).split(separator: ",").map(String.init)
+            Task { await transcribe(path: path, modelIDs: ids, app: app) }
+        }
+        if env["IB_SHOW_PILL"] != nil { app.showPill() }
+        if let kind = env["IB_PILL_RESULT"] {
+            app.showPill()
+            let reason = "The operation couldn’t be completed because the translation service returned an unexpected response"
+            app.dictation.debugShowResult(kind == "warning" ? .typedUntranslated(reason) : .typed)
+        }
+        if let code = env["IB_SWITCH_LANGUAGE"], let target = AppLanguage(rawValue: code) {
+            let previous = AppLanguage.saved
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                app.language.set(target)
+                // 只用于检查,不改变用户保存的选择。
+                AppLanguage.save(previous)
+            }
+        }
+        if let bid = env["IB_SUBTITLE_APP"] {
+            let name = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bid }?.localizedName ?? bid
+            if let method = env["IB_TRANSLATION_METHOD"].flatMap(TranslationMethod.init(storage:)) { app.settings.subtitleTranslationMethod = method }
+            app.startCaptions(AudioApp(bundleID: bid, name: name, pid: 0, isPlaying: true))
+            // IB_SUBTITLE_TRANSLATE=1:开始后立即打开本场翻译(检查翻译时序)。
+            if env["IB_SUBTITLE_TRANSLATE"] != nil {
+                Task {
+                    while !app.subtitles.isRunning { try? await Task.sleep(for: .milliseconds(200)) }
+                    app.subtitles.setTranslationEnabled(true)
+                }
+            }
+        }
+        if env["IB_DEMO_CAPTIONS"] != nil {
+            showDemoCaptions(app: app)
+            if env["IB_STOP_PROMPT"] != nil { app.stopCaptions() }
+        }
+        if env["IB_FLASH_FIRMWARE"] != nil {
+            Task {
+                // 等 USB 握手完成(最多 30 秒)再刷,和用户在设置页点「重新刷入」走同一条路径。
+                for _ in 0..<60 where app.deviceLink.usbPortPath == nil {
+                    try? await Task.sleep(for: .milliseconds(500))
+                }
+                print("[IB_FLASH_FIRMWARE] port=\(app.deviceLink.usbPortPath ?? "nil")")
+                app.passportSetup.flashFirmware()
+                // 最多等 3 分钟,直到成功或失败。
+                for _ in 0..<360 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if case .done = app.firmware.phase { break }
+                    if case .failed = app.firmware.phase { break }
+                }
+                print("[IB_FLASH_FIRMWARE] result=\(app.firmware.phase)")
+            }
+        }
+        if env["IB_SHOW_TRANSCRIPT"] != nil { app.windows.showTranscript() }
+        if let seconds = env["IB_SUMMARIZE_ALL_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.summarizer.summarizeAll()
+            }
+        }
+        if let seconds = env["IB_TRANSCRIPT_TRANSLATE_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.transcriptTranslator.retranslateAll()
+                // 等任务结束再打印结果,自动化检查用。
+                while app.transcriptTranslator.job != nil { try? await Task.sleep(for: .milliseconds(200)) }
+                let entries = app.subtitles.transcript.entries
+                print("[IB_TRANSCRIPT_TRANSLATE] done \(entries.filter { $0.translation != nil }.count)/\(entries.count) error=\(app.transcriptTranslator.error ?? "nil")")
+                entries.forEach { print("[IB_TRANSCRIPT_TRANSLATE] \($0.text) → \($0.translation ?? "nil")") }
+                fflush(stdout)
+            }
+        }
+        if let seconds = env["IB_SUMMARIZE_AFTER"].flatMap(Double.init) {
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                app.summarizer.summarizeNow()
+            }
+        }
+    }
+
+    private static func showDemoCaptions(app: AppState) {
+        let start = Date().addingTimeInterval(-170)
+        var sample = CaptionTranscript(appName: "Google Chrome", startedAt: start)
+        let lines: [(String, String?)] = [
+            ("We know the equation of a quadratic equation.", "我们知道二次方程的解。"),
+            ("How to solve that.", "如何解这个方程。"),
+            ("We know.", "我们知道。"),
+            ("The rules of a right triangle, we know many, many rules of math and geometry and logic and science.", "直角三角形的性质，我们知道很多很多数学、几何、逻辑和科学方面的规律。"),
+            ("We have puzzle games that we could give it.", nil),
+        ]
+        // 第 2、3 句是同一次定稿切出的两句(时间相同),记录窗口里应合成一段。
+        let seconds: [Double] = [150, 154, 154, 158, 162]
+        for (i, line) in lines.enumerated() {
+            let entry = CaptionTranscript.Entry(time: start.addingTimeInterval(seconds[i]), text: line.0, translation: line.1)
+            sample.append(entry)
+        }
+        app.subtitles.debugShow(sample, partial: "Constraint, constraint")
+    }
+
+    private static func transcribe(path: String, modelIDs: [String], app: AppState) async {
+        guard let samples = loadSamples(path) else {
+            print("IBBENCH load failed: \(path)")
+            exit(1)
+        }
+        print("IBBENCH audio \(String(format: "%.1f", Double(samples.count) / 16_000))s")
+        for id in modelIDs {
+            guard let engine = app.engines.engine(for: id) else { continue }
+            do {
+                let loadStart = Date()
+                try await engine.prepare()
+                let loadTime = Date().timeIntervalSince(loadStart)
+                let options = ASROptions(purpose: .dictation, language: app.settings.language, vocabulary: app.settings.vocabularyTerms)
+                let session = try await engine.makeSession(options)
+                // 模拟实时输入:按 100 ms 一块送入,最后计时 finish(即松开快捷键后的等待时间)。
+                var i = 0
+                while i < samples.count {
+                    let end = min(i + 1_600, samples.count)
+                    session.feed(Array(samples[i..<end]))
+                    i = end
+                }
+                // 等处理队列消化完已送入的音频,只计松开后的识别时间。
+                try? await Task.sleep(for: .seconds(Double(samples.count) / 16_000 * 0.5 + 2))
+                let finishStart = Date()
+                let text = await session.finish()
+                print("IBBENCH \(id) load=\(String(format: "%.2f", loadTime))s finish=\(String(format: "%.2f", Date().timeIntervalSince(finishStart)))s text=\(text)")
+            } catch {
+                print("IBBENCH \(id) error=\(error.localizedDescription)")
+            }
+        }
+        exit(0)
+    }
+
+    private static func loadSamples(_ path: String) -> [Float]? {
+        guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: path)),
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
+              (try? file.read(into: buffer)) != nil else { return nil }
+        return AudioConverter().convert(buffer)
+    }
+}
+#endif

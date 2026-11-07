@@ -36,6 +36,11 @@ typedef struct {
     char engine[IB_UI_TEXT_MAX];
     char time[8];
     char date[12];
+    char offline_hint[IB_UI_OFFLINE_HINT_MAX];
+    char caption_src[IB_UI_CAPTION_MAX];
+    char caption_dst[IB_UI_CAPTION_MAX];
+    char caption_app[IB_UI_CAPTION_APP_MAX];
+    bool caption_live;
     uint8_t level;          // Mac 下发的原始电平 0..100
     int32_t level_smooth;   // 平滑后的电平,0..1000(每帧向目标靠近 35%)
     bool ok_held;

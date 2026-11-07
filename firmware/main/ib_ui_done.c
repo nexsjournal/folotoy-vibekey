@@ -1,7 +1,7 @@
 // main/ib_ui_done.c: DONE 页:已输入(docs/device-ui.md「DONE」)。
 //
 // 只是一个状态,不是庆祝画面:处理中的那条线重排回当前模式的点阵字形(ib_ui_dots),点在飞行中变成完成绿,
-// 落地后 600 ms 内慢慢褪回 IDLE 的浅灰——约 1.2 s 后 ib_app 切回 IDLE 时画面已经和 IDLE 一样,无缝衔接。
+// 落地后 600 ms 内慢慢褪回 IDLE 的终端绿,切回 IDLE 时点阵颜色保持一致。
 // 下方一行状态字(绿色):TYPED,或 Mac 下发的 msg(COPIED / NOT TRANSLATED / NOT POLISHED,转大写),
 // 250 ms 起淡入并从下方 6 px 上移到位。
 #include "ib_ui_dots.h"
@@ -14,7 +14,7 @@
 #define TEXT_T0     250
 #define TEXT_MS     250
 #define TEXT_RISE   6
-#define FADE_MS     600                 // 落地后由绿褪回浅灰
+#define FADE_MS     600                 // 落地后由完成绿褪回终端绿
 
 static lv_obj_t *s_fx;
 static lv_obj_t *s_text;
@@ -31,13 +31,15 @@ static void fx_draw(lv_event_t *e)
 {
     ib_fx_t fx;
     ib_fx_begin(&fx, e);
+    ib_fx_frame(&fx, 6, 4, IB_UI_CONTENT_W - 12, IB_DOTS_BOX_H - 8, 0, 1,
+                IB_C(IB_COLOR_MATRIX_FRAME), LV_OPA_COVER);
     uint32_t now = lv_tick_get();
     if (!ib_dots_settled(now) || s_fade < 0) {
         ib_dots_draw(&fx, now, 0);
         return;
     }
-    lv_color_t c = lv_color_mix(ib_gray(0xC8), IB_C(IB_COLOR_DONE), (uint8_t)(s_fade * 255 / IB_P_ONE));
-    if (s_fade >= IB_P_ONE) c = ib_gray(0xC8);                  // 终点用精确灰
+    lv_color_t c = lv_color_mix(IB_C(IB_COLOR_MATRIX_SOFT), IB_C(IB_COLOR_DONE), (uint8_t)(s_fade * 255 / IB_P_ONE));
+    if (s_fade >= IB_P_ONE) c = IB_C(IB_COLOR_MATRIX_SOFT);      // 与 IDLE 终点一致
     const ib_dots_t *g = ib_dots_current();
     for (int i = 0; i < g->n; i++) ib_dots_dot(&fx, ib_dots_x(g->d[i].c), ib_dots_y(g->d[i].r), c, 0);
 }
@@ -46,6 +48,7 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
 {
     (void)ctx;
     lv_obj_t *root = ib_box_create(parent, 0, 0, IB_UI_CONTENT_W, IB_UI_PAGE_H);
+    ib_terminal_header(root, "> COMPLETE_", IB_COLOR_MATRIX_SOFT, IB_UI_CONTENT_W);
     s_fx = ib_fx_create(root, 0, IB_DOTS_BOX_Y, IB_UI_CONTENT_W, IB_DOTS_BOX_H, fx_draw, NULL);
     s_text = ib_label_create(root, &lv_font_montserrat_20, IB_COLOR_DONE, ib_font_top(&lv_font_montserrat_20, TEXT_CY),
                              IB_UI_CONTENT_W - 16);
@@ -85,7 +88,7 @@ static void frame(const ib_ui_ctx_t *ctx)
         s_fade = ib_ease_in_out_sine(ib_progress(now, ib_dots_settle_ms(), FADE_MS));
         s_still = s_fade >= IB_P_ONE && text >= IB_P_ONE;
         if (s_fade >= IB_P_ONE && ib_dots_current()->d[0].color != IB_DOT_SOFT) {
-            // 褪色结束:当前图案换成 IDLE 的浅灰字形,切回 IDLE 时不会从绿色再重排一次。
+            // 褪色结束:当前图案换成 IDLE 的绿色字形,切回时不会再次变色。
             ib_dots_t g;
             ib_dots_glyph(&g, MODE_GLYPHS[s_mode], IB_DOT_SOFT);
             ib_dots_show(&g, false, false, now);

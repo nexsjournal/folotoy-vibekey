@@ -1,4 +1,4 @@
-// main/ib_protocol.h: InputBetter Passport 协议 v1(见仓库 docs/protocol.md)。
+// main/ib_protocol.h: VibeKey Passport 协议 v1(见仓库 docs/protocol.md)。
 // 纯 C 实现,不依赖 ESP-IDF/LVGL,由 tests/test_ib_protocol.c 在主机上测试。
 #pragma once
 
@@ -8,13 +8,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define IB_FIRMWARE_NAME    "inputbetter"
+#define IB_FIRMWARE_NAME    "vibekey"
 #define IB_PROTO_VERSION    1
 
 // 单行上限(含 NUL):协议规定单行最长 511 字节。
 #define IB_LINE_MAX         512
 // 屏幕文本字段(msg / engine)上限(含 NUL):协议规定最长 23 字节 ASCII。
 #define IB_TEXT_MAX         24
+// 字幕字段上限(含 NUL):UTF-8,约 63 个汉字;src / dst 单独字段。
+#define IB_CAPTION_MAX      192
+// 字幕应用名(UTF-8,含 NUL)。
+#define IB_CAPTION_APP_MAX  64
 // list 命令一次最多携带的可见行数(i0..i5);i6 及以后视为未知字段忽略。
 #define IB_LIST_ROWS        6
 // list 命令里 n / sel / top 的上限。
@@ -81,6 +85,7 @@ typedef enum {
     IB_CMD_KEYS,
     IB_CMD_AGENT,
     IB_CMD_LIST,
+    IB_CMD_CAPTION,
 } ib_cmd_type_t;
 
 typedef struct {
@@ -125,6 +130,14 @@ typedef struct {
     bool has_list_sel;
     uint16_t list_sel;              // 选中项的绝对序号
     uint16_t list_top;              // i0 在完整列表里的序号(缺省 0)
+    // caption(UTF-8):当前字幕原文 / 译文 / 应用名;live 表示末行还在变化。
+    bool has_caption_src;
+    bool has_caption_dst;
+    bool has_caption_app;
+    bool caption_live;
+    char caption_src[IB_CAPTION_MAX];
+    char caption_dst[IB_CAPTION_MAX];
+    char caption_app[IB_CAPTION_APP_MAX];
 } ib_cmd_t;
 
 const char *ib_key_name(ib_key_t key);          // "up" / "down" / "ok";越界 "?"
@@ -135,13 +148,15 @@ const char *ib_agent_ev_name(ib_agent_ev_t ev);
 
 // 以下函数写入一行以 '\n' 结尾、NUL 终止的 JSON,返回不含 NUL 的长度;放不下或参数非法时返回 0。
 // build:固件构建标识,ELF 文件 SHA-256 的前 8 位小写十六进制(必须恰好 8 个 [0-9a-f],否则返回 0)。
-// Mac 端用同一算法(shasum -a 256 InputBetter-Passport.elf 的前 8 位)判断设备固件是否与 app 内置的一致。
+// Mac 端用同一算法(shasum -a 256 VibeKey-Passport.elf 的前 8 位)判断设备固件是否与 app 内置的一致。
 #define IB_BUILD_ID_LEN 8
 size_t ib_format_hello(char *buf, size_t cap, const char *version, const char *build, uint32_t boot_id);
 // ack=true 时附加 "ack":1:这次按压用于关闭 agent 通知,Mac 不执行它的动作。
 size_t ib_format_key(char *buf, size_t cap, ib_key_t key, ib_key_ev_t ev, bool ack, uint32_t seq, uint32_t boot_id);
 size_t ib_format_battery(char *buf, size_t cap, int soc, int mv, bool charging);
 size_t ib_format_pong(char *buf, size_t cap);
+// 设备 → Mac:OFFLINE 页按 OK 时请求重新握手。
+size_t ib_format_wake(char *buf, size_t cap);
 
 // 写二进制帧头;payload_len 不在 1..IB_BIN_MAX 时返回 0。
 size_t ib_bin_header(uint8_t out[IB_BIN_HDR], uint8_t type, uint8_t seq, size_t payload_len);

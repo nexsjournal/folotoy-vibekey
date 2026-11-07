@@ -12,7 +12,7 @@ static void test_format(void)
     char buf[IB_MSG_MAX];
 
     CHECK(ib_format_hello(buf, sizeof(buf), "0.1.0", "1a2b3c4d", 0x9f3a21c4) == strlen(buf));
-    CHECK_STR(buf, "{\"t\":\"hello\",\"fw\":\"inputbetter\",\"proto\":1,\"ver\":\"0.1.0\","
+    CHECK_STR(buf, "{\"t\":\"hello\",\"fw\":\"vibekey\",\"proto\":1,\"ver\":\"0.1.0\","
                    "\"build\":\"1a2b3c4d\",\"boot\":\"9f3a21c4\"}\n");
     CHECK(strlen(buf) < IB_LINE_MAX);
     CHECK(ib_format_hello(buf, sizeof(buf), "bad\"ver", "1a2b3c4d", 1) == 0);
@@ -43,6 +43,8 @@ static void test_format(void)
 
     CHECK(ib_format_pong(buf, sizeof(buf)) > 0);
     CHECK_STR(buf, "{\"t\":\"pong\"}\n");
+    CHECK(ib_format_wake(buf, sizeof(buf)) > 0);
+    CHECK_STR(buf, "{\"t\":\"wake\"}\n");
     char tiny[12];
     CHECK(ib_format_pong(tiny, sizeof(tiny)) == 0);
 
@@ -153,6 +155,39 @@ static void test_level_mic(void)
     CHECK(parse("{\"cmd\":\"mic\",\"on\":1}", &c) && c.type == IB_CMD_MIC && c.has_on && c.on);
     CHECK(parse("{\"cmd\":\"mic\",\"on\":0}", &c) && c.type == IB_CMD_MIC && !c.on);
     CHECK(!parse("{\"cmd\":\"mic\"}", &c));
+}
+
+static void test_caption(void)
+{
+    ib_cmd_t c;
+    CHECK(parse("{\"cmd\":\"caption\",\"app\":\"ego lite\",\"src\":\"你好，世界\","
+                "\"dst\":\"Hello, world\",\"live\":1}", &c) &&
+          c.type == IB_CMD_CAPTION);
+    CHECK_STR(c.caption_app, "ego lite");
+    CHECK_STR(c.caption_src, "你好，世界");
+    CHECK_STR(c.caption_dst, "Hello, world");
+    CHECK(c.caption_live);
+    CHECK(c.has_caption_app && c.has_caption_src && c.has_caption_dst);
+
+    // \u 转义(含代理对)按 UTF-8 编码,而不是折叠成 '?'。
+    CHECK(parse("{\"cmd\":\"caption\",\"src\":\"\\u4f60\\u597d \\ud83d\\ude00\"}", &c) &&
+          c.type == IB_CMD_CAPTION);
+    CHECK_STR(c.caption_src, "你好 😀");
+
+    // 超长中文在完整 UTF-8 序列边界截断,不出现半个汉字。
+    char line[IB_LINE_MAX];
+    char text[301];
+    for (int i = 0; i < 100; i++) memcpy(text + i * 3, "字", 3);
+    text[300] = '\0';
+    snprintf(line, sizeof(line), "{\"cmd\":\"caption\",\"src\":\"%s\"}", text);
+    CHECK(parse(line, &c) && c.type == IB_CMD_CAPTION);
+    CHECK(strlen(c.caption_src) == 189);
+
+    // 空字符串可以清空字幕;live 必须是整数。
+    CHECK(parse("{\"cmd\":\"caption\",\"src\":\"\",\"dst\":\"\"}", &c) && c.type == IB_CMD_CAPTION);
+    CHECK_STR(c.caption_src, "");
+    CHECK(!parse("{\"cmd\":\"caption\",\"src\":\"x\",\"live\":\"1\"}", &c));
+    CHECK(!parse("{\"cmd\":\"caption\"}", &c));
 }
 
 static void test_keys_agent(void)
@@ -294,6 +329,7 @@ int main(void)
     test_config();
     test_state();
     test_level_mic();
+    test_caption();
     test_keys_agent();
     test_list();
     test_icons();

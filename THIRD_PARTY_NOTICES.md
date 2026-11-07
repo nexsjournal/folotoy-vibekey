@@ -2,6 +2,12 @@
 
 本项目代码采用 MIT 许可(见 LICENSE)。下列第三方组件按各自许可使用。
 
+## 上游项目
+
+| 组件 | 位置 | 许可 |
+| --- | --- | --- |
+| [InputBetter](https://github.com/racall/InputBetter) @ `ab1fd9f3e7a1c0a6cbb04533c07829845ddc9b0b` | VibeKey 的 app / firmware 基线 | MIT(版权归 InputBetter contributors) |
+
 ## 随仓库提交
 
 | 组件 | 位置 | 许可 |
@@ -9,7 +15,7 @@
 | folotoy/ai-passport 板级支持包 | `firmware/components/bsp` | MIT(见该目录 LICENSE) |
 | Material Icons Round(生成的图标字体) | `firmware/main/icons` | Apache-2.0(见 `LICENSE-material-icons`) |
 | stb_image_write | `firmware/tools/ui-preview/third_party` | MIT / Public Domain(见文件末尾) |
-| silero-vad 模型 | `app/InputBetter/Resources/silero_vad.onnx` | MIT(snakers4/silero-vad) |
+| silero-vad 模型 | `app/VibeKey/Resources/silero_vad.onnx` | MIT(snakers4/silero-vad) |
 
 ## 编译时获取(不在仓库中)
 

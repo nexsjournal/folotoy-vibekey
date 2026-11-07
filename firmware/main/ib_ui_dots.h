@@ -28,7 +28,7 @@
 // 点的颜色(索引,绘制时换成 RGB565 友好的颜色)。
 typedef enum {
     IB_DOT_WHITE,       // #F0F0F0
-    IB_DOT_SOFT,        // #C8C8C8(IDLE 字形底色,扫描光经过时变白)
+    IB_DOT_SOFT,        // IDLE 终端绿(扫描光经过时变亮)
     IB_DOT_GRAY,        // #505050
     IB_DOT_DIM,         // #303030
     IB_DOT_REC,         // 录音红

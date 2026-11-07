@@ -150,6 +150,19 @@ static void test_links(void)
     ib_links_drop(&l, IB_LINK_USB);
     CHECK(!ib_links_any(&l, 2000));
 
+    // 同时在线时 USB > Wi-Fi > BLE；拔线和 Wi-Fi 超时后依次退回。
+    ib_links_seen(&l, IB_LINK_BLE, 3000);
+    ib_links_seen(&l, IB_LINK_WIFI, 3000);
+    CHECK(ib_links_preferred(&l, 3000) == IB_LINK_WIFI);
+    ib_links_seen(&l, IB_LINK_USB, 3000);
+    CHECK(ib_links_preferred(&l, 3000) == IB_LINK_USB);
+    ib_links_drop(&l, IB_LINK_USB);
+    CHECK(ib_links_preferred(&l, 3000) == IB_LINK_WIFI);
+    ib_links_seen(&l, IB_LINK_BLE, 3000 + IB_LINK_TIMEOUT_MS);
+    CHECK(ib_links_preferred(&l, 3000 + IB_LINK_TIMEOUT_MS) == IB_LINK_BLE);
+    ib_links_drop(&l, IB_LINK_BLE);
+    CHECK(!ib_links_any(&l, 3000 + IB_LINK_TIMEOUT_MS));
+
     ib_links_seen(&l, IB_LINK_USB, 0);     // now=0 也视为在线(内部记为 1)
     CHECK(ib_links_alive(&l, IB_LINK_USB, 10));
 }

@@ -1,16 +1,16 @@
-# InputBetter 官网。共享代理(/opt/proxy)通过 "web" 网络以 inputbetter-web:8080 访问这个容器。
-name: inputbetter-web
+# VibeKey 官网。共享代理(/opt/proxy)通过 "web" 网络以 vibekey-web:8080 访问这个容器。
+name: vibekey-web
 
 services:
   web:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    image: inputbetter-web
+    image: vibekey-web
     restart: unless-stopped
     networks:
       web:
-        aliases: [inputbetter-web]
+        aliases: [vibekey-web]
 
 networks:
   web:

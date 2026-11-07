@@ -6,7 +6,7 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `website/site/index.html` | 首页:一屏不滚动,导航 / 页脚 / 版心和另外两页一致。中间是两个真实场景(没有外框):听写时是一个「笔记」窗口,文字落进光标处;演示区是一块没有外框的 Mac 屏幕:顶部菜单栏(当前应用名 + InputBetter 的麦克风状态项 + 时间)。听写时是笔记窗口 + ⌥ Space 键帽 + 屏幕底部的胶囊;字幕时先演入口:光标点开胶囊的工具条 → 在应用列表里选 Chrome → Chrome / YouTube 浏览器窗口铺满整个演示区,字幕条浮在浏览器上(位于播放控制条上方),说话人头像 / 名字 / 声波在字幕条上方的视频区域居中;原文逐词出现,译文一行行往上滚(保留三行,越旧越暗)。听写和字幕两个场景循环播放,按住 / 点一下胶囊可以自己玩一遍。标语、下载按钮始终在(GitHub 只在导航和页脚),底下一行版本与系统要求,页脚里放 Passport 入口 |
+| `website/site/index.html` | 首页:一屏不滚动,导航 / 页脚 / 版心和另外两页一致。中间是两个真实场景(没有外框):听写时是一个「笔记」窗口,文字落进光标处;演示区是一块没有外框的 Mac 屏幕:顶部菜单栏(当前应用名 + VibeKey 的麦克风状态项 + 时间)。听写时是笔记窗口 + ⌥ Space 键帽 + 屏幕底部的胶囊;字幕时先演入口:光标点开胶囊的工具条 → 在应用列表里选 Chrome → Chrome / YouTube 浏览器窗口铺满整个演示区,字幕条浮在浏览器上(位于播放控制条上方),说话人头像 / 名字 / 声波在字幕条上方的视频区域居中;原文逐词出现,译文一行行往上滚(保留三行,越旧越暗)。听写和字幕两个场景循环播放,按住 / 点一下胶囊可以自己玩一遍。标语、下载按钮始终在(GitHub 只在导航和页脚),底下一行版本与系统要求,页脚里放 Passport 入口 |
 | `website/site/passport/index.html` | Passport 页(可选的配套硬件):设备轮播(真实固件截图,鼠标移上去轻微倾斜)、功能卡片、按键表、规格、`#firmware` 网页刷写区;文案明确"没有硬件 app 也完整可用",入口主要给极客用户 |
 | `website/site/support/index.html` | 支持页:一句话 → 留言表单(全页唯一的留言入口,`POST /api/support`,相对路径,由服务器转发到后台;蜜罐防垃圾)→ 常见问题;内容列(760)左对齐到和 Passport / 首页同一个版心,页脚是安装包版本与 SHA-256 |
 | `website/site/assets/style.css`、`main.js` | 三页共用:色彩令牌、背景(点阵 + 冷光)、导航、按钮、页脚、滚动浮现、跟随指针的柔光、顶部阅读进度;中英文切换(`IB.i18n`)。`main.js` 把旧链接 `/#firmware` 转到 `/passport/#firmware` |
@@ -15,14 +15,14 @@
 | `website/site/assets/flasher.js` | Passport 网页刷写(Web Serial + esptool-js),见下文「Passport 固件」 |
 | `website/site/assets/vendor/esptool-js-0.7.0.js` | Espressif 官方 [esptool-js](https://github.com/espressif/esptool-js) 0.7.0 的 `bundle.js` 原样拷贝(Apache-2.0,许可证同目录),本站自带,不走 CDN |
 | `website/deploy/Dockerfile`、`nginx.conf` | 只服务静态文件的 nginx 容器(非 root,8080,不记录访问日志) |
-| `website/deploy/docker-compose.yml` | 容器 `inputbetter-web`,接入服务器上共享的 `web` 网络 |
-| `website/deploy/input.0os.io.caddy` | 共享 Caddy 的站点配置(`*.0os.io` 证书、公共安全头、HSTS),反代到 `inputbetter-web:8080` |
+| `website/deploy/docker-compose.yml` | 容器 `vibekey-web`,接入服务器上共享的 `web` 网络 |
+| `website/deploy/input.0os.io.caddy` | 共享 Caddy 的站点配置(`*.0os.io` 证书、公共安全头、HSTS),反代到 `vibekey-web:8080` |
 | `website/deploy/deploy.sh` | 部署脚本 |
 | `website/preview.py` | 本地预览:替换页面占位符、把 `/download/` 与 `/firmware/` 映射到本机产物,全部 `no-store`;改完文件刷新就能看,不用先打包 |
 
 页面里的 `{{VERSION}}`、`{{SIZE}}`、`{{SHA256}}`、`{{DMG_URL}}` 是占位符,部署时按实际的 DMG 替换(首页用 `{{VERSION}}`、`{{DMG_URL}}`、`{{SIZE}}`,支持页页脚用 `{{VERSION}}`、`{{SHA256}}`;`deploy.sh` 的线上校验:首页的下载链接是新安装包、支持页有新 SHA-256)。部署时页面里引用的 `/assets/*.css`、`*.js` 会加上内容哈希 `?v=…`(assets 长缓存,文件一改地址就变,浏览器不会用旧样式 / 脚本配新页面)。中文写在 HTML 里(`data-i18n` 元素的文本就是中文原文),英文在各页脚本通过 `IB.i18n.add` 注册的字典里;默认跟随浏览器语言,可手动切换并记在 localStorage。动画都用原生 CSS / JS,尊重「减少动态效果」;不加载任何外部资源(esptool-js 也放在本站)。
 
-首页演示的尺寸、字号、圆角都照 app 的胶囊来(`app/InputBetter/Pill`):空闲细条 36×6、录音胶囊高 34、波形 92×22、实时文字气泡 13.5/430、字幕条宽 570(默认 17/19 字号下 app 的 `maxWidth`)、圆角 18、内边距 20 / 上 9(有标题栏 10)/ 下 11;原文 17×2 行、译文 19×3 行(行距 3.8,亮度按新旧 1 / 0.82 / 0.68);标题栏只在前 1.8 s 和鼠标悬停时显示,和其他时候只有字幕,和 app 的悬停行为一致。改 app 的胶囊外观时记得同步 `home.css`。三页共用同一个导航、页脚和版心。页脚是一条居中的 `© 2026 InputBetter · MIT 开源 · GitHub`,不再重复导航里的 Passport / 支持 / GitHub。首页标题里的蓝色渐变光带会一直缓慢移动(每 5 秒走完一整条,循环不断);逐字 3D 翻起每 9 秒重放一次,悬停标题也会重放。每个字带同一段连续渐变,靠 `--shift` 让光带整体平移。标题本身就是由粒子组成的:按文字面积从字形像素采样 650–1800 个光点(中文标题约 1800,英文短标题约 900),首次加载时从随机位置飞入拼成文字,平时有亮度波在粒子上流动;鼠标移入时粒子从光标处散开、一道柔光跟着鼠标,移出后用弹簧回位、重新拼成文字。实心渐变标题只在没有粒子(手机宽度 / 减少动态 / 无 JS)时作为回退显示。入场动画不改变透明度,首帧和截图都能看到内容。
+首页演示的尺寸、字号、圆角都照 app 的胶囊来(`app/VibeKey/Pill`):空闲细条 36×6、录音胶囊高 34、波形 92×22、实时文字气泡 13.5/430、字幕条宽 570(默认 17/19 字号下 app 的 `maxWidth`)、圆角 18、内边距 20 / 上 9(有标题栏 10)/ 下 11;原文 17×2 行、译文 19×3 行(行距 3.8,亮度按新旧 1 / 0.82 / 0.68);标题栏只在前 1.8 s 和鼠标悬停时显示,和其他时候只有字幕,和 app 的悬停行为一致。改 app 的胶囊外观时记得同步 `home.css`。三页共用同一个导航、页脚和版心。页脚是一条居中的 `© 2026 VibeKey · MIT 开源 · GitHub`,不再重复导航里的 Passport / 支持 / GitHub。首页标题里的蓝色渐变光带会一直缓慢移动(每 5 秒走完一整条,循环不断);逐字 3D 翻起每 9 秒重放一次,悬停标题也会重放。每个字带同一段连续渐变,靠 `--shift` 让光带整体平移。标题本身就是由粒子组成的:按文字面积从字形像素采样 650–1800 个光点(中文标题约 1800,英文短标题约 900),首次加载时从随机位置飞入拼成文字,平时有亮度波在粒子上流动;鼠标移入时粒子从光标处散开、一道柔光跟着鼠标,移出后用弹簧回位、重新拼成文字。实心渐变标题只在没有粒子(手机宽度 / 减少动态 / 无 JS)时作为回退显示。入场动画不改变透明度,首帧和截图都能看到内容。
 
 CSS 里不要用 `font: … inherit` 这种简写(`inherit` 不能作为简写的字体族,整条声明会被浏览器丢掉,字号会退回 16px);用 `font-size` / `font-weight` / `line-height` 分开写。
 
@@ -59,7 +59,7 @@ NOTARY_KEY=<AuthKey_XXXXXXXXXX.p8 路径> NOTARY_KEY_ID=<Key ID> NOTARY_ISSUER=<
 cd app && ./scripts/install.sh
 ```
 
-- 和发布版走同样的签名、公证(提交 zip,票据 staple 到 app 上),只是不打包 DMG;然后正常退出正在运行的 InputBetter(10 秒没退再强制结束),替换 `/Applications/InputBetter.app` 并启动。
+- 和发布版走同样的签名、公证(提交 zip,票据 staple 到 app 上),只是不打包 DMG;然后正常退出正在运行的 VibeKey(10 秒没退再强制结束),替换 `/Applications/VibeKey.app` 并启动。
 - `SKIP_NOTARIZE=1` 只签名不公证(本机编译的 app 没有隔离属性,也能打开);`NO_LAUNCH=1` 装好后不启动。
 - 签名证书和之前装的版本不同时(如之前是 Xcode 的 Apple Development 签名),系统会当成另一个 app,麦克风 / 辅助功能 / 屏幕录制权限需要重新授权。
 
@@ -87,7 +87,7 @@ app 不内置固件,app 和网页刷写都从官网 `/firmware/` 下载同一份
 4. 可选(默认勾选)先读出整片 8 MB 存成 `passport-<MAC>-flash.bin`;
 5. `writeFlash` 只写清单里的三段(`eraseAll: false`,flash 参数 `keep`),然后硬复位。
 
-需要桌面版 Chrome / Edge(Web Serial),页面必须是 HTTPS;InputBetter app 会独占串口,网页刷写前要先退出它。
+需要桌面版 Chrome / Edge(Web Serial),页面必须是 HTTPS;VibeKey app 会独占串口,网页刷写前要先退出它。
 
 ## 部署
 
@@ -96,7 +96,7 @@ website/deploy/deploy.sh <user@host> <ssh-key> [dmg]
 ```
 
 - dmg 默认取 `app/build/release/` 里最新的;没有公证票据的 DMG 会被拒绝发布。
-- 脚本先运行 `scripts/package-firmware.sh`(需要已编译的 `firmware/build`),然后在本机临时目录组装站点(放入 DMG、`.sha256` 和 `firmware/`,替换占位符),同步到服务器 `/opt/inputbetter-web`,重建容器,把 `input.0os.io.caddy` 安装到 `/opt/proxy/caddy/sites/`,校验并重载 Caddy,最后请求线上首页、安装包和固件清单确认可用。
+- 脚本先运行 `scripts/package-firmware.sh`(需要已编译的 `firmware/build`),然后在本机临时目录组装站点(放入 DMG、`.sha256` 和 `firmware/`,替换占位符),同步到服务器 `/opt/vibekey-web`,重建容器,把 `input.0os.io.caddy` 安装到 `/opt/proxy/caddy/sites/`,校验并重载 Caddy,最后请求线上首页、安装包和固件清单确认可用。
 - 服务器上的共享代理(`/opt/proxy`)、`web` 网络、`*.0os.io` 证书和其他站点都不改动;做法与同机的其他站点一致。
 - 安装包按附件下载,文件名带版本号,可长缓存;首页不缓存,发版后立即生效。
 

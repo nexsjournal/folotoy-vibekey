@@ -9,7 +9,7 @@
 # 也可以用 notarytool 保存的钥匙串配置代替三个 NOTARY_* 变量:NOTARY_PROFILE=<名称>。
 # SKIP_NOTARIZE=1 只签名打包、不公证(仅本机测试,别人下载后会被 Gatekeeper 拦下)。
 #
-# 产物:app/build/release/InputBetter-<版本>.dmg 和同名 .sha256、.sparkle(EdDSA 签名与大小,应用内安装用)。
+# 产物:app/build/release/VibeKey-<版本>.dmg 和同名 .sha256、.sparkle(EdDSA 签名与大小,应用内安装用)。
 # 发布:website/deploy/deploy.sh 上传到官网,再用 scripts/publish-update.sh 通知已安装的用户更新。
 # 编译与签名在 build-signed.sh(和 install.sh 共用)。
 set -euo pipefail
@@ -20,8 +20,8 @@ if [[ -z "${SKIP_NOTARIZE:-}" ]]; then load_notary_args; fi
 
 version="$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
 out="build/release"
-app="build/ReleaseDerivedData/Build/Products/Release/InputBetter.app"
-dmg="${out}/InputBetter-${version}.dmg"
+app="build/ReleaseDerivedData/Build/Products/Release/VibeKey.app"
+dmg="${out}/VibeKey-${version}.dmg"
 
 # ---- 构建并签名 ----
 ./scripts/build-signed.sh
@@ -41,7 +41,7 @@ tiffutil -cathidpicheck "${staging}/background.png" "${staging}/background@2x.pn
 dmgbuild="$(scripts/dmg/ensure-dmgbuild.sh)"
 rm -f "${dmg}"
 "${dmgbuild}" -s scripts/dmg/settings.py -D app="${app}" -D background="${staging}/background.tiff" \
-    "InputBetter ${version}" "${dmg}" 2>&1 | grep -v "hdiutil: WARNING" || true
+    "VibeKey ${version}" "${dmg}" 2>&1 | grep -v "hdiutil: WARNING" || true
 [[ -f "${dmg}" ]] || { echo "DMG 生成失败" >&2; exit 1; }
 codesign --force --sign "${DEVELOPER_ID}" --timestamp "${dmg}"
 

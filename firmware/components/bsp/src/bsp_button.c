@@ -1,5 +1,5 @@
 // components/bsp/src/bsp_button.c
-// 源自 folotoy/ai-passport BSP(MIT,见本组件 LICENSE)。InputBetter 改动:注册 PRESS_DOWN/PRESS_UP/
+// 源自 folotoy/ai-passport BSP(MIT,见本组件 LICENSE)。VibeKey 改动:注册 PRESS_DOWN/PRESS_UP/
 // LONG_PRESS_START 三个原始事件,长按时间固定为 BSP_BTN_LONG_MS。
 // 移植自 trae_card/components/platform/platform_esp32/src/btn_iot_button.c
 #include "bsp_button.h"

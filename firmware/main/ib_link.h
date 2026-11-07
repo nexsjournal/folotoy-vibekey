@@ -4,5 +4,6 @@
 typedef enum {
     IB_LINK_USB = 0,
     IB_LINK_BLE,
+    IB_LINK_WIFI,
     IB_LINK_COUNT,
 } ib_link_t;

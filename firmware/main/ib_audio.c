@@ -98,7 +98,7 @@ static void mic_task(void *arg)
         uint8_t seq = 0;
         // 丢掉 DMA 里的旧样本(约 60 ms),之后每块都是新鲜数据。
         for (int i = 0; i < 3 && s_mic_on; i++) bsp_audio_read(s_mic_pcm, sizeof(s_mic_pcm));
-        int blocks = s_mic_link == IB_LINK_USB ? 2 : 1;
+        int blocks = s_mic_link == IB_LINK_BLE ? 1 : 2;
         while (s_mic_on) {
             int got = 0;
             while (got < blocks && s_mic_on) {

@@ -1,6 +1,6 @@
-// main/main.c: InputBetter Passport 固件入口。
+// main/main.c: VibeKey Passport 固件入口。
 //
-// Passport 作为 InputBetter macOS app 的"瘦终端":上报按键、显示 Mac 下发的状态、推送麦克风音频。
+// Passport 作为 VibeKey macOS app 的"瘦终端":上报按键、显示 Mac 下发的状态、推送麦克风音频。
 // 协议见仓库 docs/protocol.md,界面见 docs/device-ui.md。
 //
 // 初始化顺序:共享 I2C → 显示 / LVGL → 电量计 → 应用(UI、USB、BLE、音频、应用任务)→ 按键。

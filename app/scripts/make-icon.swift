@@ -1,5 +1,5 @@
 // 生成 App 图标:石墨色圆角方块 + 白色波形 + 输入光标(克制的单色风格)。
-// 用法:swift scripts/make-icon.swift InputBetter/Assets.xcassets/AppIcon.appiconset
+// 用法:swift scripts/make-icon.swift VibeKey/Assets.xcassets/AppIcon.appiconset
 import AppKit
 
 let outDir = CommandLine.arguments.dropFirst().first ?? "."

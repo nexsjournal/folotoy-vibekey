@@ -11,6 +11,7 @@ idf_component_register(
          "ib_clock.c"
          "ib_usb.c"
          "ib_ble.c"
+         "ib_wifi.c"
          "ib_audio.c"
          "ib_adpcm.c"
          "ib_ui.c"
@@ -28,8 +29,14 @@ idf_component_register(
          "ib_ui_err.c"
          "ib_ui_sub.c"
          "ib_ui_list.c"
+         "fonts/ib_terminal_font_12.c"
+         "fonts/ib_terminal_font_14.c"
+         "fonts/ib_terminal_font_20.c"
+         "fonts/ib_cjk_font_12.c"
          "icons/ib_icon_font_12.c"
          "icons/ib_icon_font_56.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp bt esp_app_format esp_driver_usb_serial_jtag esp_hw_support esp_timer nvs_flash vfs
+    REQUIRES bsp bt esp_app_format esp_driver_usb_serial_jtag esp_hw_support esp_timer nvs_flash vfs esp_wifi esp_event esp_netif esp-tls json mdns
 )
+include(assets/offline-art.cmake)
+target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")

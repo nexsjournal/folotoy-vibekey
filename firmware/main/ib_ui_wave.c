@@ -66,7 +66,10 @@ void ib_wave_draw(const ib_fx_t *fx, const ib_wave_t *w)
 {
     int32_t n = w->cols > 1 ? w->cols - 1 : 1;
     for (int k = 0; k < w->cols; k++) {
-        lv_color_t g = ib_gray(0xF0 - (0xF0 - w->far) * k / n);     // 越远越暗(精确灰)
+        // 录音历史柱用终端绿,字幕仍保持原来的精确灰。
+        lv_color_t g = w->layout == IB_WAVE_MIRROR
+            ? lv_color_mix(IB_C(IB_COLOR_MATRIX_SOFT), IB_C(IB_COLOR_MATRIX_FRAME), (uint8_t)(255 - 220 * k / n))
+            : ib_gray(0xF0 - (0xF0 - w->far) * k / n);
         if (w->layout == IB_WAVE_MIRROR) {
             column(fx, w, IB_DOTS_COLS / 2 + 1 + k, w->col[k], g);
             column(fx, w, IB_DOTS_COLS / 2 - 1 - k, w->col[k], g);

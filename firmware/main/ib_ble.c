@@ -1,4 +1,4 @@
-// main/ib_ble.c: InputBetter BLE 链路(NimBLE GATT 外设)。
+// main/ib_ble.c: VibeKey BLE 链路(NimBLE GATT 外设)。
 //
 // GATT(与 docs/protocol.md 一致):
 //   Service   B5E10001-5A6C-4E8B-9F2D-7C3A1E0B4D21   Primary,UUID 放在广播包
@@ -22,7 +22,7 @@
 #include <string.h>
 
 static const char *TAG = "ib_ble";
-static const char *DEVICE_NAME = "InputBetter";
+static const char *DEVICE_NAME = "VibeKey";
 
 #define ADV_FAST_ITVL BLE_GAP_ADV_ITVL_MS(20)
 #define ADV_FAST_MS   30000

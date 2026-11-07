@@ -1,4 +1,4 @@
-// main/ib_ble.h: BLE 链路:NimBLE GATT 外设,广播名 "InputBetter",不配对。
+// main/ib_ble.h: BLE 链路:NimBLE GATT 外设,广播名 "VibeKey",不配对。
 #pragma once
 
 #include "esp_err.h"

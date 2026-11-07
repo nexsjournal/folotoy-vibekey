@@ -42,6 +42,8 @@ static const ib_ui_page_t *const PAGES[IB_UI_SCREEN_COUNT] = {
 };
 
 static lv_obj_t *s_roots[IB_UI_SCREEN_COUNT];
+static lv_obj_t *s_footer;
+static lv_obj_t *s_footer_time;
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
 static ib_ui_ctx_t s_ctx;
 static lv_timer_t *s_frame_timer;
@@ -55,6 +57,20 @@ static void copy_text(char *dst, size_t cap, const char *src)
             char ch = src[n];
             dst[n] = (ch >= 0x20 && ch < 0x7F) ? ch : '?';   // 字体只有 ASCII
         }
+    }
+    dst[n] = '\0';
+}
+
+// 字幕字段保留 UTF-8;只在完整字符边界截断。
+static void copy_utf8(char *dst, size_t cap, const char *src)
+{
+    size_t n = 0;
+    while (src && src[n] && n + 1 < cap) {
+        unsigned char ch = (unsigned char)src[n];
+        size_t len = ch < 0x80 ? 1 : (ch & 0xE0) == 0xC0 ? 2 : (ch & 0xF0) == 0xE0 ? 3 : (ch & 0xF8) == 0xF0 ? 4 : 0;
+        if (len == 0 || n + len + 1 > cap) break;
+        memcpy(dst + n, src + n, len);
+        n += len;
     }
     dst[n] = '\0';
 }
@@ -114,8 +130,17 @@ static bool cut_transition(ib_ui_screen_t from, ib_ui_screen_t to)
     return from != to && dot_page(from) && dot_page(to);
 }
 
+// 点阵交互页共用页脚时钟;离线页已有大时钟,列表和字幕页保持原有布局。
+static void footer_show(ib_ui_screen_t screen)
+{
+    if (screen == IB_UI_IDLE || screen == IB_UI_REC || screen == IB_UI_PROC ||
+        screen == IB_UI_DONE || screen == IB_UI_ERR) lv_obj_remove_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
+}
+
 static void switch_to(ib_ui_screen_t screen)
 {
+    footer_show(screen);
     uint32_t now = lv_tick_get();
     lv_obj_t *old = s_roots[s_screen];
     lv_obj_t *neu = s_roots[screen];
@@ -202,12 +227,21 @@ esp_err_t ib_ui_init(void)
     s_ctx.mode = IB_UI_MODE_DICT;
     s_ctx.now_ms = lv_tick_get();
 
-    // 页面都放在状态栏下方的一个图层里;切换时只在该图层内调整前后顺序,不会盖住状态栏。
-    lv_obj_t *pages = ib_box_create(scr, 0, IB_UI_BAR_H, IB_UI_W, IB_UI_PAGE_H);
+    // 离线页铺满全屏，其他页面仍从状态栏下方开始。整个页面层位于状态栏之下。
+    lv_obj_t *pages = ib_box_create(scr, 0, 0, IB_UI_W, IB_UI_H);
     for (int i = 0; i < IB_UI_SCREEN_COUNT; i++) {
         s_roots[i] = PAGES[i]->create(pages, &s_ctx);
+        if (i != IB_UI_OFFLINE) lv_obj_set_y(s_roots[i], IB_UI_BAR_H);
         lv_obj_add_flag(s_roots[i], LV_OBJ_FLAG_HIDDEN);
     }
+    s_footer = ib_box_create(scr, 10, 287, IB_UI_CONTENT_W - 20, 25);
+    lv_obj_t *line = ib_box_create(s_footer, 0, 0, IB_UI_CONTENT_W - 20, 1);
+    lv_obj_set_style_bg_color(line, IB_C(IB_COLOR_MATRIX_FRAME), 0);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    s_footer_time = ib_label_create(s_footer, &ib_terminal_font_12, IB_COLOR_MATRIX_SOFT, 6, IB_UI_CONTENT_W - 20);
+    lv_obj_set_style_text_align(s_footer_time, LV_TEXT_ALIGN_LEFT, 0);
+    lv_label_set_text_static(s_footer_time, "TIME // --:--");
+    lv_obj_add_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
     ib_bar_create(scr);     // 后建,位于页面之上
     ib_hints_create(scr);
     ib_hints_set_visible(false);
@@ -250,6 +284,29 @@ void ib_ui_set_level(uint8_t level)
     s_ctx.level = level > 100 ? 100 : level;
 }
 
+void ib_ui_set_caption(const char *src, const char *dst, const char *app, bool live)
+{
+    if (!s_ready) return;
+    const char *s = src ? src : "";
+    const char *d = dst ? dst : "";
+    const char *a = app ? app : "";
+    bool changed = s_ctx.caption_live != live ||
+                   strncmp(s_ctx.caption_src, s, sizeof(s_ctx.caption_src)) != 0 ||
+                   strncmp(s_ctx.caption_dst, d, sizeof(s_ctx.caption_dst)) != 0 ||
+                   strncmp(s_ctx.caption_app, a, sizeof(s_ctx.caption_app)) != 0;
+    if (!changed) return;
+    if (!bsp_lvgl_lock(LOCK_TIMEOUT_MS)) {
+        ESP_LOGW(TAG, "lock timeout (caption)");
+        return;
+    }
+    copy_utf8(s_ctx.caption_src, sizeof(s_ctx.caption_src), s);
+    copy_utf8(s_ctx.caption_dst, sizeof(s_ctx.caption_dst), d);
+    copy_utf8(s_ctx.caption_app, sizeof(s_ctx.caption_app), a);
+    s_ctx.caption_live = live;
+    if (s_screen == IB_UI_SUB) PAGES[IB_UI_SUB]->update(&s_ctx);
+    bsp_lvgl_unlock();
+}
+
 void ib_ui_set_ok_held(bool held)
 {
     if (!s_ready || s_ctx.ok_held == held || !bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
@@ -277,6 +334,19 @@ void ib_ui_set_clock(const char *time, const char *date)
     if (!s_ready || !bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
     copy_text(s_ctx.time, sizeof(s_ctx.time), time);
     copy_text(s_ctx.date, sizeof(s_ctx.date), date);
+    lv_label_set_text_fmt(s_footer_time, "TIME // %s", s_ctx.time[0] ? s_ctx.time : "--:--");
+    if (s_screen == IB_UI_OFFLINE) PAGES[IB_UI_OFFLINE]->update(&s_ctx);
+    bsp_lvgl_unlock();
+}
+
+void ib_ui_set_offline_hint(const char *text)
+{
+    if (!s_ready) return;
+    char hint[IB_UI_OFFLINE_HINT_MAX];
+    copy_text(hint, sizeof(hint), text);
+    if (strncmp(s_ctx.offline_hint, hint, sizeof(hint)) == 0) return;
+    if (!bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
+    memcpy(s_ctx.offline_hint, hint, sizeof(hint));
     if (s_screen == IB_UI_OFFLINE) PAGES[IB_UI_OFFLINE]->update(&s_ctx);
     bsp_lvgl_unlock();
 }

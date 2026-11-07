@@ -1,6 +1,19 @@
-# InputBetter 架构与功能调用链
+# VibeKey 架构与功能调用链
 
 本文按功能列出调用链。改动功能时,同步更新对应的链。测试和排查问题时,也从链出发,逐个验证每一环的输入和输出。
+
+## Wi-Fi 与远离电脑的输入（本地分支）
+
+- 配网：`PassportWiFiSection → DeviceLink.configureWiFi → WiFiProvisioning.encoded → USB → ib_wifi_handle_usb_line → NVS → config_task → Wi-Fi STA / mDNS`。密码仅在表单内存和 USB 配网命令中使用；Mac 只持久保存随机主机名与 PSK。
+- 无线连接：`WiFiClient(Network TLS-PSK) → DeviceLink.beginHandshake → ib_wifi(server_task/esp_tls) → ib_app`。TLS 任务独占 socket，音频任务经有界队列发送；同一份协议解析器与 MicStream 解码器服务 USB/Wi-Fi。
+- 无线模式互斥：有 `ib_wifi/config` 时，本轮启动不初始化 BLE，使用官方 `esp_bt_mem_release` 释放蓝牙内存；无配置时保持 BLE，第一次 USB 配网提交 NVS 后重启进入 Wi-Fi；USB 清除配网后重启恢复 BLE。USB 始终可用；Wi-Fi 失联时通过 USB 修复，不承诺同次启动自动降级 BLE。
+- C3 内存预算：Wi-Fi 静态 RX 4、动态 RX/TX 各 8；NimBLE MSYS 各 6；TLS 动态缓冲、输出 1024 字节；Wi-Fi 发送队列每项 512 字节。真机首次暴露默认 Wi-Fi 缓冲初始化不足，不能用“编译通过”替代入网测试。
+- 拔线：`DeviceLink.linkLost → 选择 USB > Wi-Fi > BLE → resendCachedState → setActive → MicStream.setActive`。Wi-Fi 在 USB 期间保持待机，重连沿用已有配对资料。
+- 独立输入：`设备 OK down → DeviceBridge → DictationController.pressDown → 立即启动 PassportMicSource + 并行 DeviceInputTarget.prepare（最多 5 s；通用 AX 遍历失败时用 Codex 适配器复核）→ AppSwitcher.activate/focusTextInput → ASR → 后处理 → 等待目标准备完成 → TextInserter`。目标失败或取消会关闭音源，迟到结果不能插入。
+- 应用选择：`设备应用列表确认 → AppSettings.deviceTargetBundleID/deviceTargetName`，下次录音或上/下键先恢复该目标；默认 Codex。Codex 发送/停止沿用校验后的专用适配器；用户明确选择的其他应用使用 Enter/Esc 映射。
+- Mac 录音胶囊：starting 使用 warning，recording 使用 success，danger 留给失败，不再用红点表达正常采音。
+- 设备字幕：`SubtitleController.feed.captions → DeviceBridge.sync（16 Hz）→ DeviceLink.sendCaption（live 最多 10 Hz，定稿立即）→ caption（UTF-8）→ ib_app → ib_ui_set_caption → SUB 页`。应用名、原文、译文分别显示；断线重连后随 state 一起补发。
+- 连接保活：VibeKey 是菜单栏 App，空闲会被 App Nap 降频，DeviceLink 的 5 秒心跳可能停超过固件 15 秒超时；`AppState.launch` 持有 `userInitiatedAllowingIdleSystemSleep` activity 保持心跳，允许系统正常休眠。设备 OFFLINE 页按 OK 发送 `wake`，Mac 重置该链路握手并重发 `hello`，不依赖拔插线或 Codex 消息 hook 唤醒。
 
 ## 模块与依赖方向
 
@@ -169,7 +182,7 @@ EngineRegistry.engine(for: "cloud-…") → CloudASREngine.makeSession → Cloud
 ## 2. 听写(Passport OK 键)
 
 ```
-DeviceLink(USB/BLE)→ DeviceMessage.parse → RecentEventFilter → DeviceLink.lastKey / onKey
+DeviceLink(USB/Wi-Fi/BLE)→ DeviceMessage.parse → RecentEventFilter → DeviceLink.lastKey / onKey
  → DeviceBridge.handle(.ok, .down)
  → DictationController.pressDown(mode: 设备模式 dict/tr)        // 之后与第 1 节相同
 音源为 Passport 时:PassportMicSource.start → DeviceLink.setMic(true)
@@ -184,7 +197,7 @@ DeviceBridge.sync(16 Hz 定时器,或连接变化时)
  → DeviceStateMapper.keyHints(...)               → DeviceLink.sendKeyHints(内部去重)
  → DeviceLink.sendLevel(录音 / 字幕时,内部限流 50 ms)
  → DeviceLink.sendConfig(变化时;5 分钟校时)
-所有命令:HostCommand.encode → DeviceText.ascii → USB SerialPort.write | BLEClient.send
+所有命令:HostCommand.encode → DeviceText.ascii → USB SerialPort.write | WiFiClient.send | BLEClient.send
 
 Mac 握手:DeviceLink.beginHandshake → hello → handleHello
  → noteDeviceBoot(boot 与上次握手不同 → notice 日志「device rebooted」)
@@ -198,6 +211,7 @@ Mac 握手:DeviceLink.beginHandshake → hello → handleHello
  → ib_links_usb_present(ib_usb_host_present() 原始 SOF 判断, now)   USB 在位去抖:连续 1 s 不在位才算拔线
  → ib_links_drop(USB)(确认拔线时)→ ib_links_any
  → 在线→离线:go_offline(OFFLINE 页、停麦、清 Agent;保留 s_st / s_msg,done/err 收拢到常驻页),不 wake
+   OFFLINE 页由 ib_ui_offline 叠加 Flash 中的 RGB565 像素背景和现有实时点阵时钟，主机预览与固件共用背景数据
  → 离线→在线:show_screen(screen_for(s_st)) 回到离线前页面 + wake
 命令:handle_command → ib_links_seen → refresh_links → state: apply_state(+ wake) | config: 只更新设置,不 wake
 背光:app_task → refresh_backlight(在线且 rec/proc/sub 常亮;否则 now - s_last_activity_ms ≥ screen_off 熄屏)
@@ -211,15 +225,15 @@ Mac 握手:DeviceLink.beginHandshake → hello → handleHello
 
 ```
 设备模式(长按上键循环 dict → tr → sub,听写进行中不切换)
- dict / tr:OK = 听写(按住说话 / 轻按免提),字幕在运行也不影响(此时设备显示字幕页,按键仍是听写模式的含义)
+ dict / tr:OK = 按住说话(短于 250 ms 取消),字幕在运行也不影响(此时设备显示字幕页,按键仍是听写模式的含义)
  sub:OK = 没有字幕时打开设备列表「CAPTIONS」选择应用 → Hooks.startCaptions;有字幕时 Hooks.stopCaptions(= AppState.stopCaptions)
        (Mac 上正显示模态框时不响应)
        上 / 下短按 = 本场字幕的翻译开关(SubtitleController.toggleTranslation,当前翻译方式可用时)/ 收起展开字幕条(仅字幕运行时)
 DeviceStateMapper.state:设备临时错误(如 NO APPS,2 秒)→ 听写阶段 → 列表 → 字幕页(字幕在运行,不论模式;mode 如实上报)→ 空闲页
 DeviceStateMapper.keyHints:字幕页按模式给提示(sub:停止 / 翻译(翻译不可用时隐藏)/ 收起;dict / tr:麦克风 + vibe 动作)
 OK 键:听写进行中(含从 Mac 开始的)始终交给听写(pressDown / pressUp,记录 okDrivesDictation);
- 连接变化时补发 pressUp;Passport 麦克风录音中断开 → DictationController.stop
-Agent 提醒:Mac 上关掉 → AgentNotifier.dismiss → onNotice(.clear) 同步清掉设备;设备按键确认 → dismiss(fromDevice:);重连后重发未处理的提醒
+ 连接变化时取消当前设备按住的听写;Passport 麦克风录音中断开 → DictationController.cancel
+Agent 提醒:Mac 胶囊点击或设备短按 OK → DeviceBridge.openNotice;带会话 ID 的完成卡打开原聊天,其他提醒关闭。重连后重发当前未处理的提醒
 固件:done / err 自动返回时回到「常驻页」(最近一次 idle / sub 的页面、模式和 msg);rec → proc 继续推流最多 500 ms 等 mic off(录完尾音)
 列表页 ListSession:切换应用(长按下键)/ 选择字幕应用(sub 模式 OK),按键规则相同
 列表打开时 Mac 上开始了听写:DeviceBridge.sync 关闭列表(设备已切到录音页,按键不再归列表)
@@ -245,7 +259,7 @@ DeviceLink.onKey(key, down|long|up, ack) → DeviceBridge.handle
 
 ```
 DeviceBridge(见 3b 的手势结果)
- ├─ agentAck 归属 → AgentNotifier.dismiss(这次按压只用来关闭通知)
+ ├─ agentAck 归属 → 只在同一张完成卡的 OK 短按松开时打开原聊天,其余按压关闭通知
  ├─ 字幕模式:SubtitleController.toggleTranslation | Hooks.toggleSubtitleBar → PillUIState.subtitleCollapsed
  └─ perform(KeyAction)
        → .pasteLast → DictationController.reinsertLast → TextInserter.insert
@@ -358,7 +372,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
    气泡已显示时:字幕条 ⏹ 再点一次 = 取消;菜单 / 快捷键再触发一次 = 确认(键盘用户不用去点气泡);
    Passport 上结束不确认(设备上没法回答),已显示的气泡直接收起并结束
  → finishCaptions:SubtitleController.stop(未定稿的半句 live 以它的开始时间 commit 进记录)→ AppAudioTap.stop → ASRSession.cancel
- → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions)(Passport 发起的不激活 InputBetter);保存、总结由用户在窗口里处理
+ → 结束后字幕记录窗口没在显示 → WindowManager.showTranscript(.captions)(Passport 发起的不激活 VibeKey);保存、总结由用户在窗口里处理
 正在转录时选了别的应用:AppState.startCaptions → 当前记录有未保存内容 → CaptionsConfirmation.confirmSwitch
  (「切换」(破坏性)/「打开字幕记录」(不切换,先去保存)/「取消」;不受「不再询问」影响)→ stop → start(新的一场);没有未保存内容直接切换
 窗口「保存…」→ TranscriptSaver.save(in: window)→ NSSavePanel → CaptionTranscript.plainText(summary: 总结在前)→ 写 UTF-8 文本
@@ -462,16 +476,20 @@ PillPanelController.startMouseTracking → updateHover(热区来自 PillView.rep
 ## 7. Agent 通知(vibe coding)
 
 ```
-Claude Code hook:open -g 'inputbetter://agent?event=…'
+Claude Code hook:open -g 'folobutton-dev://agent?event=…'
  → AppDelegate.application(_:open:) → AppState.handle(url:)
- → AgentNotifier.handle(url:) → post
+ → AgentNotifier.handle(url:) → 入队 / 显示
      ├─ current → PillView.agentPill(胶囊或字幕条上方)
      └─ onNotice → DeviceBridge → DeviceLink.sendAgent → 设备通知层与提示音
 一键配置:VibePane.AgentHookRow → AgentHookInstaller.install(.claudeCode | .codex)
  → 读取并备份 ~/.claude/settings.json | ~/.codex/hooks.json → 合并同一格式的 hooks(去重)→ 写回
    Claude Code:Stop / Notification / UserPromptSubmit;Codex:Stop / PermissionRequest / UserPromptSubmit
-   (Codex 需在 CLI 里 /hooks 信任一次;不改动 Codex 的 notify 设置)
+   (Codex 需在 CLI 里 /hooks 信任新命令;不改动 Codex 的 notify 设置)
 ```
+
+Codex 续聊：`Stop` Hook 从 stdin 提取会话 UUID、轮次 ID 和裁剪后的项目名,原位升级旧命令。通知按轮次去重,最多排队 8 张,当前完成卡显示 15 秒。短按 OK 松开或点击 Mac 胶囊 → `DeviceBridge.openNotice → CodexThreadNavigator.open` → 用官方 `codex://threads/<UUID>` 打开并聚焦输入框 → 通过默认 ⌘⌥L 读回当前会话链接、核对 UUID 与输入目标,按原剪贴板代次恢复内容。成功显示 `READY TO TALK`,失败显示 `OPEN CODEX`。该按压只负责打开。
+
+打开后按住 OK → 采音并确认此时前台 Codex 的 AX 输入目标，同时读取可用的会话 UUID。手动切换后下一次录音绑定当前对话。新对话尚无 UUID 时也可绑定已核对的输入框。松开识别 → 粘贴前再次核对录音开始时的输入目标和会话链接状态，避免录音期间切页写错位置。短按上键也要核对目标后才发送。打开完成卡后最多暂缓后续完成通知 20 秒，给下一次 OK 留出时间。期间发送成功或打开失败会立即恢复队列。长按下键退出绑定、恢复原应用选择动作，也会立即恢复队列。停在草稿时，暂缓到期也会自动继续显示，草稿仍留在原对话。Hook 与设备协议均不传输对话正文、绝对项目路径或审批详情,会话 UUID 只留在 Mac。 [Codex Hooks](https://learn.chatgpt.com/docs/hooks) · [会话深链接](https://learn.chatgpt.com/docs/reference/commands#chats)
 
 ## 8. 模型下载
 
@@ -498,7 +516,7 @@ ModelCard「下载」→ ModelList → ModelManager.download(id)
      → 「保存」CloudASRStore.update → CredentialStore.set("cloud.<provider>.apiKey") + UserDefaults
  → ModelManager.state(cloud-…) == .installed(配置齐全即"可用")→ 可选为听写模型 / 字幕模型
 听写和字幕各自选模型:AppSettings.dictationModelID / subtitleModelID(字幕选项里列出所有可用模型,含云端)
-密钥:~/Library/Application Support/InputBetter/credentials.json(0600,仅当前用户可读);
+密钥:~/Library/Application Support/FoloButtonDev/credentials.json(0600,仅当前用户可读);
 旧版本存在钥匙串里的 LLM Key 在首次启动时静默迁移一次(不弹授权框,UserDefaults 标记只跑一次),之后删除钥匙串条目
 ```
 
@@ -521,7 +539,7 @@ AI 实时翻译和批量 / 润色一样经 `RequestGate`(并发 2);一次定稿�
 设置按"用户在哪个场景想到它"组织(SettingsView.Pane):通用 / 听写 / 实时字幕 / 识别模型 / 翻译服务 / AI 服务 / 快捷键 / 词汇表 / Passport / Vibe
  设置 › 听写(DictationPane):「AI 润色」开关 + 润色模型(LLMModelMenuItems → AppSettings.polishModel);
    「听写翻译」TranslationMethodSettingRow(.dictation,按听写目标语言判断可用性)+ TargetLanguageSettingRow;
-   说明文字里的「快捷键」「词汇表」是应用内链接(inputbetter-settings://<pane>,View.settingsLinks)→ 跳到对应设置页
+   说明文字里的「快捷键」「词汇表」是应用内链接(vibekey-settings://<pane>,View.settingsLinks)→ 跳到对应设置页
  设置 › 实时字幕(SubtitlesPane):识别(字幕使用的模型 → AppSettings.subtitleModelID,默认与听写相同)/
    显示(译文字号、原文字号、译文行数、翻译时原文行数、锁定)/
    「翻译」TranslationMethodSettingRow(.subtitles)+ 默认翻译成 + 边说边译 / 字幕记录
@@ -588,7 +606,7 @@ PassportSetupView「刷入固件」→ PassportSetupModel.flashFirmware
  → FirmwareFlasher.flash(port:) → run
      → FirmwareDownloader.fetchManifest → record(协议不一致 → FirmwareError.incompatible,提示先更新 app)
      → FirmwareDownloader.download → FirmwareManifest.parts(芯片 ESP32-C3、地址 < cardid 0x356000、不重叠、
-        相对路径不越出清单目录)→ 下载到 ~/Library/Caches/InputBetter/Firmware/<ver>-<build>/,逐个校验大小与 SHA-256
+        相对路径不越出清单目录)→ 下载到 ~/Library/Caches/FoloButtonDev/Firmware/<ver>-<build>/,逐个校验大小与 SHA-256
         (已缓存且校验通过的跳过)→ phase .downloading(USB 链路此时照常工作)
      → write:DeviceLink.suspendUSB(让出串口)→ 再次确认本机文件地址 < cardid
      → EsptoolRunner.run(read-mac)→ EsptoolRunner.mac
@@ -667,3 +685,89 @@ AppSettings(didSet 写 UserDefaults;API Key 写 CredentialStore)
      subtitles.status → PillUIState.subtitleCollapsed 复位 / PillPanelController.show
      dictation.phase → SubtitleController.setDecodingPaused(听写优先,字幕暂停解码)
 ```
+
+### 本分支构建兼容性
+
+系统翻译会话使用 macOS 26 SDK 的标准初始化方法,使用系统默认策略;不再依赖更新 SDK 才提供的低延迟参数。构建脚本保留 `pipefail`,仅在 xcodebuild 成功且可执行文件存在时复制 app。
+
+### Codex 当前聊天控制
+
+`AccessibilityCodexDesktopAdapter` 优先从应用的 `AXFocusedUIElement` 读取当前 Codex 输入框。新版 Codex 的 `AXTextArea` 可能不出现在窗口子节点树中，因此不再只依赖遍历 `AXTextArea`；应用级焦点缺失时才回退到唯一 text area。若 `AXValue` 与 `AXPlaceholderValue` 相同，则按空输入框处理。输入框全文只保存在内存用于发送前核对，不写日志或磁盘。聊天身份优先使用 AX 文档、URL 或 Identifier 中的完整线程 UUID；当前版本未暴露这些字段时退回窗口标题。运行、审批与点击判断只采用 enabled 且未 hidden 的按钮，避免树中保留的后台控件污染状态。发送前同一份 AX 快照核对窗口、输入框、全文和唯一可用发送按钮，再重新聚焦并核对目标，向指定进程发送一次 Cmd-Enter；停止仍使用核对后的 AXPress。发送不会在 AX 失败后盲发按键，也不会 AXPress 后再补键。辅助功能未授权时只向设备返回 `ALLOW AX`；只读预检不弹系统授权框，权限申请由设置页的明确操作发起；Codex 未运行返回 `OPEN CODEX`，不再与输入框状态混用。
+
+调用链：
+
+```
+Passport OK down → DictationController.pressDown(pushToTalk)
+ → PassportMicSource / MicSource → ASR
+Passport OK up → ASR.finish → 润色或听写翻译 → TextInserter.insert
+ → 在开始录音时的前台应用输入文字，显示 TYPED；不自动发送
+
+Passport UP → CodexActionCoordinator.send
+ → 显式接纳当前输入框的手动或语音草稿，绑定目标及 60 秒租约
+ → 再读 AX：目标和全文一致、发送按钮可用、已解锁、无待审批
+ → 同一快照核对唯一发送按钮 → 聚焦同一输入框 → 再核对目标/全文 → 指定进程 Cmd-Enter 一次
+ → 同一聊天输入框清空（允许输入节点重建）才确认 SENT；修改文字本身不是回执
+   结果不明：UNSURE，不补发；空输入：INPUT EMPTY；无可用发送控件：BUSY
+
+Passport DOWN → stopCurrent → 核对当前聊天 running、前台、已解锁、无待审批
+ → 同一快照中的停止按钮 → AXPress → 核对 idle
+   当前没有任务：回到待机页
+```
+
+设备的上键映射不再决定录音目标；听写与 Translate 都使用通用语音输入链，因此不会因为 Codex 输入框已有内容或正在运行而在录音起点被拦截。设置里的普通 Enter/Esc 映射仍可显式选用；发送适配器只向完整验证的进程/编辑器提交一次 Cmd-Enter，停止仍点击已识别的 AX 控件，不在 AX 失败时盲发按键。应用切换列表会记住目标并在录音时前置、聚焦；听写翻译服务在 Mac 的翻译设置中配置。
+
+CSS 提示节点也可能进入 Chromium 的 AXValue 和 AXNumberOfCharacters。真机空编辑器的结构为 `AXTextArea.ProseMirror → AXGroup.placeholder → AXGroup → AXStaticText`，提示文字 12 字符加换行形成 13 字符。只有全部文字均处于 placeholder 祖先内才视为空；真实文本、混合段落或嵌入内容始终保留。可用时优先读取 AXStringForRange，纯字符数和 AXPlaceholderValue 用作兼容回退。
+
+### 开发版固件来源保护
+
+`FirmwareFlasher.onlineFirmwareAllowed` 在本分支固定为 false:不查询官网固件、不执行在线刷写。Passport 设置页提示使用受保护的本地脚本,防止上游固件覆盖开发镜像。建立专属固件清单并完成校验之前不启用此入口。
+
+`CodexActionCoordinator` 使用注入的桌面适配器检查焦点、锁屏、输入框全文、运行及待审批状态;读取目标后重新检查草稿有效期,取得一次性租约后发送。发送与停止互斥；适配器点击后无法确认状态变化时按结果不明处理，禁止自动重试。
+
+### 测试宿主隔离
+
+Xcode 测试 scheme 设置 `IB_TEST_MODE=1`,AppDelegate 不启动 AppState、串口、蓝牙与后台服务;普通启动不受影响。避免测试期间抢占连接的真实 Passport。
+
+异步读取桌面状态期间,草稿若被丢弃、替换或追加,发送流程中止;每次变更使用新 generation 防止相同文本的替换被误认为原草稿。
+
+Passport OK 按住触发 `PressInterpreter.pushToTalk`:松开时不满 250 ms 则取消,否则结束并转写;电脑快捷键仍使用原有短按免提。默认 UP/DOWN 映射为 `.codexSend` / `.codexStop`，语音结果先输入当前应用，上键按下时再读取并绑定当前 Codex 草稿；用户改成普通 `.enter` / `.escape` 时仍保留原快捷键能力。已开始的设备按压遇到连接变化时取消,避免松开事件丢失后意外输入。
+
+设备旧版 `approve` 快捷键("1 + Enter")已从设置选项移除且执行层拒绝;已有该映射的设置读取时退回无动作。真正的审批接入仍未实现。Passport 按压时长以系统单调运行时间计算,不受时钟校正影响。
+
+### 产品名、兼容标识与上游数据隔离
+
+产品名是 VibeKey（仓库 `folotoy-vibekey`），但内部兼容标识沿用 `local.folobutton.dev`、`folobutton-dev://`、`_folobutton._tcp` 与 `FoloButtonDev` 凭据、模型、缓存目录：改掉会让系统权限、已安装 hooks 和本机数据失效。新安装的通知 hook 使用独立标识和备份后缀，保留上游已有配置。本机安装版使用稳定 Developer ID 签名，未执行公证。
+
+固件 hello 的 `fw` 新值为 `vibekey`；0.1.7 及更早固件仍是 `inputbetter`，Mac 两种都接受，所以升级 app 不需要先刷机。BLE 广播名从 `InputBetter` 改为 `VibeKey`，只在刷入新固件后生效。
+
+Codex 停止编排要求目标、焦点、锁屏、运行状态及审批状态均匹配,适配器触发前再次核对。结果不明时禁止对该目标重复停止,用户在 Mac 核实后可解除锁定;停止与发送互斥。真实适配器已接入，审批卡出现时仍拒绝发送／停止。
+
+停止结果不明按聊天分别锁定,核实一个聊天不会解锁其他聊天;发送与停止从异步目标检查开始互斥。旧版模拟审批执行层在测试宿主下也不会发送真实按键。
+
+### 正式安装版 Codex 权限诊断
+
+`VibeKeyApp.applicationDidFinishLaunching → CodexAccessDiagnostics.runIfRequested → AXIsProcessTrusted + AccessibilityCodexDesktopAdapter.inspectTarget → 脱敏 JSON → 退出`。显式传入 `--diagnose-codex-access <输出路径>` 时，在正式 App 自身进程中执行；不初始化 AppState，不连接设备、不录音或写输入框。附加 `--followup-thread <UUID>` 时执行真实会话打开和复制链接核对，不提交消息。输出包含权限、安装身份、前台／锁屏、输入字符数和任务状态，不输出输入正文或聊天标题。普通启动不执行诊断。
+
+### 实际语音与翻译诊断
+
+`VibeKeyApp → VoicePipelineDiagnostics` 在显式传入 `--diagnose-voice-pipeline <测试音频> <输出JSON>` 时执行。按正常 DeviceLink / PassportMicSource 读取两秒硬件采样，仅输出采样数、RMS、峰值；用指定测试文件验证当前已安装 ASR 模型，再用固定短句验证当前听写翻译服务。普通诊断不启动窗口或输入文字；显式添加 `--paste-fixture-to-textedit` 时仅向前台 TextEdit 测试文稿写入公开测试结果，其他前台应用一律跳过。调用前先退出常驻 App，完成后恢复常驻连接。
+
+应用菜单的设置命令和 Cmd+, 均进入 WindowManager.showSettings，避免默认 SwiftUI EmptyView 设置场景产生空窗。
+
+### 自动听写翻译的中文方向
+
+自动互译先按基础语言选择方向，简体和繁体中文均从中文译成另一种语言；显式目标仍保留文字体系。NaturalLanguage 对共用汉字短句的简繁判定按实际字形和系统首选中文体系归一化，避免“你好，世界”被误判为繁体后发起不支持的繁体到简体翻译。系统翻译使用已下载的中英文资源；资源下载由 macOS 官方语言管理界面完成。
+
+### 上键连续发送与未知结果恢复
+
+CodexTargetSnapshot.canSend 来自 enabled 且未 hidden 的发送控件；当前任务 running 不等于不能提交。应用允许后续提交/排队时，上键仍可发送；审批中或无可用发送控件时不触发。
+
+回执由 CodexSendReceipt 比较同一进程、窗口、聊天、前台与解锁、无审批以及空输入框；回执阶段可以容忍 inputID 重建，提交前仍要求完整 target 相等。超时仍 UNKNOWN，不自动补发。下一段硬件录音准备好目标且输入框为空时，prepareNewDictation 只清理过时内存状态，不声称旧消息送达；旧文字仍在时继续保留重试锁。
+
+Log.codex 只记录阶段与字符数，不记录草稿、窗口标题或聊天内容。KeySender 的进程定向键事件与全局键事件共用唯一实现，测试宿主始终禁止真实投递。
+
+Electron 控件可见性：DeviceInputTarget 和 AccessibilityCodexDesktopAdapter 在授权后，通过官方 AXManualAccessibility 启用完整 Chromium 控件树，成功结果按进程缓存，不周期性反复开启。从其他全屏 Space 切到 Codex 时，系统切换加 Chromium 首次建树可能超过 2 s；DeviceInputTarget 等待 5 s，并在通用遍历失败后用 Codex 适配器复核，避免把尚未建树误报成无输入框。Codex 的独立 composer 片段还会沿 AXParent 向上补读孩子并去重，保留数量/深度限制。诊断在准备目标后输出控件结构；不将“不含发送按钮的残缺树”误当成应用真的忙。机制见 [Electron 官方文档](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md#macos)。
+
+AX 遍历按 AXUIElement 的真实相等性去重，不能按 CFHash 的数值去重。窗口与输入框标识由每个适配器拥有的有界匿名注册表提供，同一 AX 元素复用 ID，哈希碰撞的不同元素仍有独立 ID；仅在内存保存，不写入用户文本或磁盘。
+
+连续发送真机验收：2026-11-07 最新安装版在同一常驻进程中，经 Wi-Fi 上键完成三次真实提交，均确认同聊天输入框清空（约 0.4 秒），用户确认成功；无 UNKNOWN。只读检查日志排除了测试宿主，未记录草稿全文。

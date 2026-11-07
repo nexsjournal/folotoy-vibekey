@@ -20,6 +20,8 @@ static void fx_draw(lv_event_t *e)
 {
     ib_fx_t fx;
     ib_fx_begin(&fx, e);
+    ib_fx_frame(&fx, 6, 4, IB_UI_CONTENT_W - 12, IB_DOTS_BOX_H - 8, 0, 1,
+                IB_C(IB_COLOR_MATRIX_FRAME), LV_OPA_COVER);
     ib_dots_draw(&fx, lv_tick_get(), s_dx);
 }
 
@@ -27,6 +29,7 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
 {
     (void)ctx;
     lv_obj_t *root = ib_box_create(parent, 0, 0, IB_UI_CONTENT_W, IB_UI_PAGE_H);
+    ib_terminal_header(root, "> ERROR_", IB_COLOR_ERR, IB_UI_CONTENT_W);
     s_fx = ib_fx_create(root, 0, IB_DOTS_BOX_Y, IB_UI_CONTENT_W, IB_DOTS_BOX_H, fx_draw, NULL);
     s_text = ib_label_create(root, &lv_font_montserrat_20, IB_COLOR_TEXT, ib_font_top(&lv_font_montserrat_20, TEXT_CY),
                              IB_UI_CONTENT_W - 20);

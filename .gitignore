@@ -1,6 +1,6 @@
 .DS_Store
 app/build/
-app/InputBetter.xcodeproj/
+app/VibeKey.xcodeproj/
 firmware/build/
 firmware/managed_components/
 firmware/sdkconfig

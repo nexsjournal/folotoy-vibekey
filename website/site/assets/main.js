@@ -1,4 +1,4 @@
-// InputBetter 官网公共脚本:中英文切换、导航状态、滚动进度、滚动浮现、卡片光斑、跟随指针的柔光。
+// VibeKey 官网公共脚本:中英文切换、导航状态、滚动进度、滚动浮现、卡片光斑、跟随指针的柔光。
 // 三个页面共用;每页自己的动画在各自的脚本里。
 //
 // 中英文机制:中文写在 HTML 里(data-i18n 的元素,其文本即中文原文),英文在这里的 en 字典;
@@ -12,7 +12,7 @@
   if (location.pathname === '/' && location.hash === '#firmware') location.replace('/passport/#firmware');
 
   const en = {
-    'doc.title': 'InputBetter — Just say it.',
+    'doc.title': 'VibeKey — Just say it.',
     'nav.home': 'Home', 'nav.passport': 'Passport', 'nav.support': 'Support',
     'cta.short': 'Download', 'cta.download': 'Download for macOS', 'cta.source': 'View on GitHub',
     'ft.license': 'MIT open source', 'ft.support': 'Support', 'ft.passport': 'Passport',

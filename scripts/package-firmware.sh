@@ -27,7 +27,7 @@ die() { echo "错误:$*" >&2; exit 1; }
 version="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['project_version'])" "${build}/project_description.json")"
 [[ "${version}" =~ ^[A-Za-z0-9._+-]+$ ]] || die "固件版本号 ${version} 含有不能用作目录名的字符"
 # 构建标识:esptool 在 app 镜像 0xB0 处写入了 ELF 的 SHA256,取前 4 字节(8 位十六进制),与设备 hello 的 build 一致。
-app_bin="${build}/InputBetter-Passport.bin"
+app_bin="${build}/VibeKey-Passport.bin"
 build_id="$(xxd -s 0xb0 -l 4 -p "${app_bin}")"
 # 协议版本取固件源码里的定义,app 只刷与自己协议版本一致的固件。
 proto="$(sed -nE 's/^#define IB_PROTO_VERSION[[:space:]]+([0-9]+).*/\1/p' "${root}/firmware/main/ib_protocol.h")"
@@ -41,7 +41,7 @@ mkdir -p "${out}/${dir}"
 images=(
     "0x0 bootloader/bootloader.bin bootloader.bin"
     "0x8000 partition_table/partition-table.bin partition-table.bin"
-    "0x10000 InputBetter-Passport.bin app.bin"
+    "0x10000 VibeKey-Passport.bin app.bin"
 )
 entries=()
 for item in "${images[@]}"; do
@@ -56,7 +56,7 @@ done
 
 {
     echo "{"
-    echo "  \"name\": \"InputBetter Passport\","
+    echo "  \"name\": \"VibeKey Passport\","
     echo "  \"version\": \"${version}\","
     echo "  \"build\": \"${build_id}\","
     echo "  \"proto\": ${proto},"

@@ -9,7 +9,7 @@
   const MAX = 4000;
 
   IB.i18n.add({
-    'doc.title': 'Support — InputBetter',
+    'doc.title': 'Support — VibeKey',
     'sp.eyebrow': 'Support', 'sp.title': 'Need a hand?',
     'sp.lead': 'Leave us a message — common questions are answered below.',
     'sp.issues': 'GitHub Issues', 'sp.write': 'Leave a message',
@@ -23,23 +23,23 @@
     'a2.2': 'To get going quickly: Apple Speech needs no download; SenseVoice Small is only about 240 MB and very fast for Chinese; the default Whisper Large v3 Turbo (compressed) is about 650 MB.',
     'a2.3': 'The first time Whisper loads, CoreML optimizes the model for your chip, which takes 2–3 minutes. After that it loads in about 1.6 seconds.',
     'q3': 'Passport won’t connect to my Mac.',
-    'a3.1': 'Hold the power button to turn it on and connect it with a USB-C cable that carries data (many are charge-only). USB takes priority; unplug it and the device falls back to Bluetooth, advertising as “InputBetter” with no pairing required. Bluetooth can be turned off under Settings › Passport.',
-    'a3.2': 'If the device isn’t running the InputBetter firmware, the app offers to flash it under Settings › Passport. Only one program can hold the serial port at a time, so quit other serial tools or other Passport companion apps first.',
+    'a3.1': 'Hold the power button to turn it on and connect it with a USB-C cable that carries data (many are charge-only). USB takes priority; unplug it and the device falls back to Bluetooth, advertising as “VibeKey” with no pairing required. Bluetooth can be turned off under Settings › Passport.',
+    'a3.2': 'If the device isn’t running the VibeKey firmware, the app offers to flash it under Settings › Passport. Only one program can hold the serial port at a time, so quit other serial tools or other Passport companion apps first.',
     'a3.3': 'When no Mac is connected the device shows a clock and keys only wake the screen — they won’t do anything else.',
     'q4': 'Is flashing safe? Can I restore the original firmware?',
     'a4.1': 'All three methods — in the app, in the browser, and the command-line script — write only the bootloader, partition table and application. The flash is never erased and the device identity partition (cardid) is never written.',
-    'a4.2': 'Before flashing a device for the first time, the app backs up the full 8 MB flash to ~/Library/Application Support/InputBetter/Backups/. The browser flasher can download a backup to your computer first (passport-<MAC>-flash.bin). The backup contains the device identity — keep it safe and don’t share it.',
-    'a4.3': 'Browser flashing needs Chrome or Edge on a computer (Web Serial). Quit the InputBetter app first, since it holds the serial port, and don’t unplug or close the page while flashing.',
+    'a4.2': 'Before flashing a device for the first time, the app backs up the full 8 MB flash to ~/Library/Application Support/FoloButtonDev/Backups/. The browser flasher can download a backup to your computer first (passport-<MAC>-flash.bin). The backup contains the device identity — keep it safe and don’t share it.',
+    'a4.3': 'Browser flashing needs Chrome or Edge on a computer (Web Serial). Quit the VibeKey app first, since it holds the serial port, and don’t unplug or close the page while flashing.',
     'q5': 'What do cloud recognition and AI services upload?',
     'a5.1': 'By default all recognition runs on your Mac and audio never leaves it. Only when you pick a cloud model under Settings › Models (Volcengine, Alibaba Cloud Bailian, ElevenLabs, Soniox or an OpenAI-compatible endpoint) is the recording sent to that provider.',
     'a5.2': 'AI polish, AI translation and caption summaries send text to the AI service you configured (any OpenAI-compatible API); online machine translation (DeepL, Google, Microsoft, Volcengine, Tencent Cloud, Baidu) works the same way. System translation runs offline on your Mac.',
-    'a5.3': 'All API keys are stored only on your Mac in ~/Library/Application Support/InputBetter/credentials.json (mode 600) and are never uploaded. Transcripts live in memory only; the app keeps no history.',
+    'a5.3': 'All API keys are stored only on your Mac in ~/Library/Application Support/FoloButtonDev/credentials.json (mode 600) and are never uploaded. Transcripts live in memory only; the app keeps no history.',
     'q6': 'System requirements and pricing?',
     'a6.1': 'A Mac with Apple silicon running macOS 26 or later. The installer is signed and notarized by Apple; drag it into Applications and you’re done.',
-    'a6.2': 'InputBetter and the Passport firmware are open source under the MIT license and free to use. Cloud recognition, online translation and AI services are billed by their providers with your own keys.',
+    'a6.2': 'VibeKey and the Passport firmware are open source under the MIT license and free to use. Cloud recognition, online translation and AI services are billed by their providers with your own keys.',
     'q7': 'How do I update to a new version?',
     'a7.1': 'Builds downloaded from this website check for updates once a day and show what’s new when a version is available. You can also click “Check Now” in Settings › General › About & Updates, or choose “Check for Updates…” in the menu bar menu.',
-    'a7.2': 'Open the new disk image and drag InputBetter to Applications to replace the old version — your settings and downloaded models are kept. Self-built open-source builds don’t check for updates by default; see the README on GitHub to point them at your own update feed.',
+    'a7.2': 'Open the new disk image and drag VibeKey to Applications to replace the old version — your settings and downloaded models are kept. Self-built open-source builds don’t check for updates by default; see the README on GitHub to point them at your own update feed.',
     // 留言区
     'ct.title': 'Message',
     'ct.lead': 'It goes to the developer and is never public. Leave your email if you’d like a reply.',
@@ -53,7 +53,7 @@
     'ct.f3.link': 'Open an issue on GitHub →',
     'ct.email': 'Email', 'ct.optional': 'optional', 'ct.emailHint': 'Used only to reply to this message.',
     'ct.message': 'Message',
-    'ct.placeholder': 'What went wrong? Which step, what you saw, your macOS and InputBetter versions…',
+    'ct.placeholder': 'What went wrong? Which step, what you saw, your macOS and VibeKey versions…',
     'ct.privacy': 'Only the developer sees your message; your email is used for nothing but the reply.',
     'ct.send': 'Send', 'ct.sending': 'Sending…',
     'ct.done.t': 'Got it, thank you!',
@@ -119,7 +119,7 @@
     status.append(before);
     if (after !== undefined) {
       const a = document.createElement('a');
-      a.href = 'https://github.com/racall/InputBetter/issues/new'; a.target = '_blank'; a.rel = 'noopener';
+      a.href = 'https://github.com/nexsjournal/folotoy-vibekey/issues/new'; a.target = '_blank'; a.rel = 'noopener';
       a.textContent = IB.t('ct.e403.link');
       status.append(a, after);
     }

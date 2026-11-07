@@ -45,6 +45,9 @@ typedef enum {
 
 // 列表页内容:最多 6 个可见行,选中项与滚动位置由 Mac 决定,设备只显示。
 #define IB_UI_LIST_ROWS 6
+#define IB_UI_CAPTION_MAX 192
+#define IB_UI_CAPTION_APP_MAX 64
+#define IB_UI_OFFLINE_HINT_MAX 32
 typedef struct {
     char title[24];
     char items[IB_UI_LIST_ROWS][24];
@@ -58,6 +61,7 @@ typedef enum {
     IB_UI_LINK_NONE = 0,
     IB_UI_LINK_USB,
     IB_UI_LINK_BLE,
+    IB_UI_LINK_WIFI,
 } ib_ui_link_t;
 
 // 建立全部页面与状态栏,初始显示 OFFLINE。需先 bsp_lvgl_init()。
@@ -71,6 +75,10 @@ bool ib_ui_show(ib_ui_screen_t screen, ib_ui_mode_t mode, const char *msg);
 // 音量电平 0..100,驱动 REC / SUB 动画(内部平滑)。
 void ib_ui_set_level(uint8_t level);
 
+// SUB 页字幕:UTF-8 原文 / 译文 / 应用名。空字符串表示没有对应内容;
+// live=true 时译文最后一行还在变化(用略暗的颜色)。
+void ib_ui_set_caption(const char *src, const char *dst, const char *app, bool live);
+
 // OK 键是否按住:REC 页据此提示 "RELEASE OK"(按住说话)或 "OK TO STOP"(切换模式)。
 void ib_ui_set_ok_held(bool held);
 
@@ -80,6 +88,8 @@ void ib_ui_set_battery(int soc, bool charging);
 
 // OFFLINE 时钟:time 形如 "23:41",date 形如 "THU 10/15";time 为空串表示未知(显示 --:--)。
 void ib_ui_set_clock(const char *time, const char *date);
+// OFFLINE 页底部提示(ASCII,如 "PRESS OK TO RECONNECT");空串恢复 "WAITING FOR MAC"。
+void ib_ui_set_offline_hint(const char *text);
 
 // IDLE 页底部的引擎名(ASCII,最长 23 字节)。
 void ib_ui_set_engine(const char *engine);

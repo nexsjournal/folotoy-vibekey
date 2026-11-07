@@ -49,7 +49,7 @@
   const captionTranslation = (line) => (IB.lang === 'en' ? line.en : line.zh);
 
   IB.i18n.add({
-    'doc.title': 'InputBetter — Just say it.',
+    'doc.title': 'VibeKey — Just say it.',
     'hero.eyebrow': 'Voice input for macOS',
     'hero.title': 'Just say it.',
     'hero.req': 'macOS 26+ · Apple silicon',

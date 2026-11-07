@@ -12,9 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// ---- 配色(docs/device-ui.md):单色克制风格 ----
-// 所有模式都用白 / 灰,不用颜色区分模式。
-// 彩色只用于少数语义:录音红(REC 活柱、状态栏红点、低电量)、完成绿(DONE)、失败红(ERR)、Agent 等待输入橙。
+// ---- 配色(docs/device-ui.md):终端绿为主,保留白 / 灰和录音、完成、失败等语义色 ----
 //
 // ★ 灰色必须是 RGB565 精确值:R、G、B 相等且为 8 的倍数(转成 565 后 G6 = 2 x R5,三通道亮度一致)。
 //   否则 R/B 只有 5 位、G 有 6 位,舍入不同会让灰色偏绿。同理,黑底上的"低透明度白色"经混合后
@@ -33,6 +31,12 @@
 #define IB_COLOR_ERR       0xF85858
 #define IB_COLOR_AGENT     0xC88848     // 暗橙,只用于 Agent "input" 通知
 
+// Matrix 页面专用色。灰度动画仍使用上面的精确灰,避免把 RGB 值传入 ib_gray_lerp。
+#define IB_COLOR_MATRIX_SOFT   0x80E8A0
+#define IB_COLOR_MATRIX_BRIGHT 0xC8F8D8
+#define IB_COLOR_MATRIX_FRAME  0x205430
+#define IB_COLOR_MATRIX_CYAN   0x68D8D8
+
 #define IB_C(hex) lv_color_hex(hex)
 
 // RGB565 精确灰:v 为 0..255 的亮度,向下取到 8 的倍数。
@@ -43,6 +47,10 @@ lv_color_t ib_gray_lerp(uint32_t from_hex, uint32_t to_hex, int32_t p);
 // ---- 图标字体(tools/gen-icon-font.sh 生成,Material Icons Round)----
 LV_FONT_DECLARE(ib_icon_font_12);      // 右侧按键提示(12 px)
 LV_FONT_DECLARE(ib_icon_font_56);      // 页面主图标
+LV_FONT_DECLARE(ib_terminal_font_12);  // Roboto Mono ASCII 终端标题
+LV_FONT_DECLARE(ib_terminal_font_14);  // Roboto Mono ASCII 操作提示
+LV_FONT_DECLARE(ib_terminal_font_20);  // Roboto Mono ASCII 页面状态
+LV_FONT_DECLARE(ib_cjk_font_12);       // 简体中文 + ASCII(SUB 页字幕)
 typedef enum {
 #define IB_ICON_LARGE_DEF(name, glyph, codepoint) IB_GLYPH_##name,
 #include "icons/ib_icon_large_list.h"
@@ -82,6 +90,8 @@ lv_obj_t *ib_label_create(lv_obj_t *parent, const lv_font_t *font, uint32_t colo
 int32_t ib_font_top(const lv_font_t *font, int32_t cy);
 // 小标签(Montserrat 12,大写,加字距):状态栏、THINKING、TRANSLATE、列表标题、操作提示等。
 lv_obj_t *ib_caption_create(lv_obj_t *parent, uint32_t color, int32_t y, int32_t w, int32_t letter_space);
+// 终端式页面标题;title 必须在页面生命周期内保持有效。
+void ib_terminal_header(lv_obj_t *parent, const char *title, uint32_t color, int32_t width);
 
 // ---- 自绘上下文:draw_cb 开头调用 ib_fx_begin,之后的坐标都相对控件左上角 ----
 typedef struct {

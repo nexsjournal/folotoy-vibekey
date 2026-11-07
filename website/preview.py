@@ -30,8 +30,8 @@ FIRMWARE = ROOT / "firmware" / "build" / "release"
 
 
 def latest_dmg() -> Path | None:
-    """按修改时间取最新的 InputBetter-*.dmg。"""
-    files = sorted(RELEASE.glob("InputBetter-*.dmg"), key=lambda p: p.stat().st_mtime, reverse=True)
+    """按修改时间取最新的 VibeKey-*.dmg。"""
+    files = sorted(RELEASE.glob("VibeKey-*.dmg"), key=lambda p: p.stat().st_mtime, reverse=True)
     return files[0] if files else None
 
 
@@ -44,7 +44,7 @@ def replacements() -> dict[str, str]:
             "SHA256": "本地预览（还没有构建安装包）",
             "DMG_URL": "https://input.0os.io/",
         }
-    version = dmg.name.removeprefix("InputBetter-").removesuffix(".dmg")
+    version = dmg.name.removeprefix("VibeKey-").removesuffix(".dmg")
     size = dmg.stat().st_size
     digest = hashlib.sha256(dmg.read_bytes()).hexdigest()
     return {
@@ -123,7 +123,7 @@ class PreviewHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="本地预览 InputBetter 官网")
+    parser = argparse.ArgumentParser(description="本地预览 VibeKey 官网")
     parser.add_argument("--port", type=int, default=8788, help="端口,默认 8788")
     parser.add_argument("--open", action="store_true", help="启动后打开浏览器")
     args = parser.parse_args()
@@ -133,7 +133,7 @@ def main() -> None:
     if dmg:
         print(f"安装包: {dmg.name} ({values['SIZE']})")
     else:
-        print("安装包: 没有找到 app/build/release/InputBetter-*.dmg,下载链接指向线上")
+        print("安装包: 没有找到 app/build/release/VibeKey-*.dmg,下载链接指向线上")
     if not FIRMWARE.is_dir():
         print("固件:   没有找到 firmware/build/release,网页刷写会显示没有固件")
 

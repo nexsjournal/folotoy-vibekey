@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 编译正式版 app(Developer ID 签名 + 公证 + staple),替换 /Applications/InputBetter.app 并启动——本机自测用。
+# 编译正式版 app(Developer ID 签名 + 公证 + staple),替换 /Applications/VibeKey.app 并启动——本机自测用。
 # 和官网下载的版本走同样的签名、公证流程,只是不打包 DMG(发布用 release.sh)。
 #
 # 用法(凭据见 signing-env.sh,写进 app/Config/Release.local.env 后直接运行即可):
@@ -16,13 +16,14 @@ source scripts/signing-env.sh
 # 先检查公证凭据,免得编译完才发现缺少。
 if [[ -z "${SKIP_NOTARIZE:-}" ]]; then load_notary_args; fi
 ./scripts/build-signed.sh
-app="build/ReleaseDerivedData/Build/Products/Release/InputBetter.app"
-target="/Applications/InputBetter.app"
+app="build/ReleaseDerivedData/Build/Products/Release/VibeKey.app"
+target="/Applications/VibeKey.app"
+legacy_target="/Applications/InputBetter.app"
 bundle_id="$(defaults read "$(pwd)/${app}/Contents/Info.plist" CFBundleIdentifier)"
 
 # ---- 公证(提交 zip,票据钉到 app 上,离线也能通过 Gatekeeper)----
 if [[ -z "${SKIP_NOTARIZE:-}" ]]; then
-    zip="$(mktemp -d)/InputBetter.zip"
+    zip="$(mktemp -d)/VibeKey.zip"
     trap 'rm -rf "$(dirname "${zip}")"' EXIT
     ditto -c -k --keepParent "${app}" "${zip}"
     echo "==> Notarizing (this usually takes a few minutes)"
@@ -32,28 +33,42 @@ if [[ -z "${SKIP_NOTARIZE:-}" ]]; then
     spctl --assess --type execute --verbose=2 "${app}"
 fi
 
-# ---- 退出正在运行的旧版本 ----
-if pgrep -xq InputBetter; then
-    echo "==> Quitting running InputBetter"
+# ---- 退出正在运行的旧版本(含改名前的 InputBetter)----
+for process in VibeKey InputBetter; do
+    pgrep -xq "${process}" || continue
+    echo "==> Quitting running ${process}"
     # 先正常退出(让 app 走 applicationShouldTerminate,保存设置、释放音频设备);10 秒还没退再强制结束。
     osascript -e "tell application id \"${bundle_id}\" to quit" >/dev/null 2>&1 || true
-    for _ in {1..20}; do pgrep -xq InputBetter || break; sleep 0.5; done
-    if pgrep -xq InputBetter; then
+    for _ in {1..20}; do pgrep -xq "${process}" || break; sleep 0.5; done
+    if pgrep -xq "${process}"; then
         echo "    still running, killing"
-        pkill -x InputBetter || true
+        pkill -x "${process}" || true
         sleep 1
     fi
-fi
+done
 
 # ---- 替换 /Applications 里的 app ----
 # 先复制到同目录的临时位置,再删旧换新,避免复制到一半时 /Applications 里留下残缺的 app。
 echo "==> Installing to ${target}"
-staging="${target%.app}.installing.app"
+staging="${target}.installing"
 rm -rf "${staging}"
 ditto "${app}" "${staging}"
+if [[ ! -x "${staging}/Contents/MacOS/VibeKey" ]]; then
+    echo "安装失败: 暂存包缺少可执行文件;现有版本保持不变" >&2
+    exit 1
+fi
+codesign --verify --deep --strict "${staging}"
 rm -rf "${target}"
 mv "${staging}" "${target}"
 codesign --verify --deep --strict "${target}"
 echo "Installed $(defaults read "${target}/Contents/Info.plist" CFBundleShortVersionString) ($(defaults read "${target}/Contents/Info.plist" CFBundleVersion)) → ${target}"
+
+# 新旧包共用 Bundle ID;旧包留着会让 LaunchServices 继续启动 InputBetter.app。
+if [[ -d "${legacy_target}" ]]; then
+    echo "==> Removing legacy ${legacy_target}"
+    lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+    [[ -x "${lsregister}" ]] && "${lsregister}" -u "${legacy_target}" >/dev/null 2>&1 || true
+    rm -rf "${legacy_target}"
+fi
 
 if [[ -z "${NO_LAUNCH:-}" ]]; then open "${target}"; fi

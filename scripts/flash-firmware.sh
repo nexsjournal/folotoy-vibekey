@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 编译并烧录 InputBetter 固件到通过 USB 连接的 FoloToy AI Passport。
+# 编译并烧录 VibeKey 固件到通过 USB 连接的 FoloToy AI Passport。
 #
 # 安全约束(见 CLAUDE.md):
 #   - 第一次给某台设备烧录前,把整片 8 MB Flash 备份到 ~/esp/passport-backups/passport-<MAC>-flash.bin,
@@ -13,12 +13,12 @@
 #   BACKUP_DIR=...              备份目录(默认 ~/esp/passport-backups)
 #   SKIP_BUILD=1                跳过编译,直接烧录现有 build/
 set -euo pipefail
+umask 077
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 fw="${root}/firmware"
 idf_export="${IDF_EXPORT:-${HOME}/esp/esp-idf-v5.5.3/export.sh}"
 backup_dir="${BACKUP_DIR:-${HOME}/esp/passport-backups}"
-CARDID_START=$((0x356000))
 
 die() { echo "错误:$*" >&2; exit 1; }
 
@@ -30,8 +30,8 @@ fi
 [[ -n "${port}" ]] || die "没有找到 USB 串口。请打开 Passport 电源,并用支持数据传输的 USB-C 线连接 Mac。"
 [[ -e "${port}" ]] || die "串口 ${port} 不存在。"
 
-# InputBetter / Passport Keys app 会以 TIOCEXCL 独占串口;其它程序(串口监视器等)也要先关掉。
-for app in InputBetter PassportKeys; do
+# VibeKey / Passport Keys app 会以 TIOCEXCL 独占串口;其它程序(串口监视器等)也要先关掉。
+for app in VibeKey PassportKeys; do
     if pgrep -xq "${app}"; then
         die "${app} app 正在运行并可能独占串口,请先退出它再烧录。"
     fi
@@ -63,34 +63,46 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 fi
 [[ -f build/flash_args ]] || die "build/flash_args 不存在,请先编译。"
 
-# ---- 检查烧录地址:只允许写 cardid 之前的区域 ----
-while read -r addr file; do
-    [[ "${addr}" =~ ^0x[0-9a-fA-F]+$ ]] || continue
-    size="$(stat -f%z "build/${file}")"
-    end=$((addr + size))
-    if (( end > CARDID_START )); then
-        die "${file} 写入范围 ${addr}+${size} 会覆盖 cardid(0x356000),已停止。"
-    fi
-done < build/flash_args
+# ---- 校验写入列表、擦除扇区和分区表 ----
+python3 "${root}/scripts/verify-flash-layout.py" build || die "镜像布局不安全,已停止烧录。"
+image_hashes="$(shasum -a 256 build/flash_args build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/VibeKey-Passport.bin)"
 
 # ---- 首次烧录前整片备份 ----
-mac="$(python -m esptool --chip esp32c3 -p "${port}" read_mac | awk '/^MAC:/ { print $2; exit }' | tr -d ':')"
-[[ -n "${mac}" ]] || die "读取设备 MAC 失败,已停止烧录。"
+# 写入前始终停留在下载模式,避免原固件在身份检查之间启动并修改 NVS。
+mac="$(python -m esptool --chip esp32c3 -p "${port}" --after no_reset read_mac | awk '/^MAC:/ { print $2; exit }' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+[[ "${mac}" =~ ^[0-9a-fA-F]{12}$ ]] || die "读取设备标识失败,已停止烧录。"
 backup="${backup_dir}/passport-${mac}-flash.bin"
+mkdir -p "${backup_dir}"
+flash_info="$(python -m esptool --chip esp32c3 -p "${port}" --after no_reset flash_id)"
+[[ "${flash_info}" == *"Detected flash size: 8MB"* ]] || die "未能确认设备是 8 MB Flash,已停止烧录。"
 if [[ -f "${backup}" ]]; then
-    echo "已有整片备份 ${backup},跳过备份。"
+    [[ -f "${backup}.sha256" ]] || die "已有备份缺少校验文件,请先核实原始备份。"
 else
-    mkdir -p "${backup_dir}"
+    [[ ! -e "${backup}.partial" ]] || die "发现未完成的备份,请先核实。"
     echo "首次烧录这台设备,先备份整片 8 MB Flash…"
-    python -m esptool --chip esp32c3 -p "${port}" -b 460800 read_flash 0 0x800000 "${backup}.partial"
+    python -m esptool --chip esp32c3 -p "${port}" -b 460800 --after no_reset read_flash 0 0x800000 "${backup}.partial"
     actual="$(stat -f%z "${backup}.partial")"
     (( actual == 0x800000 )) || die "备份大小 ${actual} 不是 8 MB,已停止烧录。"
     mv "${backup}.partial" "${backup}"
-    echo "已备份整片 Flash:${backup}"
+    shasum -a 256 "${backup}" > "${backup}.sha256"
 fi
+actual="$(stat -f%z "${backup}")"
+(( actual == 0x800000 )) || die "备份大小不是 8 MB,已停止烧录。"
+expected_sha="$(awk 'NR == 1 { print $1 }' "${backup}.sha256")"
+[[ "${expected_sha}" =~ ^[0-9a-f]{64}$ ]] || die "备份校验文件无效,已停止烧录。"
+actual_sha="$(shasum -a 256 "${backup}" | awk '{ print $1 }')"
+[[ "${actual_sha}" == "${expected_sha}" ]] || die "备份校验失败,已停止烧录。"
+python3 "${root}/scripts/verify-flash-layout.py" build --backup "${backup}" || die "原设备分区不匹配,已停止烧录。"
+echo "整片备份已校验。"
 
 # ---- 烧录(分段写入,不擦除整片)----
+# 备份和写入之间若设备被换掉,不能将一个设备的备份当作另一个设备的恢复依据。
+current_mac="$(python -m esptool --chip esp32c3 -p "${port}" --after no_reset read_mac | awk '/^MAC:/ { print $2; exit }' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+[[ "${current_mac}" == "${mac}" ]] || die "设备身份发生变化,已停止烧录。"
+python3 "${root}/scripts/verify-flash-layout.py" build --backup "${backup}" || die "写入前布局检查失败。"
+current_hashes="$(shasum -a 256 build/flash_args build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/VibeKey-Passport.bin)"
+[[ "${current_hashes}" == "${image_hashes}" ]] || die "检查期间固件镜像发生变化,已停止烧录。"
 cd build
 python -m esptool --chip esp32c3 -p "${port}" -b 460800 \
     --before default_reset --after hard_reset write_flash "@flash_args"
-echo "烧录完成,设备已重启进入 InputBetter 固件。"
+echo "烧录完成,设备已重启进入 VibeKey 固件。"

@@ -56,6 +56,10 @@ set(UI_SOURCES
     "${UI_DIR}/ib_ui_sub.c"
     "${UI_DIR}/ib_ui_list.c"
     "${UI_DIR}/ib_icons.c"
+    "${UI_DIR}/fonts/ib_terminal_font_12.c"
+    "${UI_DIR}/fonts/ib_terminal_font_14.c"
+    "${UI_DIR}/fonts/ib_terminal_font_20.c"
+    "${UI_DIR}/fonts/ib_cjk_font_12.c"
     "${UI_DIR}/icons/ib_icon_font_12.c"
     "${UI_DIR}/icons/ib_icon_font_56.c")
 
@@ -64,8 +68,10 @@ add_executable(ib_ui_preview
     preview_scenarios.c
     preview_main.c
     ${UI_SOURCES})
+include("${UI_DIR}/assets/offline-art.cmake")
 target_include_directories(ib_ui_preview PRIVATE
     "${UI_DIR}"
+    "${CMAKE_CURRENT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 target_link_libraries(ib_ui_preview PRIVATE lvgl_host m)

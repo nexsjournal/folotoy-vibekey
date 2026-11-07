@@ -1,4 +1,4 @@
-# InputBetter
+# VibeKey
 
 本地语音输入 macOS app(听写输入 + 应用声音实时字幕),配套 FoloToy AI Passport 硬件固件。
 
@@ -15,21 +15,21 @@
 ## 常用命令
 
 ```bash
-cd app && ./scripts/build.sh                 # 编译 app → app/build/InputBetter.app(会顺带打包固件与 esptool)
+cd app && ./scripts/build.sh                 # 编译 app → app/build/VibeKey.app(会顺带打包固件与 esptool)
 cd app && ./scripts/test.sh                  # 单元测试
 ./scripts/clean.sh                           # 删除所有编译 / 测试 / 打包产物(--keep-downloads 保留 esptool 与 ESP-IDF 组件,--dry-run 只列出)
 cd app && ./scripts/update-strings.sh        # 改了界面文字后重新生成 String Catalog(英文在 app/Localization/en.json)
 cd firmware && ./tools/validate.sh --host    # 固件主机测试
-./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 InputBetter)
+./scripts/flash-firmware.sh                  # 命令行烧录固件(先退出 VibeKey)
 cd app && ./scripts/release.sh               # 打包签名公证的 DMG + Sparkle 签名(凭据用环境变量或本机 app/Config/Release.local.env 传入,见 docs/website.md)
 cd app && ./scripts/publish-update.sh        # 部署官网后把新版本登记到更新后台,已安装的 app 会提示更新(地址密钥只在本机)
-cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/InputBetter.app 并启动
+cd app && ./scripts/install.sh               # 自测:编译签名公证正式版,替换 /Applications/VibeKey.app 并启动
 ./scripts/package-firmware.sh                # 把 firmware/build 整理成官网固件清单与镜像(deploy.sh 会自动调用)
 website/preview.py                           # 本地预览官网(自动替换占位符,http://127.0.0.1:8788/)
 website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最新 DMG 和固件);服务器地址和密钥不写进仓库
 ```
 
-调试构建支持的环境变量见 `app/InputBetter/Debug/DebugHooks.swift`:
+调试构建支持的环境变量见 `app/VibeKey/Debug/DebugHooks.swift`:
 
 - `IB_ONBOARDING_STEP` / `IB_SETTINGS_PANE`:直接打开某一页;
 - `IB_CLOUD_CONFIG=volcengine`(`CloudProvider` 的 rawValue):配合 `IB_SETTINGS_PANE=models` 直接弹出该云端服务的配置表单;

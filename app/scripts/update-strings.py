@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
-derived = root / "build/DerivedData/Build/Intermediates.noindex/InputBetter.build/Debug/InputBetter.build/Objects-normal/arm64"
+derived = root / "build/DerivedData/Build/Intermediates.noindex/VibeKey.build/Debug/VibeKey.build/Objects-normal/arm64"
 en = json.loads((root / "Localization/en.json").read_text(encoding="utf-8"))
 
 keys = set()
@@ -41,7 +41,7 @@ for key in sorted(keys):
     strings[key] = entry
 
 catalog = {"sourceLanguage": "zh-Hans", "strings": strings, "version": "1.0"}
-out = root / "InputBetter/Localizable.xcstrings"
+out = root / "VibeKey/Localizable.xcstrings"
 out.write_text(json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 unused = sorted(set(en) - keys)
 print(f"{len(strings)} 条字符串写入 {out.relative_to(root)}")

@@ -55,7 +55,7 @@ run_firmware() {
         return 1
     fi
     local size
-    size="$(stat -f%z build/InputBetter-Passport.bin 2>/dev/null || stat -c%s build/InputBetter-Passport.bin)"
+    size="$(stat -f%z build/VibeKey-Passport.bin 2>/dev/null || stat -c%s build/VibeKey-Passport.bin)"
     if (( size > 0x300000 )); then
         echo "ERROR: 应用镜像 ${size} 字节超过 factory 分区" >&2
         return 1

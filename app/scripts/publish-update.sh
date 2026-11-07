@@ -37,7 +37,7 @@ if [[ -z "${key}" && -n "${UPDATE_CONSOLE_KEY_FILE:-}" ]]; then key="$(tr -d '[:
 version="$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
 build="$(sed -nE 's/^ *CURRENT_PROJECT_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
 minimum="$(sed -nE 's/^ *MACOSX_DEPLOYMENT_TARGET: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
-dmg="build/release/InputBetter-${version}.dmg"
+dmg="build/release/VibeKey-${version}.dmg"
 [[ -f "${dmg}" && -f "${dmg}.sha256" ]] || { echo "找不到 ${dmg},请先运行 release.sh" >&2; exit 1; }
 [[ -f "${dmg}.sparkle" ]] || { echo "缺少 ${dmg}.sparkle(Sparkle 签名),请用 release.sh 重新打包" >&2; exit 1; }
 signature="$(sed -nE 's/.*edSignature="([^"]+)".*/\1/p' "${dmg}.sparkle")"
@@ -65,6 +65,6 @@ print(json.dumps({"version": version, "build": build, "url": url, "length": int(
                   "notes": {"zh": open(zh).read().strip(), "en": open(en).read().strip()}}, ensure_ascii=False))
 PY
 )"
-echo "==> Publishing InputBetter ${version} (${build}) to the update feed"
+echo "==> Publishing VibeKey ${version} (${build}) to the update feed"
 curl -fsS -X PUT "${auth[@]}" -H "Content-Type: application/json" --data-binary "${body}" "${api}/macos" \
     | python3 -c 'import json,sys; u=json.load(sys.stdin); print("Published", u["version"], "build", u["build"], "· required ≤", u["requiredAtOrBelow"] or "—")'

@@ -115,6 +115,14 @@ lv_obj_t *ib_caption_create(lv_obj_t *parent, uint32_t color, int32_t y, int32_t
     return l;
 }
 
+void ib_terminal_header(lv_obj_t *parent, const char *title, uint32_t color, int32_t width)
+{
+    lv_obj_t *label = ib_label_create(parent, &ib_terminal_font_20, color, 0, width - 20);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 5);
+    lv_label_set_text_static(label, title);
+}
+
 void ib_fx_begin(ib_fx_t *fx, lv_event_t *e)
 {
     lv_obj_t *obj = lv_event_get_target_obj(e);

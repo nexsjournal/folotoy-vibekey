@@ -79,8 +79,12 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     ib_ui_set_link(IB_UI_LINK_USB, false);
     ib_ui_set_battery(87, false);
     ib_ui_set_clock("23:41", "THU 10/15");
+    ib_ui_set_offline_hint("PRESS OK TO RECONNECT");
     preview_advance(1500);
     shot("offline_clock");
+    ib_ui_set_offline_hint("CONNECTING...");
+    preview_advance(200);
+    shot("offline_connecting");
 
     // ---- IDLE:握手后 Mac 下发 config / keys / state ----
     ib_ui_set_link(IB_UI_LINK_USB, true);
@@ -175,11 +179,17 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     // ---- SUB:字幕运行中 ----
     keys(IB_ICON_TRANSLATE, IB_ICON_HIDE, IB_ICON_STOP);
     ib_ui_set_level(60);
-    ib_ui_show(IB_UI_SUB, IB_UI_MODE_SUB, "Chrome");
+    ib_ui_set_caption("我们今天把 Passport 的离线页换成绿色像素猫，底部留给点阵时钟。",
+                      "We replaced the Passport offline screen with a green pixel cat, leaving the bottom for the dot-matrix clock.",
+                      "ego lite", false);
+    ib_ui_show(IB_UI_SUB, IB_UI_MODE_SUB, "ego lite");
     preview_advance(300);
     shot("sub_intro_300ms");
     speak();
     shot("sub");
+    ib_ui_set_caption("这是一句正在识别、还没有翻译完的中文字幕。", "", "微信", true);
+    preview_advance(120);
+    shot("sub_live_no_translation");
     ib_ui_set_level(0);
 
     // ---- LIST:应用切换器(7 项)----

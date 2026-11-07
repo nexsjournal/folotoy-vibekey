@@ -1,4 +1,4 @@
-// main/ib_protocol.c: InputBetter 协议的纯逻辑实现(消息格式化、命令解析、行组帧)。
+// main/ib_protocol.c: VibeKey 协议的纯逻辑实现(消息格式化、命令解析、行组帧)。
 #include "ib_protocol.h"
 
 #include <inttypes.h>
@@ -80,6 +80,11 @@ size_t ib_format_battery(char *buf, size_t cap, int soc, int mv, bool charging)
 size_t ib_format_pong(char *buf, size_t cap)
 {
     return finish(snprintf(buf, cap, "{\"t\":\"pong\"}\n"), cap);
+}
+
+size_t ib_format_wake(char *buf, size_t cap)
+{
+    return finish(snprintf(buf, cap, "{\"t\":\"wake\"}\n"), cap);
 }
 
 size_t ib_bin_header(uint8_t out[IB_BIN_HDR], uint8_t type, uint8_t seq, size_t payload_len)
@@ -179,6 +184,117 @@ static bool read_string(cursor_t *c, char *out, size_t cap)
     return false;
 }
 
+// 读取字幕用的 UTF-8 字符串:保留原始多字节字符,\u 转义编码成 UTF-8,
+// 超出 cap 时在完整 UTF-8 序列边界截断,不产生半个汉字。
+static int utf8_length(unsigned char ch)
+{
+    if (ch < 0x80) return 1;
+    if ((ch & 0xE0) == 0xC0) return 2;
+    if ((ch & 0xF0) == 0xE0) return 3;
+    if ((ch & 0xF8) == 0xF0) return 4;
+    return 0;
+}
+
+static int utf8_encode(unsigned code, char *out)
+{
+    if (code < 0x80) {
+        out[0] = (char)code;
+        return 1;
+    }
+    if (code < 0x800) {
+        out[0] = (char)(0xC0 | (code >> 6));
+        out[1] = (char)(0x80 | (code & 0x3F));
+        return 2;
+    }
+    if (code < 0x10000) {
+        out[0] = (char)(0xE0 | (code >> 12));
+        out[1] = (char)(0x80 | ((code >> 6) & 0x3F));
+        out[2] = (char)(0x80 | (code & 0x3F));
+        return 3;
+    }
+    if (code <= 0x10FFFF) {
+        out[0] = (char)(0xF0 | (code >> 18));
+        out[1] = (char)(0x80 | ((code >> 12) & 0x3F));
+        out[2] = (char)(0x80 | ((code >> 6) & 0x3F));
+        out[3] = (char)(0x80 | (code & 0x3F));
+        return 4;
+    }
+    return 0;
+}
+
+static bool read_string_utf8(cursor_t *c, char *out, size_t cap)
+{
+    if (c->p >= c->end || *c->p != '"' || cap == 0) return false;
+    c->p++;
+    size_t n = 0;
+    bool full = false;
+    while (c->p < c->end) {
+        unsigned char ch = (unsigned char)*c->p++;
+        if (ch == '"') {
+            out[n] = '\0';
+            return true;
+        }
+
+        char seq[4];
+        size_t len = 0;
+        if (ch == '\\') {
+            if (c->p >= c->end) return false;
+            char esc = *c->p++;
+            unsigned code = 0;
+            switch (esc) {
+            case '"': seq[0] = '"'; len = 1; break;
+            case '\\': seq[0] = '\\'; len = 1; break;
+            case '/': seq[0] = '/'; len = 1; break;
+            case 'b': case 'f': seq[0] = ' '; len = 1; break;
+            case 'n': case 'r': seq[0] = '\n'; len = 1; break;
+            case 't': seq[0] = '\t'; len = 1; break;
+            case 'u': {
+                if (!read_hex4(c, &code)) return false;
+                if (code >= 0xD800 && code <= 0xDBFF && c->end - c->p >= 6 &&
+                    c->p[0] == '\\' && c->p[1] == 'u') {
+                    cursor_t peek = { c->p + 2, c->end };
+                    unsigned low;
+                    if (read_hex4(&peek, &low) && low >= 0xDC00 && low <= 0xDFFF) {
+                        code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                        c->p = peek.p;
+                    }
+                }
+                int made = utf8_encode(code, seq);
+                if (made <= 0) return false;
+                len = (size_t)made;
+                break;
+            }
+            default:
+                return false;
+            }
+        } else if (ch < 0x20) {
+            return false;
+        } else if (ch < 0x80) {
+            seq[0] = (char)ch;
+            len = 1;
+        } else {
+            int need = utf8_length(ch);
+            if (need <= 0) return false;
+            seq[0] = (char)ch;
+            for (int i = 1; i < need; i++) {
+                if (c->p >= c->end || ((unsigned char)*c->p & 0xC0) != 0x80) return false;
+                seq[i] = *c->p++;
+            }
+            len = (size_t)need;
+        }
+
+        if (!full) {
+            if (n + len < cap) {
+                memcpy(out + n, seq, len);
+                n += len;
+            } else {
+                full = true;   // 继续扫到字符串结尾,保证整条 JSON 仍然合法
+            }
+        }
+    }
+    return false;
+}
+
 // 跳过未知字段的标量值(数字、true/false/null,含负数与小数)。嵌套对象/数组视为非法。
 static bool skip_scalar(cursor_t *c)
 {
@@ -229,6 +345,7 @@ static const char *const KNOWN_KEYS[] = {
     "cmd", "mic", "engine", "screen_off", "clock", "sound", "st", "mode", "msg", "v", "on",
     "ok", "up", "down", "ev",
     "title", "n", "sel", "top", "i0", "i1", "i2", "i3", "i4", "i5",
+    "src", "dst", "live", "app",
 };
 
 static bool is_known_key(const char *key)
@@ -275,7 +392,18 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             goto next;
         }
         if (*c.p == '"') {
-            if (!read_string(&c, text, sizeof(text))) return false;
+            if (strcmp(key, "src") == 0) {
+                if (!read_string_utf8(&c, out->caption_src, sizeof(out->caption_src))) return false;
+                out->has_caption_src = true;
+            } else if (strcmp(key, "dst") == 0) {
+                if (!read_string_utf8(&c, out->caption_dst, sizeof(out->caption_dst))) return false;
+                out->has_caption_dst = true;
+            } else if (strcmp(key, "app") == 0) {
+                if (!read_string_utf8(&c, out->caption_app, sizeof(out->caption_app))) return false;
+                out->has_caption_app = true;
+            } else if (!read_string(&c, text, sizeof(text))) {
+                return false;
+            }
             kind = VAL_STR;
         } else {
             // 已知字段只接受字符串或非负整数;负数、小数、布尔、null 使整条命令无效。
@@ -372,6 +500,9 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             } else {
                 out->list_top = (uint16_t)num;
             }
+        } else if (strcmp(key, "live") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->caption_live = num != 0;
         }
 
     next:
@@ -414,6 +545,9 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
         if (!out->has_list_n || !out->has_list_sel) return false;
         if (out->list_n > 0 && (out->list_sel >= out->list_n || out->list_top >= out->list_n)) return false;
         out->type = IB_CMD_LIST;
+    } else if (strcmp(cmd, "caption") == 0) {
+        if (!out->has_caption_src && !out->has_caption_dst && !out->has_caption_app) return false;
+        out->type = IB_CMD_CAPTION;
     } else {
         return false;
     }
