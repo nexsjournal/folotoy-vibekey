@@ -61,7 +61,7 @@ nonisolated enum KeyAction: String, CaseIterable, Identifiable, Sendable {
         case .approve: String(localized: "确认第一项（1 + 回车）", bundle: .l10n)
         case .pasteLast: String(localized: "再次输入上一段", bundle: .l10n)
         case .nextMode: String(localized: "切换设备模式", bundle: .l10n)
-        case .appSwitcher: String(localized: "切换应用", bundle: .l10n)
+        case .appSwitcher: String(localized: "切换应用 / 会话", bundle: .l10n)
         }
     }
 

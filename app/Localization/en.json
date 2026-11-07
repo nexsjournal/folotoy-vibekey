@@ -142,7 +142,7 @@
   "写入地址无效：%@": "Invalid write address: %@",
   "写入失败：%@": "Write failed: %@",
   "切换": "Switch",
-  "切换应用": "Switch Apps",
+  "切换应用 / 会话": "Switch Apps / Sessions",
   "切换设备模式": "Switch Device Mode",
   "创建 IOProc 失败": "Couldn't create the audio IOProc",
   "创建聚合设备失败": "Couldn't create the aggregate audio device",

@@ -45,6 +45,60 @@ enum DebugHooks {
     }
 
     static func run(app: AppState) {
+        if let probe = env["IB_SESSION_PROBE"] {
+            Task {
+                let bundleID = probe == "dsh" ? AgentSessionCatalogLoader.deepSeekBundleID
+                                              : AccessibilityCodexDesktopAdapter.bundleIdentifier
+                guard let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+                    .first(where: { !$0.isTerminated }),
+                      let target = AgentSessionApp(running: running) else {
+                    print("[IB_SESSION_PROBE] app not running: \(bundleID)")
+                    fflush(stdout)
+                    exit(2)
+                }
+                let catalog = await AgentSessionCatalogLoader.load(for: target)
+                guard let catalog else {
+                    print("[IB_SESSION_PROBE] unavailable app=\(bundleID) trusted=\(AXIsProcessTrusted())")
+                    fflush(stdout)
+                    exit(3)
+                }
+                print("[IB_SESSION_PROBE] app=\(bundleID) projects=\(catalog.projects.count) "
+                    + "recent=\(catalog.recent.count) currentRecent=\(catalog.recent.filter(\.isCurrent).count)")
+                for project in catalog.projects.prefix(12) {
+                    print("[IB_SESSION_PROBE] project[\(project.index)]=\(project.name) "
+                        + "sessions=\(project.sessions.count) current=\(project.isCurrent)")
+                }
+                for (index, session) in catalog.recent.prefix(12).enumerated() {
+                    print("[IB_SESSION_PROBE] recent[\(index)]=\(session.name) current=\(session.isCurrent)")
+                }
+                if let raw = env["IB_SESSION_PROBE_OPEN_RECENT"], let index = Int(raw),
+                   catalog.recent.indices.contains(index) {
+                    let opened = await AgentSessionCatalogLoader.open(
+                        project: nil, session: catalog.recent[index], in: target)
+                    print("[IB_SESSION_PROBE] open recent[\(index)]=\(opened)")
+                }
+                if let raw = env["IB_SESSION_PROBE_PROJECT"], let index = Int(raw),
+                   catalog.projects.indices.contains(index) {
+                    let project = catalog.projects[index]
+                    let sessions = await AgentSessionCatalogLoader.sessions(for: project, in: target)
+                    print("[IB_SESSION_PROBE] loaded project[\(index)]=\(project.name) "
+                        + "sessions=\(sessions.count) current=\(sessions.filter(\.isCurrent).count)")
+                    for session in sessions.prefix(12) {
+                        print("[IB_SESSION_PROBE]   session[\(session.index)]=\(session.name)")
+                    }
+                    if let rawOpen = env["IB_SESSION_PROBE_OPEN"],
+                       let sessionIndex = Int(rawOpen),
+                       sessions.indices.contains(sessionIndex) {
+                        let opened = await AgentSessionCatalogLoader.open(
+                            project: project, session: sessions[sessionIndex], in: target)
+                        print("[IB_SESSION_PROBE] open project[\(index)] session[\(sessionIndex)]=\(opened)")
+                    }
+                }
+                fflush(stdout)
+                exit(0)
+            }
+            return
+        }
         if env["IB_CODEX_PROBE"] != nil {
             Task {
                 if let delay = env["IB_CODEX_PROBE_DELAY_MS"].flatMap(Int.init) {

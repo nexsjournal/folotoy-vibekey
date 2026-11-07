@@ -1555,12 +1555,12 @@
         }
       }
     },
-    "切换应用": {
+    "切换应用 / 会话": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Switch Apps"
+            "value": "Switch Apps / Sessions"
           }
         }
       }

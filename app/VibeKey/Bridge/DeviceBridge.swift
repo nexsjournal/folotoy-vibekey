@@ -29,6 +29,10 @@ final class DeviceBridge {
         enum Purpose {
             case switchApp([SwitchableApp])
             case pickCaptionApp([AudioApp])
+            /// Agent App 的项目列表：固定项（SWITCH APP / RECENT）+ 项目。
+            case pickProject(catalog: AgentSessionCatalog, choices: [AgentProjectChoice])
+            /// 某个项目或 RECENT 下的会话列表。
+            case pickSession(catalog: AgentSessionCatalog, project: AgentProject?, sessions: [AgentSession])
         }
 
         let purpose: Purpose
@@ -39,6 +43,8 @@ final class DeviceBridge {
             switch purpose {
             case .switchApp: "SWITCH APP"
             case .pickCaptionApp: "CAPTIONS"
+            case .pickProject(let catalog, _): "\(catalog.app.shortName) PROJECT"
+            case .pickSession(let catalog, _, _): "\(catalog.app.shortName) SESSION"
             }
         }
 
@@ -46,6 +52,8 @@ final class DeviceBridge {
             switch purpose {
             case .switchApp(let apps): apps.map(\.name)
             case .pickCaptionApp(let apps): apps.map { $0.isPlaying ? "\($0.name) *" : $0.name }
+            case .pickProject(_, let choices): choices.map(\.displayName)
+            case .pickSession(_, _, let sessions): sessions.map(\.displayName)
             }
         }
 
@@ -86,6 +94,12 @@ final class DeviceBridge {
     private var deviceError: (msg: String, until: Date)?
     /// 上键发送 / 下键停止的结果页，让操作后无需看 Mac 就能知道是否成功。
     private var codexStatus: (ui: DeviceUIState, msg: String, until: Date)?
+    /// 正在读取某个 Agent 的项目 / 会话；设备显示 SCANNING，按键暂不响应。
+    private var scanningSessionApp: AgentSessionApp?
+    private var sessionScanTask: Task<Void, Never>?
+    /// 正在打开选中的会话（AXPress + 等窗口切换 + 聚焦输入框）。
+    private var openingSessionApp: AgentSessionApp?
+    private var sessionOpenTask: Task<Void, Never>?
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
          agent: AgentNotifier, codex: CodexActionCoordinator, settings: AppSettings,
@@ -129,6 +143,12 @@ final class DeviceBridge {
     /// - 用 Passport 麦克风录音时设备断开:取消这次录音,避免截断内容被当作完整输入;
     /// - 强制重发全部状态,清掉未完成的按压和列表;还没处理的 Agent 提醒重新发给设备。
     private func connectionChanged(_ connection: DeviceLink.Connection) {
+        sessionScanTask?.cancel()
+        sessionScanTask = nil
+        sessionOpenTask?.cancel()
+        sessionOpenTask = nil
+        scanningSessionApp = nil
+        openingSessionApp = nil
         if okDrivesDictation {
             okDrivesDictation = false
             dictation.cancel()
@@ -164,7 +184,7 @@ final class DeviceBridge {
             guard let owner = presses.longPressed(key) else { return }
             switch owner {
             case .normal: longPressed(key)
-            case .switcher: if key == .down { closeList() }
+            case .switcher: if key == .down { listLongPressed() }
             case .agentAck, .ignored: break
             }
         case .up:
@@ -211,6 +231,7 @@ final class DeviceBridge {
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
         guard key == .ok else { return }
+        guard scanningSessionApp == nil, openingSessionApp == nil else { return }
         // 上一句还在处理(识别 / 润色 / 翻译):OK 不可用,不开始新的一句;设备上提示列是禁用色并给出"不可用"反馈。
         if case .processing = dictation.phase { return }
         // 录音进行中(包括从 Mac 上开始的):OK 交给听写,与屏幕上的停止 / 麦克风提示一致。
@@ -269,12 +290,17 @@ final class DeviceBridge {
             guard !dictation.phase.isBusy else { return }
             cycleMode()
         case .down:
+            guard scanningSessionApp == nil, openingSessionApp == nil else { return }
             if dictation.phase.isBusy {
                 dictation.cancel()
             } else if !inCaptionsMode {
                 followupChat = nil
                 agent.resumeCompletedNotices()
-                perform(settings.deviceDownLongAction)
+                if settings.deviceDownLongAction == .appSwitcher {
+                    openContextSwitcher()
+                } else {
+                    perform(settings.deviceDownLongAction)
+                }
             }
         case .ok:
             break  // OK 长按就是按住说话,松开时结束
@@ -408,11 +434,152 @@ final class DeviceBridge {
     // MARK: - 列表页
 
     /// 切换应用：默认选中已记住的目标，确认后供下一次远程语音输入使用。
-    private func openAppSwitcher() {
+    private func openAppSwitcher(preferredBundleID: String? = nil) {
         let apps = AppSwitcher.list()
         guard !apps.isEmpty else { return }
-        let selected = apps.firstIndex { NSRunningApplication(processIdentifier: $0.pid)?.bundleIdentifier == settings.deviceTargetBundleID } ?? 0
+        let preferred = preferredBundleID ?? settings.deviceTargetBundleID
+        let selected = apps.firstIndex { NSRunningApplication(processIdentifier: $0.pid)?.bundleIdentifier == preferred } ?? 0
         openList(ListSession(purpose: .switchApp(apps), selected: selected))
+    }
+
+    /// 长按下键的「切换应用 / 会话」入口：当前是 Codex / DSH 时先列项目和最近会话；
+    /// 其他应用仍走原来的应用列表。
+    private func openContextSwitcher() {
+        guard sessionScanTask == nil, openingSessionApp == nil else { return }
+        guard let target = currentAgentApp() else {
+            openAppSwitcher()
+            return
+        }
+        scanningSessionApp = target
+        lastState = nil
+        sync()
+        sessionScanTask = Task { [weak self] in
+            guard let self else { return }
+            let catalog = await AgentSessionCatalogLoader.load(for: target)
+            guard !Task.isCancelled else { return }
+            self.scanningSessionApp = nil
+            self.sessionScanTask = nil
+            if let catalog, !catalog.isEmpty {
+                self.openProjectList(catalog)
+            } else {
+                self.openAppSwitcher()
+            }
+        }
+    }
+
+    /// 前置的受支持 Agent 优先；否则用设备记住的目标应用。手动切换前台应用后也能直接读取它。
+    private func currentAgentApp() -> AgentSessionApp? {
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           AgentSessionCatalogLoader.supports(frontmost.bundleIdentifier),
+           let app = AgentSessionApp(running: frontmost) {
+            return app
+        }
+        let identifier = settings.deviceTargetBundleID
+        guard AgentSessionCatalogLoader.supports(identifier),
+              let running = NSWorkspace.shared.runningApplications.first(where: {
+                  $0.bundleIdentifier == identifier && !$0.isTerminated
+              }),
+              let app = AgentSessionApp(running: running) else { return nil }
+        return app
+    }
+
+    private func openProjectList(_ catalog: AgentSessionCatalog) {
+        var choices: [AgentProjectChoice] = [.switchApp]
+        if !catalog.recent.isEmpty { choices.append(.recent) }
+        choices.append(contentsOf: catalog.projects.map { .project($0) })
+        guard choices.count > 1 else {
+            openAppSwitcher()
+            return
+        }
+        let current = choices.firstIndex {
+            if case .project(let project) = $0 { return project.isCurrent }
+            return false
+        }
+        let selected = current ?? 1
+        list = ListSession(purpose: .pickProject(catalog: catalog, choices: choices), selected: selected)
+        lastState = nil
+        sync()
+    }
+
+    private func choose(_ choice: AgentProjectChoice, catalog: AgentSessionCatalog) {
+        switch choice {
+        case .switchApp:
+            openAppSwitcher(preferredBundleID: catalog.app.bundleID)
+        case .recent:
+            openSessionList(catalog, project: nil, sessions: catalog.recent)
+        case .project(let project):
+            loadProjectSessions(project, catalog: catalog)
+        }
+    }
+
+    /// 读取项目会话可能触发侧栏展开，短暂显示 SCANNING；完成后进入 SESSION 列表。
+    private func loadProjectSessions(_ project: AgentProject, catalog: AgentSessionCatalog) {
+        guard sessionScanTask == nil else { return }
+        scanningSessionApp = catalog.app
+        list = nil
+        lastState = nil
+        sync()
+        sessionScanTask = Task { [weak self] in
+            guard let self else { return }
+            let sessions = await AgentSessionCatalogLoader.sessions(for: project, in: catalog.app)
+            guard !Task.isCancelled else { return }
+            self.scanningSessionApp = nil
+            self.sessionScanTask = nil
+            guard !sessions.isEmpty else {
+                self.deviceError = ("NO SESSIONS", Date().addingTimeInterval(Self.errorHold))
+                self.lastState = nil
+                self.sync()
+                return
+            }
+            let updatedProject = AgentProject(
+                name: project.name, index: project.index, sessions: sessions,
+                isCurrent: project.isCurrent || sessions.contains(where: \.isCurrent))
+            let projects = catalog.projects.map {
+                $0.index == project.index && $0.name == project.name ? updatedProject : $0
+            }
+            let updated = AgentSessionCatalog(app: catalog.app, projects: projects, recent: catalog.recent)
+            self.openSessionList(updated, project: updatedProject, sessions: sessions)
+        }
+    }
+
+    private func openSessionList(_ catalog: AgentSessionCatalog, project: AgentProject?,
+                                 sessions: [AgentSession]) {
+        guard !sessions.isEmpty else {
+            list = nil
+            deviceError = ("NO SESSIONS", Date().addingTimeInterval(Self.errorHold))
+            lastState = nil
+            sync()
+            return
+        }
+        let selected = sessions.firstIndex(where: \.isCurrent) ?? 0
+        list = ListSession(purpose: .pickSession(catalog: catalog, project: project, sessions: sessions),
+                           selected: selected)
+        lastState = nil
+        sync()
+    }
+
+    private func openSession(_ session: AgentSession, project: AgentProject?, app: AgentSessionApp) {
+        guard sessionOpenTask == nil, openingSessionApp == nil else { return }
+        openingSessionApp = app
+        lastState = nil
+        sync()
+        sessionOpenTask = Task { [weak self] in
+            guard let self else { return }
+            let opened = await AgentSessionCatalogLoader.open(project: project, session: session, in: app)
+            guard !Task.isCancelled else { return }
+            self.openingSessionApp = nil
+            self.sessionOpenTask = nil
+            if opened {
+                self.settings.deviceTargetBundleID = app.bundleID
+                self.settings.deviceTargetName = app.targetName
+                self.followupChat = nil
+                self.codexStatus = (.done, "READY TO TALK", Date().addingTimeInterval(2))
+            } else {
+                self.codexStatus = (.err, "OPEN SESSION", Date().addingTimeInterval(2))
+            }
+            self.lastState = nil
+            self.sync()
+        }
     }
 
     /// 选择字幕应用:正在出声的应用排在前面并默认选中第一个。
@@ -441,9 +608,10 @@ final class DeviceBridge {
         case .up:
             moveList(by: -1)
         case .ok:
-            closeList()
             switch current.purpose {
             case .switchApp(let apps):
+                guard apps.indices.contains(current.selected) else { closeList(); return }
+                closeList()
                 if let running = NSRunningApplication(processIdentifier: apps[current.selected].pid),
                    let identifier = running.bundleIdentifier {
                     settings.deviceTargetBundleID = identifier
@@ -451,13 +619,33 @@ final class DeviceBridge {
                 }
                 AppSwitcher.activate(apps[current.selected])
             case .pickCaptionApp(let apps):
+                guard apps.indices.contains(current.selected) else { closeList(); return }
+                closeList()
                 // 列表打开期间 Mac 上已经开始了字幕,或正显示对话框:只关闭列表,
                 // 不从设备触发 Mac 上的确认框(设备上没法回答)。
                 guard !subtitles.isRunning, NSApp.modalWindow == nil else { return }
                 hooks.startCaptions(apps[current.selected])
+            case .pickProject(let catalog, let choices):
+                guard choices.indices.contains(current.selected) else { closeList(); return }
+                choose(choices[current.selected], catalog: catalog)
+            case .pickSession(let catalog, let project, let sessions):
+                guard sessions.indices.contains(current.selected) else { closeList(); return }
+                let session = sessions[current.selected]
+                closeList()
+                openSession(session, project: project, app: catalog.app)
             }
         case .down:
             break
+        }
+    }
+
+    /// 长按下键在列表里的含义：会话页返回项目页；其余列表关闭。
+    private func listLongPressed() {
+        guard let current = list else { return }
+        if case .pickSession(let catalog, _, _) = current.purpose {
+            openProjectList(catalog)
+        } else {
+            closeList()
         }
     }
 
@@ -536,6 +724,8 @@ final class DeviceBridge {
 
     private func currentState() -> DeviceStateMapper.State {
         if openingNotice != nil { return .init(ui: .proc, mode: mode, msg: "OPENING CODEX") }
+        if scanningSessionApp != nil { return .init(ui: .proc, mode: mode, msg: "SCANNING") }
+        if openingSessionApp != nil { return .init(ui: .proc, mode: mode, msg: "OPEN SESSION") }
         if let error = deviceError {
             if Date() < error.until, !dictation.phase.isBusy { return .init(ui: .err, mode: mode, msg: error.msg) }
             deviceError = nil

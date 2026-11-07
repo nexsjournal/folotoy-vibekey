@@ -60,6 +60,7 @@ App(AppState 组合根)
 | 设备按键提示(图标) | `DeviceStateMapper.keyHints` → `DeviceIcon`、`KeyAction.deviceIcon`、`DeviceIcon.sfSymbol` | DeviceBridge、Passport 示意图 |
 | 按键手势识别 | `KeyPressTracker` | DeviceBridge |
 | 应用前置聚焦 | `AppSwitcher.activate` | DeviceBridge(切换应用) |
+| Agent 项目 / 会话读取与切换 | `AgentSessionCatalogLoader`(AX 只读侧栏 + 会话行 AXPress) | DeviceBridge(长按下键) |
 | 密钥存储(本机 0600 文件,不用钥匙串) | `CredentialStore` | AppSettings.llmAPIKey、CloudASRStore、MachineTranslationStore |
 | 云端流式会话(连接 / 缓冲 / 超时 / 重连) | `StreamingCloudSession` | 火山引擎、百炼、ElevenLabs、Soniox(各自只实现 `RealtimeCodec`) |
 | Float → PCM16 / WAV | `AudioFormats.pcm16` / `AudioFormats.wav` | StreamingCloudSession、OpenAITranscriptionDecoder |
@@ -250,7 +251,7 @@ DeviceLink.onKey(key, down|long|up, ack) → DeviceBridge.handle
      ended:返回归属 + 是否短按(松开前没触发长按)
  → 普通模式:pressBegan(OK 立即开始听写)/ longPressed(上:切换模式;下:取消录音或长按动作)
              / pressEnded(OK 结束;上下键仅在短按时执行短按动作)
- → 列表模式:switcherPressBegan(上:移动;OK:前置应用并关闭)/ 长按下:关闭 / 下键短按松开:移动
+ → 列表模式:switcherPressBegan(上:移动;OK:执行当前项)/ 长按下:会话页返回项目页,其余关闭 / 下键短按松开:移动
  → 列表关闭后 OK 锁定 250 ms(防抖,避免误触听写)
 固件侧:ADC 按键 20 ms 去抖 + 同键松开后 60 ms 内的再次按下忽略(ib_keys)
 ```
@@ -270,18 +271,27 @@ DeviceBridge(见 3b 的手势结果)
  (app 与固件的 id 集合由 ChainTests.testIconIDsMatchFirmwareTable 保证一致)
 ```
 
-## 4b. Passport 切换应用(vibe coding)
+## 4b. Passport 切换应用 / 项目 / 会话(vibe coding)
 
 ```
 长按 ▼(默认动作 KeyAction.appSwitcher,可在设置里改)
- → DeviceBridge.perform → openSwitcher
-     → AppSwitcher.list(普通应用,按窗口前后顺序 = 最近使用;默认选中第二个,同 ⌘Tab)
-     → sync:DeviceStateMapper.state → .list → DeviceLink.sendState(list) + sendSwitcher
-     → DeviceLink.sendList → HostCommand.listTop(选中项居中的可见窗口)→ HostCommand.list
-列表打开时按键:DeviceBridge.handleSwitcher
- ▲ / ▼ → 移动选中并重发 list;OK → AppSwitcher.activate → 关闭;长按 ▼ 或 15 秒无操作 → 关闭
+ → DeviceBridge.openContextSwitcher
+     ├─ 当前 / 记住的应用不是 Codex / DSH → openAppSwitcher
+     │    → AppSwitcher.list(普通应用,按窗口前后顺序 = 最近使用;默认选中当前目标)
+     └─ Codex / DSH → AgentSessionCatalogLoader.load
+          → activate + ElectronAccessibility.enable
+          → AX 侧栏只读项目 / 最近会话 / 当前窗口标题
+          → AgentSessionCatalog → ListSession(.pickProject)
+               choices = SWITCH APP + RECENT + 项目
+ → OK 项目 → AgentSessionCatalogLoader.sessions(按需展开侧栏)→ ListSession(.pickSession)
+ → OK 会话 → AgentSessionCatalogLoader.open
+     → AXPress 会话行 → 等窗口标题切换 → AppSwitcher.focusTextInput
+     → 更新 settings.deviceTargetBundleID/Name → READY TO TALK
+列表打开时按键:DeviceBridge.listPressBegan / listLongPressed
+ ▲ / ▼ → 移动选中并重发 list;OK → 当前项;长按 ▼ → 会话页返回项目页,项目页关闭;15 秒无操作 → 关闭
 AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最前(失败退回 activate)
  → 抬起可见窗口 / 恢复最小化窗口 / 没有窗口时发送重新打开事件
+隐私:AgentSessionCatalogLoader 只读取 AX 角色、侧栏标题、窗口标题；不读取聊天正文，名称不写日志。
 ```
 
 ## 5. 实时字幕
