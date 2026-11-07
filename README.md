@@ -79,7 +79,7 @@ VibeKey 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 `ab1f
 
 ## 编译运行
 
-已签名并经 Apple 公证的安装包可以在官网下载:<https://input.0os.io>(macOS 26+,Apple 芯片)。也可以自行编译,上游要求 Xcode 27;本分支在 Xcode 26.2 与 XcodeGen 下构建通过,系统翻译使用默认策略。
+官网源码已改为 VibeKey,当前线上仍部署在 <https://input.0os.io>(域名未迁移;按 `docs/website.md` 重新部署后生效)。安装包由 `app/scripts/release.sh` 生成并公证(macOS 26+,Apple 芯片)。也可以自行编译;上游要求 Xcode 27,本分支在 Xcode 26.2 与 XcodeGen 下构建通过。
 
 默认 ad-hoc 签名。想让重新编译后辅助功能权限不失效,可以新建 `app/Config/Signing.local.xcconfig`(已在 .gitignore 中)填入自己的开发证书:
 
