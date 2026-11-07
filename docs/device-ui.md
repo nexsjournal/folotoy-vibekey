@@ -92,16 +92,16 @@
 
 ### 项目 / 会话（LIST）
 
-Codex 和 DeepSeek Honeycomb 支持从设备继续切换项目与会话。列表仍复用 LIST 页，最多显示 6 行，长列表用左侧滚动条指示位置。
+Codex、DeepSeek Honeycomb、ZCode、Claude、WorkBuddy 以及其他带聊天输入框 + 侧栏的 Agent 都支持从设备继续切换项目与会话。列表仍复用 LIST 页，最多显示 6 行，长列表用左侧滚动条指示位置。
 
 ```
 长按下键
- → CODEX PROJECT / DSH PROJECT
+ → CODEX PROJECT / WORKBUDDY PROJECT / …
      SWITCH APP          ← 回到普通应用列表
      RECENT              ← 最近会话（有则显示）
      * 当前项目 / 其他项目
  → 短按 OK 选项目 → 读取该项目会话（侧栏折叠时自动展开）
- → CODEX SESSION / DSH SESSION
+ → CODEX SESSION / WORKBUDDY SESSION / …
      * 当前会话 / 其他会话
  → 短按 OK → 打开会话、聚焦输入框 → READY TO TALK
 ```
@@ -111,7 +111,9 @@ Codex 和 DeepSeek Honeycomb 支持从设备继续切换项目与会话。列表
 - 读取项目 / 会话时显示 `SCANNING`；打开会话时显示 `OPEN SESSION`。读取失败或没有会话时显示 `NO SESSIONS`。
 - 会话页也支持 Codex 空项目的 `NEW CHAT`，选中后在该项目新建对话并聚焦输入框。
 - 设备列表只显示 ASCII：中文项目 / 会话名会转成拼音并截断到 23 字节。当前项仍用 `*` 标记。
-- 只读取侧栏标题和窗口标题，不读取聊天正文；名称不写日志、不持久化。支持范围目前是 Codex（`com.openai.codex`）和 DeepSeek Honeycomb（`ai.deepseek.dsh.desktop.next`）。
+- 只读取侧栏标题和窗口标题，不读取聊天正文；名称不写日志、不持久化。
+- 不按 Bundle ID 白名单：任何 App 在长按时都会先探测「聊天输入框 + 左侧项目/会话」。Codex / DSH 用专用适配器，其余走通用 AX 启发式；探测失败就回退普通应用列表，不会阻塞听写。
+- 折叠的项目选中后自动展开（Claude 的 `Toggle sessions for`、ZCode 的项目标题按钮）。读不到会话显示 `NO SESSIONS`。
 
 ## 右侧按键提示列
 

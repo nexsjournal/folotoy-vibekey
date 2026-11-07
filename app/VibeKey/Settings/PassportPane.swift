@@ -13,7 +13,7 @@ struct PassportPane: View {
 
             PassportWiFiSection(link: app.deviceLink)
 
-            SettingsSection(title: "语音输入目标", footer: "长按设备下键选择应用。按住 OK 时会自动切换到所选应用和输入框，同时开始收音。") {
+            SettingsSection(title: "语音输入目标", footer: "长按设备下键选择应用；Agent 应用还可以继续选项目和会话。按住 OK 时会自动切换到所选应用和输入框，同时开始收音。") {
                 Card { HStack { Text(settings.deviceTargetName); Spacer(); Image(systemName: "scope").foregroundStyle(.secondary) } }
             }
 

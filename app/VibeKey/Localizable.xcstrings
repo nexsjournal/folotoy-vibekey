@@ -563,6 +563,16 @@
         }
       }
     },
+    "USB 已插好但设备显示 OFFLINE 时，点「重新连接」会重开串口，不需要拔线。没有 Passport 也完全不影响使用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If USB is plugged in but Passport shows OFFLINE, click Reconnect to reopen the serial port — no need to unplug. VibeKey works fine without Passport."
+          }
+        }
+      }
+    },
     "USB 连接中断：%@": {
       "localizations": {
         "en": {
@@ -4265,16 +4275,6 @@
         }
       }
     },
-    "没有 Passport 也完全不影响使用，可以直接跳过，之后在 设置 › Passport 里再连接。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VibeKey works fine without Passport. Skip this step and connect it later in Settings › Passport."
-          }
-        }
-      }
-    },
     "没有听到声音": {
       "localizations": {
         "en": {
@@ -6275,6 +6275,16 @@
         }
       }
     },
+    "重新连接": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect"
+          }
+        }
+      }
+    },
     "重新配网时需要 USB 连接": {
       "localizations": {
         "en": {
@@ -6365,12 +6375,12 @@
         }
       }
     },
-    "长按设备下键选择应用。按住 OK 时会自动切换到所选应用和输入框，同时开始收音。": {
+    "长按设备下键选择应用；Agent 应用还可以继续选项目和会话。按住 OK 时会自动切换到所选应用和输入框，同时开始收音。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hold Down on the device to choose an app. Holding OK starts capturing audio while bringing the selected app and its input into focus."
+            "value": "Hold Down on the device to choose an app; for agents you can then pick a project and session. Holding OK starts capturing audio while bringing the selected app and its input into focus."
           }
         }
       }

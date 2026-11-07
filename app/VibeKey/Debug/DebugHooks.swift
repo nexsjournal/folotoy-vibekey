@@ -47,8 +47,11 @@ enum DebugHooks {
     static func run(app: AppState) {
         if let probe = env["IB_SESSION_PROBE"] {
             Task {
-                let bundleID = probe == "dsh" ? AgentSessionCatalogLoader.deepSeekBundleID
-                                              : AccessibilityCodexDesktopAdapter.bundleIdentifier
+                let bundleID = switch probe {
+                case "dsh": AgentSessionCatalogLoader.deepSeekBundleID
+                case "codex": AccessibilityCodexDesktopAdapter.bundleIdentifier
+                default: probe
+                }
                 guard let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
                     .first(where: { !$0.isTerminated }),
                       let target = AgentSessionApp(running: running) else {

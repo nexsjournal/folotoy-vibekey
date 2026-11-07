@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import os
@@ -76,6 +77,9 @@ import Security
     private let mic = MicStream()
 
     @ObservationIgnored private var running = false
+    /// 系统唤醒后立刻重探 USB：Mac 睡眠时串口心跳会停，设备 15 秒后切 OFFLINE；
+    /// 只等下一次 Codex 通知来唤醒 App 会让人误以为「USB 连着却离线」。
+    @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     /// 已握手并作为当前连接的链路。
     @ObservationIgnored private var active: DeviceLinkKind?
 
@@ -206,6 +210,11 @@ import Security
         monitor.start()
         updateBluetooth()
         updateAudioSubscription()
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.resumeAfterWake() }
+        }
 
         heartbeatTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -237,6 +246,20 @@ import Security
         scheduleUSBOpen(after: Self.usbOpenDelay)
     }
 
+    /// 系统唤醒：串口在睡眠期间可能已失效，但设备还插着 USB。
+    /// 清掉拒绝列表并重新握手，不必等到用户手动操作或 Codex 通知唤醒 App。
+    private func resumeAfterWake() {
+        guard running, !usbSuspended else { return }
+        DeviceLog.link.info("system woke, re-probing Passport links")
+        if usb?.handshaken != true {
+            rejectedPorts.removeAll()
+            foreignDevice = nil
+            scheduleUSBOpen(after: .milliseconds(150))
+        }
+        if wifiConfigured, !wifiHandshaken { wifi.setEnabled(true) }
+        if let active, isHandshaken(active) { write(.ping, via: active) }
+    }
+
     /// 发 `bye` 后关闭所有链路。
     func stop() {
         guard running else { return }
@@ -245,6 +268,10 @@ import Security
 
         heartbeatTask?.cancel()
         heartbeatTask = nil
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
         openTask?.cancel()
         openTask = nil
         handshakeTasks.values.forEach { $0.cancel() }

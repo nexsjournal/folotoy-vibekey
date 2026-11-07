@@ -43,7 +43,7 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 - `IB_FIRMWARE_MANIFEST=url`:固件清单改用这个地址(默认官网);`IB_FLASH_FIRMWARE=1`:Passport 连上 USB 后自动刷一次固件;
 - `IB_UPDATE_DEMO=available|required`:用假数据弹出可选 / 强制更新窗口(不联网);`IB_UPDATE_FEED=url`:检查更新改用这个接口。
 - `IB_CODEX_PROBE=1`:读取当前 Codex 输入框并打印脱敏目标状态后退出;`IB_CODEX_PROBE_DELAY_MS=3000` 可留出切换前台 App 的时间,`IB_CODEX_PROBE_STABLE_MS=500` 设置两次目标读取的间隔(0 关闭稳定性检查)。
-- `IB_SESSION_PROBE=codex|dsh`:读取目标 Agent 的项目 / 最近会话摘要后退出;`IB_SESSION_PROBE_PROJECT=<index>` 展开并读取指定项目;`IB_SESSION_PROBE_OPEN=<session index>` / `IB_SESSION_PROBE_OPEN_RECENT=<recent index>` 打开会话做链路验证。
+- `IB_SESSION_PROBE=codex|dsh` 或任意 Bundle ID(如 `dev.zcode.app` / `com.tencent.workbuddy.mac`):读取目标 Agent 的项目 / 最近会话摘要后退出;`IB_SESSION_PROBE_PROJECT=<index>` 展开并读取指定项目;`IB_SESSION_PROBE_OPEN=<session index>` / `IB_SESSION_PROBE_OPEN_RECENT=<recent index>` 打开会话做链路验证。通用解析的判定过程可用 `IB_NAV_TRACE=1` 打印。
 
 正式安装版支持只读诊断：`open -n /Applications/VibeKey.app --args --diagnose-codex-access /tmp/vibekey-codex-access.json`。JSON 包含 App 自身的 AX 信任状态及脱敏目标状态；不启动串口或发送按键。附加 `--prepare-device-target` 可验证设备记住的应用能否自动前置并聚焦。附加 `--followup-thread <UUID>` 可验证打开 Codex 原对话、核对实际会话及聚焦输入框。两者均不输入或发送文字。
 

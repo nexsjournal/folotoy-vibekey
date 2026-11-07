@@ -21,7 +21,7 @@ VibeKey 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 `ab1f
   - 按住 OK 立即采音，同时自动前置并聚焦记住的目标应用（默认 Codex），松开后输入识别或翻译结果;
   - 上键安全发送当前 Codex 输入框中的手动／语音草稿,下键停止当前 Codex 任务(默认值;也可在 设置 › Passport › 按键 改成普通快捷键);
   - 长按上键切换模式;
-  - 长按下键打开「应用 / 项目 / 会话」导航:普通应用直接切换;Codex / DeepSeek Honeycomb 先选项目、再选会话,选中后打开对话并把光标放回输入框,可以直接按住 OK 说话、上键发送。
+  - 长按下键打开「应用 / 项目 / 会话」导航:普通应用直接切换;Codex、DeepSeek Honeycomb、ZCode、Claude、WorkBuddy 以及其他带聊天输入框 + 侧栏的 Agent 会先选项目、再选会话,选中后打开对话并把光标放回输入框,可以直接按住 OK 说话、上键发送。
 
   Claude Code / Codex 完成或需要确认时,设备会响铃提醒。专为 vibe coding 设计。
 - **界面语言**:简体中文 / English / 跟随系统(设置 › 通用),切换即时生效。

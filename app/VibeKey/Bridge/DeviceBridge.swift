@@ -442,8 +442,9 @@ final class DeviceBridge {
         openList(ListSession(purpose: .switchApp(apps), selected: selected))
     }
 
-    /// 长按下键的「切换应用 / 会话」入口：当前是 Codex / DSH 时先列项目和最近会话；
-    /// 其他应用仍走原来的应用列表。
+    /// 长按下键的「切换应用 / 会话」入口：先尝试把当前 App 当作 Agent 读取项目 / 会话；
+    /// 读不到（普通应用、没有聊天输入框）时回退到应用列表。
+    /// 这里不按 Bundle ID 白名单判断，WorkBuddy / ZCode / Claude / 豆包 / 千问等新 Agent 都能自动识别。
     private func openContextSwitcher() {
         guard sessionScanTask == nil, openingSessionApp == nil else { return }
         guard let target = currentAgentApp() else {
@@ -467,15 +468,17 @@ final class DeviceBridge {
         }
     }
 
-    /// 前置的受支持 Agent 优先；否则用设备记住的目标应用。手动切换前台应用后也能直接读取它。
+    /// 前置的普通应用优先；VibeKey 自己在前台时用设备记住的目标应用。
+    /// 是否真的有项目 / 会话由 `AgentSessionCatalogLoader.load` 实际探测。
     private func currentAgentApp() -> AgentSessionApp? {
         if let frontmost = NSWorkspace.shared.frontmostApplication,
-           AgentSessionCatalogLoader.supports(frontmost.bundleIdentifier),
+           frontmost.bundleIdentifier != Bundle.main.bundleIdentifier,
+           frontmost.activationPolicy == .regular,
            let app = AgentSessionApp(running: frontmost) {
             return app
         }
         let identifier = settings.deviceTargetBundleID
-        guard AgentSessionCatalogLoader.supports(identifier),
+        guard !identifier.isEmpty,
               let running = NSWorkspace.shared.runningApplications.first(where: {
                   $0.bundleIdentifier == identifier && !$0.isTerminated
               }),
@@ -495,7 +498,11 @@ final class DeviceBridge {
             if case .project(let project) = $0 { return project.isCurrent }
             return false
         }
-        let selected = current ?? 1
+        let firstWithSessions = choices.firstIndex {
+            if case .project(let project) = $0 { return !project.sessions.isEmpty }
+            return false
+        }
+        let selected = current ?? firstWithSessions ?? min(1, choices.count - 1)
         list = ListSession(purpose: .pickProject(catalog: catalog, choices: choices), selected: selected)
         lastState = nil
         sync()

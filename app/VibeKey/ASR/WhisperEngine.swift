@@ -70,8 +70,10 @@ actor WhisperRunner {
     }
 
     /// 检测语言(只用前 30 秒),失败返回 nil。
-    func detectLanguage(_ samples: [Float]) async -> String? {
-        try? await kit.detectLangauge(audioArray: Array(samples.prefix(16_000 * 30))).language
+    func detectLanguage(_ samples: [Float]) async -> (language: String, probabilities: [String: Float])? {
+        guard let result = try? await kit.detectLangauge(
+            audioArray: Array(samples.prefix(16_000 * 30))) else { return nil }
+        return (result.language, result.langProbs)
     }
 
     func promptTokens(_ text: String) -> [Int]? {
@@ -95,14 +97,21 @@ nonisolated final class WhisperDecoder: SegmentDecoder, @unchecked Sendable {
 
     func decode(_ samples: [Float], options: ASROptions) async throws -> String {
         guard samples.count >= 4_000 else { return "" }
-        // 自动模式先检测语言:中文提示词只用于中文,否则会让英文解码反复回退、变慢。
-        var language = options.language.isoCode ?? "en"
+        // 自动模式先检测语言，再用主语言偏置修正短句 / 中英夹杂的误判。
+        // 中文提示词只用于中文，否则会让英文解码反复回退、变慢。
+        let preferred = SpeechLanguageDetection.preferredLanguage()
+        var language = options.language.isoCode ?? preferred
         if options.language == .auto {
             if let cached = detected.withLock({ $0 }), Date().timeIntervalSince(cached.at) < 3, samples.count > 16_000 * 2 {
                 language = cached.language
             } else if let found = await runner.detectLanguage(samples) {
-                language = found
-                detected.withLock { $0 = (found, Date()) }
+                let resolved = SpeechLanguageDetection.resolve(
+                    detected: found.language, probabilities: found.probabilities,
+                    preferred: preferred, sampleCount: samples.count)
+                language = resolved
+                detected.withLock { $0 = (resolved, Date()) }
+            } else {
+                language = preferred
             }
         }
         let chinese = language == "zh" || language == "yue"

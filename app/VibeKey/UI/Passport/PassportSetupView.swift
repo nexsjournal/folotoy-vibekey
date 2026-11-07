@@ -55,11 +55,14 @@ struct PassportSetupView: View {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("正在查找设备…").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("重新连接") { model.link.resumeUSB() }
+                            .buttonStyle(SecondaryButtonStyle())
                     }
                     .padding(.top, 2)
                 }
             }
-            Hint("没有 Passport 也完全不影响使用，可以直接跳过，之后在 设置 › Passport 里再连接。")
+            Hint("USB 已插好但设备显示 OFFLINE 时，点「重新连接」会重开串口，不需要拔线。没有 Passport 也完全不影响使用。")
         }
     }
 
