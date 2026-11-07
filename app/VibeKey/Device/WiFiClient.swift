@@ -17,6 +17,8 @@ final class WiFiClient {
     var onReady: (() -> Void)?
     var onData: ((Data) -> Void)?
     var onDisconnected: (() -> Void)?
+    /// 连接在 ready 之前就失败（TLS-PSK 不匹配、设备未启动服务等），用于区分「设备不在线」和「密钥不对」。
+    var onConnectFailure: (() -> Void)?
 
     init(credentials: CredentialStore) {
         self.credentials = credentials
@@ -114,7 +116,9 @@ final class WiFiClient {
     }
     private func lost(generation current: Int) {
         guard current == generation else { return }
+        let wasReady = ready
         disconnect()
+        if !wasReady { onConnectFailure?() }
         guard enabled else { return }
         retry = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))

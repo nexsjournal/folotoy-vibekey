@@ -71,12 +71,18 @@ import Security
     private var wifiDecoder = StreamDecoder()
     private(set) var wifiStatus: DeviceWiFiStatus?
     var wifiReady: Bool { wifiHandshaken }
+    /// 设备已经入网（wifi 状态为 ready），但 Mac 的 TLS-PSK 握手一直失败：通常是两边密钥不一致，
+    /// 需要在 USB 连接下重新保存一次 Wi-Fi 配置。
+    private(set) var wifiHandshakeFailed = false
     var wifiConfigured: Bool { wifi.configured }
     var wifiHost: String { wifi.host }
 
     private let mic = MicStream()
 
     @ObservationIgnored private var running = false
+    private var wifiConnectFailures = 0
+    /// 配网时先发配置、等设备回 wifi 状态后再保存密钥；避免设备拒绝配置时两边密钥错位。
+    private var pendingWiFiPair: (host: String, key: Data, timeout: Task<Void, Never>)?
     /// 系统唤醒后立刻重探 USB：Mac 睡眠时串口心跳会停，设备 15 秒后切 OFFLINE；
     /// 只等下一次 Codex 通知来唤醒 App 会让人误以为「USB 连着却离线」。
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
@@ -154,8 +160,17 @@ import Security
         guard randomStatus == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(randomStatus)) }
         let host = "fb-" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12).lowercased()
         let data = try WiFiProvisioning(ssid: ssid, password: password, host: host, key: key).encoded()
-        wifi.pair(host: host, key: key)
         wifiStatus = .init(stage: "connecting", host: host, address: "")
+        wifiConnectFailures = 0
+        wifiHandshakeFailed = false
+        pendingWiFiPair?.timeout.cancel()
+        let timeout = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled, let self, self.pendingWiFiPair?.host == host else { return }
+            self.pendingWiFiPair = nil
+            self.lastError = String(localized: "配网未确认，请保持 USB 连接后重试", bundle: .l10n)
+        }
+        pendingWiFiPair = (host, key, timeout)
         usb.port.write(data)
     }
 
@@ -166,6 +181,10 @@ import Security
     func forgetWiFi() {
         guard let usb, usb.handshaken else { return }
         usb.port.write(Data("{\"cmd\":\"wifi\",\"clear\":1}\n".utf8))
+        pendingWiFiPair?.timeout.cancel()
+        pendingWiFiPair = nil
+        wifiHandshakeFailed = false
+        wifiConnectFailures = 0
         wifi.forget()
         wifiStatus = .init(stage: "unconfigured", host: "", address: "")
     }
@@ -198,8 +217,11 @@ import Security
         wifi.onReady = { [weak self] in
             guard let self, self.running else { return }
             self.wifiDecoder.reset()
+            self.wifiConnectFailures = 0
+            self.wifiHandshakeFailed = false
             self.beginHandshake(.wifi)
         }
+        wifi.onConnectFailure = { [weak self] in self?.noteWiFiConnectFailure() }
         wifi.onData = { [weak self] data in self?.receiveWiFi(data) }
         wifi.onDisconnected = { [weak self] in
             self?.wifiDecoder.reset()
@@ -268,6 +290,8 @@ import Security
 
         heartbeatTask?.cancel()
         heartbeatTask = nil
+        pendingWiFiPair?.timeout.cancel()
+        pendingWiFiPair = nil
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil
@@ -547,12 +571,44 @@ import Security
             batteryPercent = report.percent
             charging = report.charging
         case .wifi(let status):
-            wifiStatus = status
+            handleWiFiStatus(status)
         case .pong:
             break
         case .wake:
             deviceRequestedReconnect(link)
         }
+    }
+
+    // MARK: Wi-Fi 配对
+
+    /// 设备对配网请求的回应。只有确认设备收到配置后才把新密钥写进本机凭据：
+    /// 旧实现先写本机再发 USB，设备一旦回 `config_error`，两边密钥就永久错位。
+    private func handleWiFiStatus(_ status: DeviceWiFiStatus) {
+        wifiStatus = status
+        guard let pending = pendingWiFiPair else { return }
+        if WiFiProvisioningAck.isRejected(stage: status.stage) {
+            pending.timeout.cancel()
+            pendingWiFiPair = nil
+            lastError = String(localized: "配网失败，请检查 Wi-Fi 名称和密码后重试", bundle: .l10n)
+            return
+        }
+        guard WiFiProvisioningAck.isAccepted(
+            stage: status.stage, host: status.host, pendingHost: pending.host) else { return }
+        pending.timeout.cancel()
+        pendingWiFiPair = nil
+        wifiConnectFailures = 0
+        wifiHandshakeFailed = false
+        wifi.pair(host: pending.host, key: pending.key)
+        wifi.setEnabled(running)
+    }
+
+    /// 设备报告已入网，但 TLS-PSK 连续失败：几乎只能是两边密钥不一致。
+    private func noteWiFiConnectFailure() {
+        guard wifi.configured, !wifiHandshaken, wifiStatus?.stage == "ready" else { return }
+        wifiConnectFailures += 1
+        guard wifiConnectFailures >= 5, !wifiHandshakeFailed else { return }
+        wifiHandshakeFailed = true
+        lastError = String(localized: "设备已入网，但加密握手失败；请用 USB 重新配网", bundle: .l10n)
     }
 
     /// OFFLINE 页按 OK:设备主动请求重新握手。保留当前串口 / BLE 会话，只重置握手状态并重新 hello。

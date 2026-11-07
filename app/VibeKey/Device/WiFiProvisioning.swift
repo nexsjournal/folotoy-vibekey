@@ -27,3 +27,18 @@ nonisolated struct WiFiProvisioning {
         var errorDescription: String? { String(localized: "Wi-Fi 名称或密码长度不正确", bundle: .l10n) }
     }
 }
+
+/// 设备对 `wifi` 配网命令的回应。只有确认收到配置后才允许把新密钥写入本机，
+/// 否则设备回 `config_error` 时会留下「Mac 有新密钥、设备还是旧密钥」的永久错位。
+nonisolated enum WiFiProvisioningAck {
+    static func isRejected(stage: String) -> Bool {
+        stage == "config_error" || stage == "network_error"
+    }
+
+    static func isAccepted(stage: String, host: String, pendingHost: String) -> Bool {
+        guard !isRejected(stage: stage) else { return false }
+        guard ["connecting", "ready", "auth_error", "not_found"].contains(stage) else { return false }
+        // 首次配网时设备还没更新 s_config，host 为空也视为已收到配置。
+        return host.isEmpty || host == pendingHost
+    }
+}

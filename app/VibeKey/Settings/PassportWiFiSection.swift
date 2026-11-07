@@ -34,6 +34,11 @@ struct PassportWiFiSection: View {
                         if link.usbPortPath == nil { Text("重新配网时需要 USB 连接").font(.caption).foregroundStyle(.secondary) }
                     }
                     if let error { Text(error).font(.caption).foregroundStyle(DS.danger) }
+                    if link.wifiHandshakeFailed {
+                        Text("保持 USB 连接，重新输入 Wi-Fi 密码并点「保存并连接」；或点「清除 Wi-Fi 配对」让设备回到蓝牙。")
+                            .font(.caption).foregroundStyle(DS.danger)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -45,6 +50,7 @@ struct PassportWiFiSection: View {
     private var status: LocalizedStringKey {
         if link.connection == .wifi { return "Wi-Fi 已连接" }
         if link.wifiReady { return "Wi-Fi 已就绪，拔线后自动切换" }
+        if link.wifiHandshakeFailed { return "设备已入网，但加密握手失败，请用 USB 重新配网" }
         switch link.wifiStatus?.stage {
         case "auth_error": return "Wi-Fi 密码验证失败，请重新配置"
         case "not_found": return "未找到 Wi-Fi，请检查名称和 2.4 GHz 网络"

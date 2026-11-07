@@ -1395,6 +1395,16 @@
         }
       }
     },
+    "保持 USB 连接，重新输入 Wi-Fi 密码并点「保存并连接」；或点「清除 Wi-Fi 配对」让设备回到蓝牙。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep USB connected and re-enter the Wi-Fi password, or click Clear Wi-Fi Pairing to return the device to Bluetooth."
+          }
+        }
+      }
+    },
     "停止": {
       "localizations": {
         "en": {
@@ -5485,6 +5495,26 @@
         }
       }
     },
+    "设备已入网，但加密握手失败，请用 USB 重新配网": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device is on Wi-Fi but the encrypted handshake fails. Re-pair over USB."
+          }
+        }
+      }
+    },
+    "设备已入网，但加密握手失败；请用 USB 重新配网": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device is on Wi-Fi but the encrypted handshake fails. Re-pair over USB."
+          }
+        }
+      }
+    },
     "设备已入网，正在连接电脑": {
       "localizations": {
         "en": {
@@ -6195,12 +6225,32 @@
         }
       }
     },
+    "配网失败，请检查 Wi-Fi 名称和密码后重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi setup failed. Check the network name and password and try again."
+          }
+        }
+      }
+    },
     "配网时请先通过 USB 连接设备": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Connect the device over USB to set up Wi-Fi."
+          }
+        }
+      }
+    },
+    "配网未确认，请保持 USB 连接后重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi setup wasn't confirmed. Keep USB connected and try again."
           }
         }
       }

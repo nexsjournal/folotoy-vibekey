@@ -31,6 +31,23 @@ nonisolated final class DeviceProtocolTests: XCTestCase {
         XCTAssertThrowsError(try encode("network\0suffix"))
     }
 
+    func testWiFiProvisioningAckOnlyCommitsAfterDeviceAccepts() {
+        XCTAssertTrue(WiFiProvisioningAck.isAccepted(
+            stage: "connecting", host: "", pendingHost: "fb-new"))
+        XCTAssertTrue(WiFiProvisioningAck.isAccepted(
+            stage: "ready", host: "fb-new", pendingHost: "fb-new"))
+        XCTAssertTrue(WiFiProvisioningAck.isAccepted(
+            stage: "auth_error", host: "fb-new", pendingHost: "fb-new"))
+        XCTAssertFalse(WiFiProvisioningAck.isAccepted(
+            stage: "ready", host: "fb-old", pendingHost: "fb-new"))
+        XCTAssertFalse(WiFiProvisioningAck.isAccepted(
+            stage: "config_error", host: "", pendingHost: "fb-new"))
+        XCTAssertFalse(WiFiProvisioningAck.isAccepted(
+            stage: "network_error", host: "", pendingHost: "fb-new"))
+        XCTAssertFalse(WiFiProvisioningAck.isAccepted(
+            stage: "unconfigured", host: "", pendingHost: "fb-new"))
+    }
+
     func testParseHello() {
         let line = #"{"t":"hello","fw":"vibekey","proto":1,"ver":"0.1.0","boot":"9f3a21c4"}"#
         XCTAssertEqual(
