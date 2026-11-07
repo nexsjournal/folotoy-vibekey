@@ -97,6 +97,8 @@ import Security
     @ObservationIgnored private var busyPorts: Set<String> = []
     @ObservationIgnored private var usb: USBSession?
     @ObservationIgnored private var usbSessionCounter = 0
+    /// 当前 USB 会话打开的时间。长时间没握手说明是残留节点或设备没响应，不能一直挡着蓝牙。
+    @ObservationIgnored private var usbOpenedAt: TimeInterval = 0
     @ObservationIgnored private var openTask: Task<Void, Never>?
 
     // BLE
@@ -545,6 +547,8 @@ import Security
         if let active, let config = lastConfig, now - lastConfigSentAt >= Self.configResendInterval {
             writeConfig(config, via: active)
         }
+        // 残留 USB 节点超时后要让蓝牙接管；心跳每 5 秒顺手重算一次。
+        updateBluetooth()
     }
 
     // MARK: 接收
@@ -758,6 +762,7 @@ import Security
                 }
             )
             usb = USBSession(id: sessionID, path: path, port: port)
+            usbOpenedAt = Self.now
             busyPorts.remove(path)
             DeviceLog.link.info("USB opened \(path, privacy: .public)")
             updateBluetooth()
@@ -792,6 +797,7 @@ import Security
     private func closeUSB(reopen: Bool) {
         guard let session = usb else { return }
         usb = nil
+        usbOpenedAt = 0
         session.port.close()
         linkLost(.usb)
         updateBluetooth()
@@ -805,8 +811,11 @@ import Security
     /// USB 已握手时关闭蓝牙;存在待握手的 USB 端口时不新建蓝牙连接(已有蓝牙连接则保留,直到 USB 握手成功)。
     private func updateBluetooth() {
         let usbConnected = usb?.handshaken == true
-        let usbPending = usb != nil
-            || ports.contains { !rejectedPorts.contains($0.path) && !busyPorts.contains($0.path) }
+        // 打开的串口超过 6 秒还没握手，视为残留节点 / 设备无响应：允许蓝牙先连上。
+        let usbHandshaking = usb.map { !$0.handshaken && Self.now - usbOpenedAt < 6 } ?? false
+        let usbStale = usb.map { !$0.handshaken && Self.now - usbOpenedAt >= 6 } ?? false
+        let usbPending = !usbStale && (usbHandshaking
+            || ports.contains { !rejectedPorts.contains($0.path) && !busyPorts.contains($0.path) })
         let want = running && bluetoothEnabled && !usbConnected && !wifiHandshaken && (bleSessionUp || !usbPending)
         if want {
             ble.setEnabled(true)
