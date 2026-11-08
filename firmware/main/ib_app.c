@@ -442,7 +442,8 @@ static void apply_list(const ib_cmd_t *cmd)
     ib_ui_list_t list;
     memset(&list, 0, sizeof(list));
     _Static_assert(IB_UI_LIST_ROWS == IB_LIST_ROWS, "list row count mismatch");
-    _Static_assert(sizeof(list.title) == IB_TEXT_MAX && sizeof(list.items[0]) == IB_TEXT_MAX, "list text size");
+    _Static_assert(sizeof(list.title) == IB_LIST_TEXT_MAX && sizeof(list.items[0]) == IB_LIST_TEXT_MAX,
+                   "list text size");
     memcpy(list.title, cmd->list_title, sizeof(list.title));
     memcpy(list.items, cmd->list_item, sizeof(list.items));
     list.rows = cmd->list_rows;
@@ -484,8 +485,10 @@ static void go_offline(void)
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
         ib_ui_set_level(0);
-        ib_ui_set_offline_hint((s_usb_present || s_ble_subscribed || ib_wifi_is_configured())
-                                   ? "PRESS OK TO RECONNECT" : "CHECK USB CABLE");
+        ib_ui_set_offline_hint(s_usb_present ? "USB LINKED / OPEN VIBEKEY"
+                               : s_ble_subscribed ? "BLE LINKED / OPEN VIBEKEY"
+                               : ib_wifi_is_configured() ? "WIFI READY / OPEN VIBEKEY"
+                                                         : "PLUG USB OR SET UP WIFI");
     }
     show_screen(IB_UI_OFFLINE);
     refresh_clock(now_ms(), true);
@@ -504,8 +507,10 @@ static void refresh_links(int64_t now)
         s_usb_present = usb;
         refresh_battery(now, true);     // 更新充电图标
         if (!s_online && s_ui_ok && s_wake_until == 0) {
-            ib_ui_set_offline_hint((usb || s_ble_subscribed || ib_wifi_is_configured())
-                                       ? "PRESS OK TO RECONNECT" : "CHECK USB CABLE");
+            ib_ui_set_offline_hint(usb ? "USB LINKED / OPEN VIBEKEY"
+                                   : s_ble_subscribed ? "BLE LINKED / OPEN VIBEKEY"
+                                   : ib_wifi_is_configured() ? "WIFI READY / OPEN VIBEKEY"
+                                                             : "PLUG USB OR SET UP WIFI");
         }
     }
 

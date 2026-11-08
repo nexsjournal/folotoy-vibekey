@@ -11,6 +11,16 @@
         }
       }
     },
+    " · 充电中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Charging"
+          }
+        }
+      }
+    },
     "%@ · %lld 句。结束后可以在字幕记录窗口里查看、总结和保存。": {
       "localizations": {
         "en": {
@@ -164,6 +174,36 @@
         }
       }
     },
+    "%lld 分钟前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld minutes ago"
+          }
+        }
+      }
+    },
+    "%lld 小时前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld hours ago"
+          }
+        }
+      }
+    },
+    "%lld 秒前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld seconds ago"
+          }
+        }
+      }
+    },
     "1 分钟": {
       "localizations": {
         "en": {
@@ -173,6 +213,12 @@
           }
         }
       }
+    },
+    "2026-11-08": {
+      "shouldTranslate": false
+    },
+    "23:48": {
+      "shouldTranslate": false
     },
     "30 秒": {
       "localizations": {
@@ -193,6 +239,9 @@
           }
         }
       }
+    },
+    "> OFFLINE_": {
+      "shouldTranslate": false
     },
     "AI 大模型": {
       "localizations": {
@@ -313,6 +362,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "When the agent finishes or asks for approval, Passport chimes and lights up, and the floating pill shows a notice too"
+          }
+        }
+      }
+    },
+    "Agent 导航": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent navigation"
           }
         }
       }
@@ -570,12 +629,25 @@
         }
       }
     },
+    "USB": {
+      "shouldTranslate": false
+    },
     "USB · 待刷固件": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "USB · Firmware Needed"
+          }
+        }
+      }
+    },
+    "USB 已发现，但还没有完成握手。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "USB was found, but the handshake hasn't completed."
           }
         }
       }
@@ -655,6 +727,9 @@
           }
         }
       }
+    },
+    "WAITING FOR MAC": {
+      "shouldTranslate": false
     },
     "Whisper Large v3 Turbo（压缩版）": {
       "localizations": {
@@ -1362,6 +1437,16 @@
         }
       }
     },
+    "从未连接": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never connected"
+          }
+        }
+      }
+    },
     "使用": {
       "localizations": {
         "en": {
@@ -1652,6 +1737,16 @@
         }
       }
     },
+    "刚刚": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just now"
+          }
+        }
+      }
+    },
     "创建 IOProc 失败": {
       "localizations": {
         "en": {
@@ -1902,12 +1997,32 @@
         }
       }
     },
+    "只读侧栏标题、窗口标题和控件角色，不读取聊天正文。检测会把目标 App 前置并读取一次侧栏；失败时仍可在设备上当普通应用切换。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads only sidebar titles, window titles, and control roles — never chat content. A check brings the app forward and reads its sidebar once; if it fails, the app still works as a normal app switch."
+          }
+        }
+      }
+    },
     "可以继续，下载会在后台完成": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "You can continue. The download finishes in the background."
+          }
+        }
+      }
+    },
+    "可读取：%lld 个项目、%lld 条最近会话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Readable: %lld projects, %lld recent sessions"
           }
         }
       }
@@ -2072,6 +2187,16 @@
         }
       }
     },
+    "固件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmware"
+          }
+        }
+      }
+    },
     "固件 %@": {
       "localizations": {
         "en": {
@@ -2208,6 +2333,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Online Translation"
+          }
+        }
+      }
+    },
+    "填充": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fill"
           }
         }
       }
@@ -2402,12 +2537,32 @@
         }
       }
     },
+    "完整": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit"
+          }
+        }
+      }
+    },
     "完整版，语言覆盖最广。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Full version with the broadest language coverage."
+          }
+        }
+      }
+    },
+    "完整留边": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show full image"
           }
         }
       }
@@ -2752,6 +2907,16 @@
         }
       }
     },
+    "已运行，等待检测": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running; ready to check"
+          }
+        }
+      }
+    },
     "已连接 Passport：按住中间的 OK 键说话，上键发送到 Codex、下键停止。": {
       "localizations": {
         "en": {
@@ -2842,6 +3007,16 @@
         }
       }
     },
+    "当前固件 %@ 不支持自定义背景，请先更新到 0.1.4 或更高版本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmware %@ doesn't support custom wallpapers. Update to 0.1.4 or later first."
+          }
+        }
+      }
+    },
     "当前开发版请通过项目受保护脚本安装固件。": {
       "localizations": {
         "en": {
@@ -2868,6 +3043,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "It's running “%@”. Install the VibeKey firmware so it can drive dictation, show status and notify you about your agent."
+          }
+        }
+      }
+    },
+    "当前链路": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current link"
           }
         }
       }
@@ -3028,6 +3213,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open Transcript"
+          }
+        }
+      }
+    },
+    "打开系统设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open System Settings"
           }
         }
       }
@@ -3512,6 +3707,16 @@
         }
       }
     },
+    "无法读取：请检查辅助功能权限和应用是否在前台": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read: check Accessibility permission and that the app is in front"
+          }
+        }
+      }
+    },
     "无法连接设备的下载模式：%@": {
       "localizations": {
         "en": {
@@ -3652,6 +3857,16 @@
         }
       }
     },
+    "最后在线": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last seen"
+          }
+        }
+      }
+    },
     "有新固件": {
       "localizations": {
         "en": {
@@ -3722,6 +3937,16 @@
         }
       }
     },
+    "未安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not installed"
+          }
+        }
+      }
+    },
     "未开启": {
       "localizations": {
         "en": {
@@ -3738,6 +3963,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wi-Fi not found. Check the name and use a 2.4 GHz network."
+          }
+        }
+      }
+    },
+    "未检测到聊天输入框 + 侧栏；可当普通应用切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No chat input + sidebar detected; works as a normal app switch"
           }
         }
       }
@@ -3798,6 +4033,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not Set"
+          }
+        }
+      }
+    },
+    "未运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not running"
+          }
+        }
+      }
+    },
+    "未运行；打开它之后可以检测": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not running; open it to run a check"
           }
         }
       }
@@ -3948,6 +4203,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Check Configuration…"
+          }
+        }
+      }
+    },
+    "检测": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check"
           }
         }
       }
@@ -4252,6 +4517,16 @@
         }
       }
     },
+    "正在读取侧栏…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading sidebar…"
+          }
+        }
+      }
+    },
     "正在转录 · %lld 句": {
       "localizations": {
         "en": {
@@ -4408,6 +4683,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Never"
+          }
+        }
+      }
+    },
+    "没有发现 USB 串口；请确认数据线支持传输。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No USB serial port found. Make sure the cable supports data transfer."
           }
         }
       }
@@ -4698,6 +4983,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect it to this Mac with a USB-C data cable"
+          }
+        }
+      }
+    },
+    "电量": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery"
           }
         }
       }
@@ -5602,6 +5897,16 @@
         }
       }
     },
+    "裁切铺满": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crop to fill"
+          }
+        }
+      }
+    },
     "解锁字幕条": {
       "localizations": {
         "en": {
@@ -5628,6 +5933,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Device"
+          }
+        }
+      }
+    },
+    "设备 15 秒没收到 Mac 命令会进入 OFFLINE；USB 插着但设备显示 OFFLINE 时，点「重新连接」会重开串口，不需要拔线。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device shows OFFLINE after 15 seconds without a Mac command. If USB is plugged in but the device is OFFLINE, click Reconnect to reopen the serial port — no need to unplug."
           }
         }
       }
@@ -5778,6 +6093,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vocabulary"
+          }
+        }
+      }
+    },
+    "词汇表…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vocabulary…"
           }
         }
       }
@@ -6132,6 +6457,16 @@
         }
       }
     },
+    "辅助功能权限已开启": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accessibility permission is on"
+          }
+        }
+      }
+    },
     "输入": {
       "localizations": {
         "en": {
@@ -6282,6 +6617,16 @@
         }
       }
     },
+    "连接状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection status"
+          }
+        }
+      }
+    },
     "退出": {
       "localizations": {
         "en": {
@@ -6308,6 +6653,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quitting clears this %@ transcript. Save it from the Transcript window first if you need it."
+          }
+        }
+      }
+    },
+    "适配": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit"
           }
         }
       }
@@ -6688,6 +7043,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accessibility access is required to control Codex. Enable it in Settings › General."
+          }
+        }
+      }
+    },
+    "需要辅助功能权限才能读取项目和会话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accessibility permission is required to read projects and sessions"
           }
         }
       }

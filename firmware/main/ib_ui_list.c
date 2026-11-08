@@ -22,14 +22,15 @@
 #define FX_H        (IB_UI_LIST_ROWS * ROW_PITCH + 4)
 #define TRACK_X     4
 #define TRACK_W     3
-#define TEXT_MAX    28
+#define TEXT_MAX    IB_UI_LIST_TEXT_MAX
 #define TITLE_CY    (36 - IB_UI_BAR_H)
 #define ROW_TEXT    0xC0C0C0    // 未选中行文字
 
 static lv_obj_t *s_title;
 static lv_obj_t *s_fx;
 static char s_rows[IB_UI_LIST_ROWS][TEXT_MAX];  // 截断后的显示文本(绘制回调读取)
-static char s_title_text[IB_UI_TEXT_MAX];       // 大写后的标题
+static char s_title_text[TEXT_MAX];             // 大写后的标题
+static bool s_row_cjk[IB_UI_LIST_ROWS];
 static uint8_t s_count;
 static uint16_t s_n, s_top;
 static int32_t s_target = -1;       // 选中行在可见区内的序号,-1 表示不在可见区
@@ -39,6 +40,14 @@ static int32_t s_trail = 0;
 static int32_t row_y(int32_t row)
 {
     return 2 + row * ROW_PITCH;     // 控件坐标
+}
+
+static bool has_non_ascii(const char *text)
+{
+    for (const unsigned char *p = (const unsigned char *)text; p && *p; p++) {
+        if (*p >= 0x80) return true;
+    }
+    return false;
 }
 
 static void fx_draw(lv_event_t *e)
@@ -75,7 +84,8 @@ static void fx_draw(lv_event_t *e)
         int32_t y = row_y(i);
         int32_t overlap = s_target >= 0 ? LV_MIN(bottom, y + ROW_H) - LV_MAX(top, y) : 0;
         bool on = overlap * 2 > ROW_H;
-        ib_fx_text_left(&fx, ROW_X + ROW_PAD, y + ROW_H / 2, s_rows[i], font, on ? black : idle, LV_OPA_COVER);
+        const lv_font_t *row_font = s_row_cjk[i] ? &ib_cjk_font_12 : font;
+        ib_fx_text_left(&fx, ROW_X + ROW_PAD, y + ROW_H / 2, s_rows[i], row_font, on ? black : idle, LV_OPA_COVER);
     }
 }
 
@@ -95,14 +105,20 @@ static void update(const ib_ui_ctx_t *ctx)
 {
     const ib_ui_list_t *l = &ctx->list;
     size_t n = 0;
-    for (; l->title[n] && n + 1 < sizeof(s_title_text); n++) s_title_text[n] = (char)toupper((unsigned char)l->title[n]);
+    for (; l->title[n] && n + 1 < sizeof(s_title_text); n++) {
+        unsigned char ch = (unsigned char)l->title[n];
+        s_title_text[n] = ch < 0x80 ? (char)toupper(ch) : (char)ch;
+    }
     s_title_text[n] = '\0';
+    lv_obj_set_style_text_font(s_title, has_non_ascii(s_title_text) ? &ib_cjk_font_12 : &lv_font_montserrat_12, 0);
     lv_label_set_text_static(s_title, s_title_text);
     s_count = l->rows > IB_UI_LIST_ROWS ? IB_UI_LIST_ROWS : l->rows;
     s_n = l->n;
     s_top = l->top;
     for (int i = 0; i < s_count; i++) {
-        ib_text_fit(l->items[i], &lv_font_montserrat_14, ROW_W - 2 * ROW_PAD, s_rows[i], sizeof(s_rows[i]));
+        s_row_cjk[i] = has_non_ascii(l->items[i]);
+        const lv_font_t *font = s_row_cjk[i] ? &ib_cjk_font_12 : &lv_font_montserrat_14;
+        ib_text_fit_utf8(l->items[i], font, ROW_W - 2 * ROW_PAD, s_rows[i], sizeof(s_rows[i]));
     }
     int32_t row = (int32_t)l->sel - (int32_t)l->top;
     bool was_hidden = s_target < 0;

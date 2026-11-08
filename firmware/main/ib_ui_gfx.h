@@ -124,6 +124,8 @@ void ib_fx_text_left(const ib_fx_t *fx, int32_t x, int32_t cy, const char *text,
                      lv_color_t c, lv_opa_t opa);
 // 把 ASCII 文本复制到 out(容量 cap),宽度超过 max_w 像素时截断并加 ".."。
 void ib_text_fit(const char *text, const lv_font_t *font, int32_t max_w, char *out, size_t cap);
+// UTF-8 版本:按完整字符截断,超长时末尾加 "..";中文项目 / 会话名使用。
+void ib_text_fit_utf8(const char *text, const lv_font_t *font, int32_t max_w, char *out, size_t cap);
 // 以 (cx, cy) 为中心绘制文本。text 必须在本次渲染结束前保持有效(静态字符串或 UI 上下文里的缓冲)。
 void ib_fx_text(const ib_fx_t *fx, int32_t cx, int32_t cy, const char *text, const lv_font_t *font, lv_color_t c,
                 lv_opa_t opa);

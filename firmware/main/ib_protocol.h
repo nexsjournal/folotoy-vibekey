@@ -23,6 +23,8 @@
 #define IB_LIST_ROWS        6
 // list 命令里 n / sel / top 的上限。
 #define IB_LIST_MAX         65535
+// list 的项目 / 会话名:UTF-8,约 15 个汉字;12 px 字库足够放下两行。
+#define IB_LIST_TEXT_MAX    48
 // 设备发出的单条消息缓冲。
 #define IB_MSG_MAX          128
 // config.screen_off 上限(秒),超出按上限处理。
@@ -127,8 +129,8 @@ typedef struct {
     bool has_agent_ev;
     ib_agent_ev_t agent_ev;
     // list(n、sel 必填;title、top、i0..i5 可选)。选中项由 Mac 维护,设备只负责显示。
-    char list_title[IB_TEXT_MAX];
-    char list_item[IB_LIST_ROWS][IB_TEXT_MAX];
+    char list_title[IB_LIST_TEXT_MAX];
+    char list_item[IB_LIST_ROWS][IB_LIST_TEXT_MAX];
     uint8_t list_rows;              // 出现过的最大 i<k> 序号 + 1(中间缺的行为空串)
     bool has_list_n;
     uint16_t list_n;                // 列表总项数
@@ -181,7 +183,8 @@ size_t ib_bin_header(uint8_t out[IB_BIN_HDR], uint8_t type, uint8_t seq, size_t 
 
 // 解析一行 Mac 命令(不含 '\n')。只接受扁平 JSON 对象:字符串值与非负整数值;
 // 未知字段忽略(其值可以是任意标量),未知命令、未知 st、缺必填字段、已知字段类型错误时返回 false。
-// 文本里的非 ASCII 字符折叠为 '?',msg/engine/title/列表项超过 23 字节截断。
+// msg/engine 里的非 ASCII 字符折叠为 '?',超过 23 字节截断;list 的 title / 行文本保留
+// UTF-8(每项 ≤47 字节),由固件 12 px 中文字库显示。
 // list:n、sel 超过 65535 或 n>0 时 sel>=n、top>=n 判为非法。
 bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out);
 

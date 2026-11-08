@@ -45,12 +45,13 @@ typedef enum {
 
 // 列表页内容:最多 6 个可见行,选中项与滚动位置由 Mac 决定,设备只显示。
 #define IB_UI_LIST_ROWS 6
+#define IB_UI_LIST_TEXT_MAX 48
 #define IB_UI_CAPTION_MAX 192
 #define IB_UI_CAPTION_APP_MAX 64
 #define IB_UI_OFFLINE_HINT_MAX 32
 typedef struct {
-    char title[24];
-    char items[IB_UI_LIST_ROWS][24];
+    char title[IB_UI_LIST_TEXT_MAX];
+    char items[IB_UI_LIST_ROWS][IB_UI_LIST_TEXT_MAX];
     uint8_t rows;           // 可见行数 0..6
     uint16_t n;             // 列表总项数
     uint16_t top;           // items[0] 在完整列表里的序号

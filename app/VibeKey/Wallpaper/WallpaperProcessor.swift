@@ -8,6 +8,20 @@ nonisolated struct WallpaperArtwork: @unchecked Sendable {
     let preview: CGImage
 }
 
+/// 照片适配 3:4 的方式：填充会裁切，完整会留黑边。
+nonisolated enum WallpaperFit: String, CaseIterable, Identifiable, Sendable {
+    case fill
+    case fit
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .fill: String(localized: "填充", bundle: .l10n)
+        case .fit: String(localized: "完整", bundle: .l10n)
+        }
+    }
+}
+
 /// 把用户照片处理成 Passport 的像素风背景：
 /// 3:4 居中裁切 → 60×80 像素化 → 绿色单色 + 有序抖动 → 顶部 / 底部暗带 → 240×320 RGB565。
 /// 全部用 CoreGraphics 完成，不调用生图模型，也不需要联网。
@@ -29,7 +43,7 @@ enum WallpaperProcessor {
         [15, 7, 13, 5],
     ]
 
-    static func process(url: URL) throws -> WallpaperArtwork {
+    static func process(url: URL, fit: WallpaperFit = .fill) throws -> WallpaperArtwork {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             throw Failure.unreadable
         }
@@ -42,12 +56,11 @@ enum WallpaperProcessor {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             throw Failure.unreadable
         }
-        return try process(image: image)
+        return try process(image: image, fit: fit)
     }
 
-    static func process(image: CGImage) throws -> WallpaperArtwork {
+    static func process(image: CGImage, fit: WallpaperFit = .fill) throws -> WallpaperArtwork {
         guard image.width >= 32, image.height >= 32 else { throw Failure.tooSmall }
-        guard let cropped = cropToFill(image) else { throw Failure.unreadable }
 
         var source = [UInt8](repeating: 0, count: pixelWidth * pixelHeight * 4)
         let space = CGColorSpaceCreateDeviceRGB()
@@ -59,7 +72,13 @@ enum WallpaperProcessor {
             context.interpolationQuality = .high
             // CGBitmapContext 的第 0 行就是输出第 0 行（顶部）。不要再翻转，
             // 否则照片会上下颠倒；暗带是在像素数组上按 y 计算的，不受这里影响。
-            context.draw(cropped, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+            let target = CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight)
+            switch fit {
+            case .fill:
+                if let cropped = cropToFill(image) { context.draw(cropped, in: target) }
+            case .fit:
+                context.draw(image, in: fitRect(for: image, in: target))
+            }
         }
 
         var colors = [(r: UInt8, g: UInt8, b: UInt8)](repeating: (0, 0, 0), count: pixelWidth * pixelHeight)
@@ -126,6 +145,14 @@ enum WallpaperProcessor {
             rect.origin.y = (height - rect.height) / 2
         }
         return image.cropping(to: rect)
+    }
+
+    /// 等比缩放到目标框内并居中；空出来的区域保持黑色，交给暗带和像素化统一处理。
+    private static func fitRect(for image: CGImage, in target: CGRect) -> CGRect {
+        let scale = min(target.width / CGFloat(image.width), target.height / CGFloat(image.height))
+        let width = CGFloat(image.width) * scale
+        let height = CGFloat(image.height) * scale
+        return CGRect(x: target.midX - width / 2, y: target.midY - height / 2, width: width, height: height)
     }
 
     /// 暗带：顶部 40 px 压暗，底部从 200 px 开始加深，保证状态栏、时钟和日期可读。

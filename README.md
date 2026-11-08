@@ -18,6 +18,7 @@ VibeKey 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 `ab1f
   - 结束字幕前在字幕条的 ⏹ 上弹出小气泡确认一次(可关闭,不弹模态框),结束后自动打开字幕记录窗口,可以在那里查看、总结(分段 / 全文)和保存。app 不保存字幕历史,记录只在内存里。
 - **Passport 硬件**(右侧从上到下:上键 / 下键 / OK 键,屏幕右边的提示贴着对应按键):
   - USB、BLE 或同一局域网 Wi-Fi 连接；首次通过 USB 在 设置 › Passport 配置 2.4 GHz Wi-Fi，显示无线就绪后可拔线；
+  - 设置 › Passport › 连接状态显示当前链路、最后在线、固件 build、电量和充电电压；Agent 导航可逐个检测 Codex、DeepSeek、WorkBuddy、ZCode、Claude 等是否能读到项目和会话；
   - 离线页背景可换：设置 › Passport › 离线页背景选一张照片，Mac 会自动裁成 240×320、做绿色像素化和上下暗带，再经 USB / Wi-Fi 写入设备；不调用生图模型，也不上传原图。恢复默认可随时回到内置像素猫；
   - 按住 OK 立即采音，同时自动前置并聚焦记住的目标应用（默认 Codex），松开后输入识别或翻译结果;
   - 上键安全发送当前 Codex 输入框中的手动／语音草稿,下键停止当前 Codex 任务(默认值;也可在 设置 › Passport › 按键 改成普通快捷键);

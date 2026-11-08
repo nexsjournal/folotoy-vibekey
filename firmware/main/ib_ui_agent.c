@@ -12,6 +12,7 @@
 #include "ib_ui_page.h"
 
 #include <stdio.h>
+#include <string.h>
 
 // 全屏:出现时先铺背景再淡入内容,关闭时先淡出内容再撤背景,任何时刻都不会和下面的页面内容叠在一起。
 #define BACKDROP_MS     100     // 黑色背景淡入 / 淡出
@@ -43,7 +44,7 @@ static bool s_visible;
 static bool s_is_banner;
 static bool s_hiding;
 static uint32_t s_show_ms;
-static char s_source_text[IB_UI_TEXT_MAX];
+static char s_source_text[64];
 static char s_banner_buf[40];
 
 // 逐帧计算、绘制回调读取的几何参数。
@@ -209,6 +210,48 @@ static void apply_layout(void)
     }
 }
 
+static int32_t source_width(const char *text, size_t len, const lv_font_t *font)
+{
+    int32_t width = 0;
+    for (size_t i = 0; i < len; i++) width += lv_font_get_glyph_width(font, (uint8_t)text[i], 0);
+    return width;
+}
+
+/// 来源名最长 23 字节。先用 20 px;放不下降到 14 px;仍放不下就拆成两行并给第二行加 ".."。
+static bool layout_source(const char *source)
+{
+    static const int32_t max_w = IB_UI_W - 24;
+    const lv_font_t *big = &lv_font_montserrat_20;
+    const lv_font_t *small = &lv_font_montserrat_14;
+    size_t len = strlen(source);
+    bool two_lines = false;
+
+    if (source_width(source, len, big) <= max_w) {
+        snprintf(s_source_text, sizeof(s_source_text), "%s", source);
+    } else if (source_width(source, len, small) <= max_w) {
+        snprintf(s_source_text, sizeof(s_source_text), "%s", source);
+        lv_obj_set_style_text_font(s_source, small, 0);
+        lv_obj_align(s_source, LV_ALIGN_TOP_MID, 0, 262);
+        return false;
+    } else {
+        size_t br = 0;
+        int32_t width = 0;
+        while (br < len && width + lv_font_get_glyph_width(small, (uint8_t)source[br], 0) <= max_w) {
+            width += lv_font_get_glyph_width(small, (uint8_t)source[br], 0);
+            br++;
+        }
+        if (br == 0) br = 1;
+        char rest[48];
+        ib_text_fit(source + br, small, max_w, rest, sizeof(rest));
+        snprintf(s_source_text, sizeof(s_source_text), "%.*s\n%s", (int)br, source, rest);
+        two_lines = true;
+    }
+
+    lv_obj_set_style_text_font(s_source, two_lines ? small : big, 0);
+    lv_obj_align(s_source, LV_ALIGN_TOP_MID, 0, two_lines ? 256 : 262);
+    return two_lines;
+}
+
 void ib_agent_create(lv_obj_t *screen)
 {
     s_root = ib_box_create(screen, 0, 0, IB_UI_W, IB_UI_H);
@@ -256,9 +299,12 @@ void ib_agent_show(ib_ui_agent_t kind, const char *source, bool banner, uint32_t
     s_show_ms = now_ms;
     const char *title = kind == IB_UI_AGENT_DONE ? "DONE" : "YOUR TURN";
     lv_label_set_text_static(s_title, title);
+    char source_copy[64];
+    snprintf(source_copy, sizeof(source_copy), "%s", s_source_text);
+    layout_source(source_copy);
     lv_label_set_text_static(s_source, s_source_text);
     // 横幅只放图标 + 来源名(图标已经表达 done / input);没有来源名时才显示标题。
-    snprintf(s_banner_buf, sizeof(s_banner_buf), "%s", s_source_text[0] ? s_source_text : title);
+    snprintf(s_banner_buf, sizeof(s_banner_buf), "%s", source_copy[0] ? source_copy : title);
     lv_label_set_text_static(s_banner_text, s_banner_buf);
     apply_layout();
 

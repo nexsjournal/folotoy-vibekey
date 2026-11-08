@@ -163,7 +163,7 @@ nonisolated final class SwitcherListTests: XCTestCase {
         XCTAssertTrue(line.hasPrefix(#"{"cmd":"list","title":"SWITCH APP","sel":1,"n":8,"top":0,"i0":"Ghostty""#), line)
         XCTAssertFalse(line.contains(#""i6""#), "一屏最多 6 行")
         XCTAssertTrue(line.utf8.count < 511, "单行不超过设备上限")
-        XCTAssertTrue(line.allSatisfy(\.isASCII), "设备只显示 ASCII")
+        XCTAssertTrue(line.contains("微信"), "列表保留 UTF-8，设备用 12 px 中文字库显示")
     }
 
     @MainActor func testListStateHints() {

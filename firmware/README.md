@@ -66,7 +66,7 @@ firmware/
 │   ├── ib_ui_statusbar.*  顶部状态栏(链路 / 电量 / 录音计时 / LIVE)
 │   ├── ib_ui_hints.*      右侧竖排按键提示(12 px 图标 + 小点;PROC 时禁用;三个键的纵坐标常量 IB_HINT_Y_* 在这里调)
 │   ├── ib_icons.*         keys 命令的图标 id ↔ 枚举(纯逻辑)
-│   ├── fonts/             终端 ASCII 字体 + SUB 页简体中文字体 ib_cjk_font_12.c（Noto Sans SC，OFL）
+│   ├── fonts/             终端 ASCII 字体 + SUB / LIST / Agent 名称用简体中文字体 ib_cjk_font_12.c（Noto Sans SC，OFL）
 │   ├── icons/             生成的图标字体 ib_icon_font_12.c / ib_icon_font_56.c、图标表 ib_icon_list.h / ib_icon_large_list.h、Apache-2.0 许可证
 │   ├── ib_ui_agent.*      Agent 通知层(全屏 / 录音中横幅)
 │   └── ib_ui_<页面>.c     offline / idle / rec / proc / done / err / sub / list 各页面

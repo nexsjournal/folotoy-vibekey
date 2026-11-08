@@ -39,6 +39,9 @@ final class MenuBuilder {
         menu.addItem(submenu(String(localized: "识别语言", bundle: .l10n), items: SpeechLanguage.allCases.map { lang in
             ActionItem(lang.title, checked: settings.language == lang) { [app] in app.settings.language = lang }
         }))
+        menu.addItem(ActionItem(String(localized: "词汇表…", bundle: .l10n)) { [app] in
+            app.windows.showSettings(.vocabulary)
+        })
 
         // 写明是听写的润色(字幕不润色);没配置 AI 服务时说明原因,点了打开 AI 服务设置。
         let polish = settings.llmConfigured

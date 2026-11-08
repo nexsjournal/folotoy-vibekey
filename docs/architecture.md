@@ -224,6 +224,10 @@ Mac 握手:DeviceLink.beginHandshake → hello → handleHello
  → ib_ui_set_battery + bat 消息(ib_format_battery)
 ```
 
+设置 › Passport › 连接状态直接读 `DeviceLink.connection` / `lastMessageDate` / `firmwareVersion` /
+`batteryPercent` / `batteryMillivolts`：链路与「最后在线」同屏显示，USB 发现但未握手时提供
+`resumeUSB()`；不再靠设备上的 `WAITING FOR MAC` 猜是没插线还是 Mac app 没运行。
+
 ## 3a. Passport 模式与 OK 键
 
 ```
@@ -302,6 +306,10 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
  5. 当前项:AXSelected / AXARIACurrent / 窗口标题 / 主内容区 AXHeading 匹配。
 折叠项目在选中时按标题按钮或 `Toggle sessions for` 展开后重读。
 隐私:AgentSessionCatalogLoader 只读取 AX 角色、侧栏标题、窗口标题；不读取聊天正文，名称不写日志。
+健康检查:设置 › Passport › Agent 导航逐项调用 AgentSessionCatalogLoader.load，区分未安装 / 未运行 /
+AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测会前置目标 App，失败不改变设备目标。
+列表显示:项目 / 会话名以 UTF-8(每项 ≤47 字节)下发，固件用 ib_cjk_font_12 显示中文；超出 180 px
+行宽时末尾加 `..`。Agent 全屏通知的项目名先试 20 px，再降到 14 px，仍放不下才两行 + `..`。
 ```
 
 ## 5. 实时字幕

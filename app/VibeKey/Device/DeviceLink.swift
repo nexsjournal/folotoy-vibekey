@@ -20,7 +20,11 @@ import Security
     private(set) var connection: Connection = .disconnected
     /// 0...100;未知时为 nil。
     private(set) var batteryPercent: Int?
+    /// 毫伏;未知时为 nil。
+    private(set) var batteryMillivolts: Int?
     private(set) var charging = false
+    /// 最近一次收到设备消息的时间;断线后保留,用于「最后在线」。
+    private(set) var lastMessageDate: Date?
     private(set) var firmwareVersion: String?
     /// 固件构建标识,用来判断设备是否运行 app 内置的同一份固件。
     private(set) var firmwareBuild: String?
@@ -547,6 +551,7 @@ import Security
     /// 链路可用后开始握手:每 800 ms 发一次 hello,共 6 次;收到 hello 时由 handleHello 取消该任务。
     private func beginHandshake(_ link: DeviceLinkKind) {
         lastMessageAt[link] = Self.now
+        lastMessageDate = Date()
         handshakeTasks[link]?.cancel()
         handshakeTasks[link] = Task { [weak self] in
             for _ in 0..<Self.handshakeAttempts {
@@ -620,6 +625,7 @@ import Security
     private func handle(_ message: DeviceMessage, via link: DeviceLinkKind) {
         guard running else { return }
         lastMessageAt[link] = Self.now
+        lastMessageDate = Date()
 
         switch message {
         case .hello(let hello):
@@ -636,6 +642,7 @@ import Security
         case .battery(let report):
             guard link == active else { return }
             batteryPercent = report.percent
+            batteryMillivolts = report.millivolts
             charging = report.charging
         case .wifi(let status):
             handleWiFiStatus(status)

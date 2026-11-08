@@ -1,6 +1,8 @@
 // main/ib_ui_gfx.c: UI 绘图工具实现(见 ib_ui_gfx.h)。
 #include "ib_ui_gfx.h"
 
+#include <string.h>
+
 int32_t ib_ease_out_cubic(int32_t p)
 {
     if (p <= 0) return 0;
@@ -310,6 +312,58 @@ void ib_text_fit(const char *text, const lv_font_t *font, int32_t max_w, char *o
         return;
     }
     out[n] = '\0';
+}
+
+static int utf8_char_len(unsigned char ch)
+{
+    if (ch < 0x80) return 1;
+    if ((ch & 0xE0) == 0xC0) return 2;
+    if ((ch & 0xF0) == 0xE0) return 3;
+    if ((ch & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
+static uint32_t utf8_decode(const char *s, size_t len)
+{
+    const unsigned char *p = (const unsigned char *)s;
+    if (len == 1) return p[0];
+    uint32_t cp = p[0] & (0x7F >> len);
+    for (size_t i = 1; i < len; i++) cp = (cp << 6) | (p[i] & 0x3F);
+    return cp;
+}
+
+void ib_text_fit_utf8(const char *text, const lv_font_t *font, int32_t max_w, char *out, size_t cap)
+{
+    if (cap == 0) return;
+    if (cap < 3) {
+        out[0] = '\0';
+        return;
+    }
+    int32_t dots = 2 * lv_font_get_glyph_width(font, '.', '.');
+    int32_t w = 0;
+    size_t pos = 0;
+    size_t keep = 0;
+    while (text && text[pos]) {
+        int len = utf8_char_len((unsigned char)text[pos]);
+        if (pos + (size_t)len > strlen(text)) len = 1;
+        uint32_t cp = utf8_decode(text + pos, (size_t)len);
+        int32_t cw = lv_font_get_glyph_width(font, cp, 0);
+        if (w + cw + dots <= max_w) keep = pos + (size_t)len;
+        if (w + cw > max_w) break;
+        w += cw;
+        pos += (size_t)len;
+    }
+    if (text && text[pos]) {
+        if (keep + 3 > cap) keep = cap > 3 ? cap - 3 : 0;
+        if (keep > 0) memcpy(out, text, keep);
+        out[keep] = '.';
+        out[keep + 1] = '.';
+        out[keep + 2] = '\0';
+    } else {
+        size_t n = pos < cap ? pos : cap - 1;
+        memcpy(out, text ? text : "", n);
+        out[n] = '\0';
+    }
 }
 
 lv_color_t ib_gray(int32_t v)

@@ -258,11 +258,15 @@ static void test_list(void)
     // 超过 6 行:i6 以后作为未知字段忽略。
     CHECK(parse("{\"cmd\":\"list\",\"sel\":0,\"n\":9,\"i0\":\"a\",\"i6\":\"g\",\"i7\":\"h\",\"i10\":\"x\"}", &c));
     CHECK(c.list_rows == 1 && c.list_title[0] == '\0' && c.list_top == 0);
-    // 行可以缺(中间为空串),项名超长截断、非 ASCII 折叠。
+    // 行可以缺(中间为空串);列表文本上限 47 字节,保留 UTF-8。
     CHECK(parse("{\"cmd\":\"list\",\"sel\":3,\"n\":5,\"top\":2,\"i2\":\"ABCDEFGHIJKLMNOPQRSTUVWXYZ\",\"i0\":\"\xE5\xBE\xAE\xE4\xBF\xA1\"}", &c));
     CHECK(c.list_rows == 3 && c.list_item[1][0] == '\0' && c.list_top == 2);
-    CHECK_STR(c.list_item[2], "ABCDEFGHIJKLMNOPQRSTUVW");
-    CHECK_STR(c.list_item[0], "??");
+    CHECK_STR(c.list_item[2], "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    CHECK_STR(c.list_item[0], "微信");
+    // 新固件:列表标题 / 行保留 UTF-8,配合 12 px 中文字库显示。
+    CHECK(parse("{\"cmd\":\"list\",\"title\":\"项目\",\"sel\":0,\"n\":1,\"i0\":\"处理绿色图裁剪布局\"}", &c));
+    CHECK_STR(c.list_title, "项目");
+    CHECK_STR(c.list_item[0], "处理绿色图裁剪布局");
     // 空列表:n=0,sel 不检查。
     CHECK(parse("{\"cmd\":\"list\",\"title\":\"EMPTY\",\"sel\":0,\"n\":0}", &c) && c.list_n == 0 && c.list_rows == 0);
     // 必填字段缺失、越界、类型错误 → 整条丢弃。

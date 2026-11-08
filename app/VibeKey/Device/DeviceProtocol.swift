@@ -154,6 +154,8 @@ nonisolated enum HostCommand: Equatable, Sendable {
     static let keyHintMaxBytes = 11
     /// 列表页一屏最多显示的行数。
     static let listVisibleRows = 6
+    /// 列表标题 / 行文本的 UTF-8 字节上限(设备端 12 px 中文字库两行内)。
+    static let listTextMaxBytes = 47
     /// 字幕原文 / 译文各字段的 UTF-8 字节上限。
     static let captionMaxBytes = 180
     /// 字幕应用名上限。
@@ -212,12 +214,12 @@ nonisolated enum HostCommand: Equatable, Sendable {
             fields.append(("ev", .string(ev.rawValue)))
             fields.append(("msg", .string(DeviceText.ascii(msg, maxBytes: Self.textMaxBytes))))
         case .list(let title, let sel, let total, let top, let items):
-            fields.append(("title", .string(DeviceText.ascii(title, maxBytes: Self.textMaxBytes))))
+            fields.append(("title", .string(DeviceText.utf8(title, maxBytes: Self.listTextMaxBytes))))
             fields.append(("sel", .int(max(0, sel))))
             fields.append(("n", .int(max(0, total))))
             fields.append(("top", .int(max(0, top))))
             for (i, item) in items.prefix(Self.listVisibleRows).enumerated() {
-                fields.append(("i\(i)", .string(DeviceText.ascii(item, maxBytes: Self.textMaxBytes))))
+                fields.append(("i\(i)", .string(DeviceText.utf8(item, maxBytes: Self.listTextMaxBytes))))
             }
         case .caption(let app, let src, let dst, let live):
             fields.append(("app", .string(DeviceText.utf8(app, maxBytes: Self.captionAppMaxBytes))))

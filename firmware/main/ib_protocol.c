@@ -408,6 +408,11 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             } else if (strcmp(key, "app") == 0) {
                 if (!read_string_utf8(&c, out->caption_app, sizeof(out->caption_app))) return false;
                 out->has_caption_app = true;
+            } else if (strcmp(key, "title") == 0) {
+                if (!read_string_utf8(&c, out->list_title, sizeof(out->list_title))) return false;
+            } else if (key[0] == 'i' && key[1] >= '0' && key[1] < '0' + IB_LIST_ROWS && key[2] == '\0') {
+                int row = key[1] - '0';
+                if (!read_string_utf8(&c, out->list_item[row], sizeof(out->list_item[row]))) return false;
             } else if (strcmp(key, "d") == 0) {
                 if (!read_string(&c, out->wallpaper_data, sizeof(out->wallpaper_data))) return false;
                 out->has_wallpaper_data = true;
@@ -493,11 +498,9 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             out->has_level = true;
         } else if (strcmp(key, "title") == 0) {
             if (kind != VAL_STR) return false;
-            memcpy(out->list_title, text, sizeof(text));
         } else if (key[0] == 'i' && key[1] >= '0' && key[1] < '0' + IB_LIST_ROWS && key[2] == '\0') {
             if (kind != VAL_STR) return false;
             int row = key[1] - '0';
-            memcpy(out->list_item[row], text, sizeof(text));
             if (row + 1 > out->list_rows) out->list_rows = (uint8_t)(row + 1);
         } else if (strcmp(key, "n") == 0 || strcmp(key, "sel") == 0 || strcmp(key, "top") == 0) {
             if (kind != VAL_UINT || num > IB_LIST_MAX) return false;

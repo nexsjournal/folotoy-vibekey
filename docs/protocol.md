@@ -35,7 +35,7 @@ BLE GATT:
 
 ## 文本消息
 
-JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行最长 511 字节。设备只解析扁平对象:字符串值、非负整数值;未知字段忽略,未知命令整条丢弃。`state` / `keys` / `list` 的屏幕文本仍由 Mac 转成 ASCII、最长 23 字节;字幕 `caption` 的 `app` / `src` / `dst` 保留 UTF-8(`app` ≤48 字节,`src` / `dst` 各 ≤180 字节)。
+JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行最长 511 字节。设备只解析扁平对象:字符串值、非负整数值;未知字段忽略,未知命令整条丢弃。`state` / `keys` 的屏幕文本仍由 Mac 转成 ASCII、最长 23 字节;`list` 的 `title` / `i0..i5` 和字幕 `caption` 的 `app` / `src` / `dst` 保留 UTF-8(`list` 每项 ≤47 字节,`app` ≤48 字节,`src` / `dst` 各 ≤180 字节)。
 
 ### 设备 → Mac
 
@@ -71,7 +71,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | keys | `{"cmd":"keys","up":"enter","down":"esc","ok":"mic"}` | 屏幕右侧、贴着三个实体键显示的提示**图标**,值为图标 id(ASCII,区分大小写),随模式与用户映射变化;字段可选(没出现的键保持不变),空字符串或未知 id 隐藏该键的提示(不会让整条命令失效)。固定 id 集合:`enter`(回车)、`esc`(Esc)、`undo`(撤销)、`stab`(Shift-Tab)、`tab`(Tab)、`send`(⌘↩ 发送)、`stop`(停止)、`cancel`(取消)、`check`(确认)、`repeat`(重来)、`mode`(切换模式)、`apps`(应用切换器)、`mic`(说话)、`translate`(翻译)、`hide`(隐藏)、`up` / `down`(上 / 下移动)、`play`(开始)、`open`(打开)、`bksp`(⌫ 退格)、`del`(⌦ 向后删除)。旧固件不认识 `bksp` / `del`,会隐藏该提示。图标来自 Material Icons Round(`del` 由 backspace 水平镜像派生) |
 | agent | `{"cmd":"agent","ev":"done","msg":"Claude Code"}` | 编程 Agent 通知(vibe coding):`ev` 为 `done`(任务完成)/ `input`(等待你确认或输入)/ `clear`(撤销通知);`msg` 为来源名或 `OK OPEN <项目名>`。设备弹出全屏通知层并播放提示音(`input` 每 20 秒提醒一次),任意键或 `clear` 关闭;按键仍上报 `key` 并附加 `"ack":1`。短按 OK 可由 Mac 解释为打开绑定会话 |
 
-| list | `{"cmd":"list","title":"SWITCH APP","sel":2,"n":7,"top":0,"i0":"Ghostty","i1":"Chrome","i2":"Xcode","i3":"Finder","i4":"Mail","i5":"Notes"}` | 列表页内容(如应用切换器),选中项由 Mac 维护,设备只显示。`n`(总项数)与 `sel`(选中项绝对序号)必填,均为 0..65535,`n>0` 时要求 `sel<n`、`top<n`,否则整条丢弃;`top` 为 `i0` 在完整列表里的序号(缺省 0,用于滚动条);`title` 可选;`i0`..`i5` 为最多 6 个可见行(ASCII,最长 23 字节,可缺行),`i6` 及以后忽略。每次选中或滚动变化都重发整条 |
+| list | `{"cmd":"list","title":"SWITCH APP","sel":2,"n":7,"top":0,"i0":"Ghostty","i1":"Chrome","i2":"Xcode","i3":"Finder","i4":"Mail","i5":"Notes"}` | 列表页内容(如应用切换器),选中项由 Mac 维护,设备只显示。`n`(总项数)与 `sel`(选中项绝对序号)必填,均为 0..65535,`n>0` 时要求 `sel<n`、`top<n`,否则整条丢弃;`top` 为 `i0` 在完整列表里的序号(缺省 0,用于滚动条);`title` 可选;`i0`..`i5` 为最多 6 个可见行(UTF-8,每项 ≤47 字节,可缺行),`i6` 及以后忽略。固件用 12 px 中文字库显示中文项目 / 会话名,超出宽度时末尾显示 `..`。每次选中或滚动变化都重发整条 |
 | caption | `{"cmd":"caption","app":"ego lite","src":"今天讲一下 Passport 的字幕","dst":"Today we'll talk about Passport subtitles","live":0}` | SUB 页的 UTF-8 字幕。`app` 为应用名(优先于 `state.msg`);`src` / `dst` 为原文 / 译文,各最多 180 字节,Mac 只发最新内容的末尾;`live=1` 表示末句还在变化,译文用略暗颜色。字段可选,空字符串清空对应内容。旧固件忽略该命令 |
 | wallpaper | `{"cmd":"wallpaper","size":153600,"crc":3735928559}`<br>`{"cmd":"wallpaper","off":288,"d":"..."}`<br>`{"cmd":"wallpaper","fin":1}`<br>`{"cmd":"wallpaper","clear":1}` | 离线页背景。`start` 必须同时有 `size` / `crc`,设备先擦除独立分区再回 `p:"start"`;随后按 `off` 递增发送每块 288 字节的 Base64(`d`,编码后 384 字符);`fin=1` 时校验总长度与 CRC32,写入头后回 `p:"done"` 并重启。`clear=1` 只擦除头部并重启回内置猫图。只建议经 USB / Wi-Fi 上传；BLE 太慢 |
 
