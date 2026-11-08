@@ -407,7 +407,7 @@
   "每月 200 万字符免费": "2M free characters per month",
   "每月 500 万字符免费": "5M free characters per month",
   "每月前 50 万字符免费（需要开通结算）": "First 500K characters free each month (billing required)",
-  "每行一个词，例如 Claude Code、SwiftUI、张三。Whisper 和 Apple Speech 会参考它识别，AI 润色也会按它纠正拼写。": "One term per line, e.g. Claude Code, SwiftUI, or a person's name. Whisper and Apple Speech use it as a hint, and AI Polish uses it to fix spelling.",
+  "每行一个词。可用「正式写法 = 常见误识别」指定纠正，例如 DeepSeek = DIPSEEK, deep seek, 迪普希克。识别后立即替换，不增加出字延迟；Whisper 和 Apple Speech 也会参考正式写法。": "One term per line. Use \"preferred = common mishearing\" to add corrections, e.g. DeepSeek = DIPSEEK, deep seek, 迪普希克. Corrections are applied instantly with no extra latency; Whisper and Apple Speech also use the preferred spelling as a hint.",
   "永不": "Never",
   "没有听到声音": "Didn't hear anything",
   "没有固件镜像": "no firmware images",
@@ -660,5 +660,6 @@
   "Wi-Fi 名称或密码长度不正确": "The Wi-Fi name or password has an invalid length.",
   "配网时请先通过 USB 连接设备": "Connect the device over USB to set up Wi-Fi.",
   "清除 Wi-Fi 配对": "Forget Wi-Fi pairing",
-  "未配置 Wi-Fi 时，拔掉 USB 后自动使用蓝牙；已配网时使用 Wi-Fi": "Without Wi-Fi setup, unplugging USB switches to Bluetooth. After setup, the device uses Wi-Fi."
+  "未配置 Wi-Fi 时，拔掉 USB 后自动使用蓝牙；已配网时使用 Wi-Fi": "Without Wi-Fi setup, unplugging USB switches to Bluetooth. After setup, the device uses Wi-Fi.",
+  "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey": "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey"
 }

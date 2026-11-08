@@ -347,8 +347,15 @@
         }
       }
     },
-    "Claude Code\nSwiftUI\nVibeKey": {
-      "shouldTranslate": false
+    "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey"
+          }
+        }
+      }
     },
     "Codex 正在等待审批，请先在 Mac 上处理": {
       "localizations": {
@@ -4265,12 +4272,12 @@
         }
       }
     },
-    "每行一个词，例如 Claude Code、SwiftUI、张三。Whisper 和 Apple Speech 会参考它识别，AI 润色也会按它纠正拼写。": {
+    "每行一个词。可用「正式写法 = 常见误识别」指定纠正，例如 DeepSeek = DIPSEEK, deep seek, 迪普希克。识别后立即替换，不增加出字延迟；Whisper 和 Apple Speech 也会参考正式写法。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One term per line, e.g. Claude Code, SwiftUI, or a person's name. Whisper and Apple Speech use it as a hint, and AI Polish uses it to fix spelling."
+            "value": "One term per line. Use \"preferred = common mishearing\" to add corrections, e.g. DeepSeek = DIPSEEK, deep seek, 迪普希克. Corrections are applied instantly with no extra latency; Whisper and Apple Speech also use the preferred spelling as a hint."
           }
         }
       }

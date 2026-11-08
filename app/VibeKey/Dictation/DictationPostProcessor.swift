@@ -28,19 +28,21 @@ final class DictationPostProcessor: DictationPostProcessing {
     }
 
     func process(_ text: String, mode: DictationController.Mode) async -> PostProcessed {
-        guard let step = step(for: mode) else { return PostProcessed(text: text, warning: nil) }
+        // 先用词汇表做确定性纠错（DeepSeek / DIPSEEK），再决定要不要走大模型。
+        let corrected = VocabularyCorrector.apply(text, entries: settings.vocabularyEntries)
+        guard let step = step(for: mode) else { return PostProcessed(text: corrected, warning: nil) }
         do {
             let result = step == .translating
-                ? try await translation.translateDictation(text)
-                : try await processor.polish(text)
+                ? try await translation.translateDictation(corrected)
+                : try await processor.polish(corrected)
             return PostProcessed(text: result, warning: nil)
         } catch {
             // 被取消(用户点了 ✕)不算失败,调用方会放弃这次输入。
-            if error is CancellationError || Task.isCancelled { return PostProcessed(text: text, warning: nil) }
+            if error is CancellationError || Task.isCancelled { return PostProcessed(text: corrected, warning: nil) }
             // 失败时退回原文,不丢用户说的话;同时告诉用户这不是译文 / 润色后的结果。
             Log.llm.error("post-process failed: \(error.localizedDescription, privacy: .public)")
             let reason = error.localizedDescription
-            return PostProcessed(text: text, warning: step == .translating ? .untranslated(reason) : .unpolished(reason))
+            return PostProcessed(text: corrected, warning: step == .translating ? .untranslated(reason) : .unpolished(reason))
         }
     }
 }

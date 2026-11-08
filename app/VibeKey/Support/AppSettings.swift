@@ -272,9 +272,18 @@ final class AppSettings {
     }
 
     /// 词汇表:每行一个词,去掉空行。
-    var vocabularyTerms: [String] {
-        vocabulary.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
+    var vocabularyEntries: [VocabularyEntry] {
+        VocabularyCorrector.parse(vocabulary.split(whereSeparator: \.isNewline).map(String.init))
     }
+
+    /// 给 ASR 提示词 / Apple Speech contextualStrings 用的正式写法。
+    var vocabularyTerms: [String] {
+        VocabularyCorrector.promptTerms(vocabularyEntries)
+    }
+
+    /// 给 AI 润色 / 翻译提示词用：带上“常见误识别”，帮助模型结合上下文纠正。
+    var vocabularyPromptTerms: [String] {
+        VocabularyCorrector.promptDescriptions(vocabularyEntries)
+    }
+
 }

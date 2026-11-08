@@ -20,13 +20,13 @@ final class TextProcessor {
 
     func polish(_ text: String) async throws -> String {
         guard let client = client(model: settings.polishModel) else { throw LLMError.notConfigured }
-        return try await client.complete(system: Prompts.polish(vocabulary: settings.vocabularyTerms), user: text)
+        return try await client.complete(system: Prompts.polish(vocabulary: settings.vocabularyPromptTerms), user: text)
     }
 
     /// 听写翻译(会顺带修正识别错误、去口水词)。
     func translate(_ text: String, to target: TargetLanguage, model: String = "") async throws -> String {
         guard let client = client(model: model) else { throw LLMError.notConfigured }
-        let system = Prompts.translateDictation(to: target, vocabulary: settings.vocabularyTerms)
+        let system = Prompts.translateDictation(to: target, vocabulary: settings.vocabularyPromptTerms)
         return try await client.complete(system: system, user: text)
     }
 
@@ -37,7 +37,7 @@ final class TextProcessor {
         guard var client = client(model: model) else { throw LLMError.notConfigured }
         client.timeout = 10
         return client.stream(
-            system: Prompts.translateSubtitle(to: target, vocabulary: settings.vocabularyTerms),
+            system: Prompts.translateSubtitle(to: target, vocabulary: settings.vocabularyPromptTerms),
             user: Prompts.subtitleUser(current: line, context: context),
             temperature: 0.2)
     }
@@ -47,7 +47,7 @@ final class TextProcessor {
                         to target: TargetLanguage, model: String = "") async throws -> [String] {
         guard var client = client(model: model) else { throw LLMError.notConfigured }
         client.timeout = 60
-        let reply = try await client.complete(system: Prompts.translateBatch(to: target, vocabulary: settings.vocabularyTerms),
+        let reply = try await client.complete(system: Prompts.translateBatch(to: target, vocabulary: settings.vocabularyPromptTerms),
                                               user: Prompts.numberedUser(lines, context: context))
         guard let result = NumberedLines.parse(reply, count: lines.count) else { throw LLMError.empty }
         return result
@@ -59,7 +59,7 @@ final class TextProcessor {
                             to target: TargetLanguage, model: String = "") async throws -> [String] {
         guard var client = client(model: model) else { throw LLMError.notConfigured }
         client.timeout = 60
-        let reply = try await client.complete(system: Prompts.refineTranslations(to: target, vocabulary: settings.vocabularyTerms),
+        let reply = try await client.complete(system: Prompts.refineTranslations(to: target, vocabulary: settings.vocabularyPromptTerms),
                                               user: Prompts.refineUser(items, context: context))
         guard let result = NumberedLines.parse(reply, count: items.count) else { throw LLMError.empty }
         return result

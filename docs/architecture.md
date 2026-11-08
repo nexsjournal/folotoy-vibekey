@@ -50,6 +50,7 @@ App(AppState 组合根)
 | 识别文本处理 | `TranscriptText`(join / normalize / toSimplified / isHallucination) | SegmentedSession、AppleSpeechSession、DictationController、SubtitleController |
 | 非流式模型分段识别 | `SegmentedSession` + `VoiceActivityDetector` | SenseVoiceEngine、WhisperEngine |
 | LLM 请求(一次 / 流式) | `LLMClient.complete` / `LLMClient.stream` | TextProcessor(润色、翻译、批量、润色译文)、TranscriptSummarizer、LLMConfigForm(测试连接) |
+| 识别后词汇纠错(正式写法 / 别名) | `VocabularyCorrector` | DictationPostProcessor、AppSettings.vocabularyTerms |
 | 设备 ASCII 文本 | `DeviceText.ascii` | DeviceLink 发出的所有命令 |
 | 设备状态映射 | `DeviceStateMapper` | DeviceBridge |
 | esptool 调用与输出解析 | `EsptoolRunner` | FirmwareFlasher |
@@ -115,6 +116,7 @@ KeyboardShortcuts.onKeyUp(.dictate) → HotkeyManager.Actions.dictateUp
      → (150 ms 尾音)AudioSource.stop
      → await sessionTask → ASRSession.finish → 文本(等事件任务处理完,结束时才报的错误也能显示)
      → TranscriptText.normalize
+     → VocabularyCorrector.apply(词汇表：正式写法 + 常见误识别别名；毫秒级、不调用模型)
      → DictationPostProcessing.process(默认 DictationPostProcessor):TextProcessor.polish | TranslationService.translateDictation
          (按 AppSettings.dictationTranslationMethod:AI → TextProcessor.translate;系统 / 在线服务 → translateBatch;目标 = translateTarget)
          失败退回原文,但带上 PostProcessWarning(.untranslated / .unpolished + 原因),结果不再显示成绿色「已输入」
@@ -717,7 +719,7 @@ AppSettings(didSet 写 UserDefaults;API Key 写 CredentialStore)
 ```
 Passport OK down → DictationController.pressDown(pushToTalk)
  → PassportMicSource / MicSource → ASR
-Passport OK up → ASR.finish → 润色或听写翻译 → TextInserter.insert
+Passport OK up → ASR.finish → 词汇纠错 → 润色或听写翻译 → TextInserter.insert
  → 在开始录音时的前台应用输入文字，显示 TYPED；不自动发送
 
 Passport UP → CodexActionCoordinator.send
