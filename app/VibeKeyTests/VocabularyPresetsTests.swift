@@ -14,7 +14,8 @@ nonisolated final class VocabularyPresetsTests: XCTestCase {
         let entries = VocabularyCorrector.parse(VocabularyPresets.recommended)
         XCTAssertGreaterThan(entries.count, 150)
         let terms = Set(entries.map(\.term))
-        for term in ["DeepSeek", "Figma", "Kubernetes", "分镜", "React", "Kafka", "唐朝", "珠穆朗玛峰"] {
+        for term in ["DeepSeek", "Figma", "Kubernetes", "分镜", "React", "Kafka",
+                     "唐朝", "珠穆朗玛峰", "36氪", "机器之心", "TechCrunch", "小红书"] {
             XCTAssertTrue(terms.contains(term), "missing \(term)")
         }
     }

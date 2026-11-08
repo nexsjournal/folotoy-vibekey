@@ -5,7 +5,7 @@ import Foundation
 /// 避免把“日活”强行改成 DAU 这类翻译行为。
 nonisolated enum VocabularyPresets {
     /// 以后更新推荐词时递增，AppSettings 会做一次合并迁移。
-    static let version = 1
+    static let version = 2
 
     static let text = """
     # AI 模型 / 产品
@@ -322,6 +322,54 @@ nonisolated enum VocabularyPresets {
     Cloudflare
     Vercel
     Supabase
+
+    # 互联网产品 / 平台
+    微信
+    公众号
+    视频号
+    抖音
+    小红书
+    哔哩哔哩
+    B站
+    知乎
+    微博
+    豆瓣
+    淘宝
+    京东
+    拼多多
+    美团
+    大众点评
+    滴滴
+    飞书
+    钉钉
+    企业微信
+    Notion
+    Slack
+    Discord
+    Zoom
+    Canva
+
+    # AI 资讯 / 媒体 / 会议
+    36氪 = 36 克, 三十六氪
+    量子位
+    机器之心
+    新智元
+    极客公园
+    虎嗅
+    InfoQ
+    TechCrunch = tech crunch
+    The Verge = verge
+    Wired
+    Hacker News = hacker news
+    Product Hunt = product hunt
+    arXiv
+    Papers with Code
+    NeurIPS = neurips
+    ICML
+    ICLR
+    CVPR
+    ACL
+    EMNLP
 
     # 历史
     先秦
