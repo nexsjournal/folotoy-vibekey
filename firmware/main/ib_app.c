@@ -471,6 +471,14 @@ static void revert_home(void)
 // 不清除 Mac 最后下发的状态:恢复在线时 refresh_links 按 s_st 回到原页面(Mac 若重新握手也会重发 state)。
 // 例外:done / err 是短暂结果页,离线期间不会再走 refresh_timers 的自动返回,直接收拢到常驻页,
 // 否则恢复在线后会停在结果页上。列表内容作废(s_list_ready 清零),等 Mac 重新下发 list。
+static const char *offline_hint(void)
+{
+    if (s_usb_present) return "USB LINKED / OPEN VIBEKEY";
+    if (s_ble_subscribed) return "BLE LINKED / OPEN VIBEKEY";
+    if (ib_wifi_is_configured()) return "WIFI READY / OPEN VIBEKEY";
+    return "PLUG USB OR SET UP WIFI";
+}
+
 static void go_offline(void)
 {
     mic_stop();
@@ -485,10 +493,7 @@ static void go_offline(void)
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
         ib_ui_set_level(0);
-        ib_ui_set_offline_hint(s_usb_present ? "USB LINKED / OPEN VIBEKEY"
-                               : s_ble_subscribed ? "BLE LINKED / OPEN VIBEKEY"
-                               : ib_wifi_is_configured() ? "WIFI READY / OPEN VIBEKEY"
-                                                         : "PLUG USB OR SET UP WIFI");
+        ib_ui_set_offline_hint(offline_hint());
     }
     show_screen(IB_UI_OFFLINE);
     refresh_clock(now_ms(), true);
@@ -507,10 +512,7 @@ static void refresh_links(int64_t now)
         s_usb_present = usb;
         refresh_battery(now, true);     // 更新充电图标
         if (!s_online && s_ui_ok && s_wake_until == 0) {
-            ib_ui_set_offline_hint(usb ? "USB LINKED / OPEN VIBEKEY"
-                                   : s_ble_subscribed ? "BLE LINKED / OPEN VIBEKEY"
-                                   : ib_wifi_is_configured() ? "WIFI READY / OPEN VIBEKEY"
-                                                             : "PLUG USB OR SET UP WIFI");
+            ib_ui_set_offline_hint(offline_hint());
         }
     }
 
@@ -757,6 +759,7 @@ static void app_task(void *arg)
             case EV_LINK:
                 if (ev.link == IB_LINK_BLE) s_ble_subscribed = ev.subscribed;
                 if (!ev.subscribed) ib_links_drop(&s_links, ev.link);
+                if (!s_online && s_ui_ok && s_wake_until == 0) ib_ui_set_offline_hint(offline_hint());
                 break;
             }
         }
