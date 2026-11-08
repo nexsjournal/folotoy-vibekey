@@ -228,7 +228,16 @@ final class AppSettings {
             summaryModel = ""
         }
         Self.runOnce("removedSummaryAPIKey", defaults) { credentials.set(nil, for: "summaryAPIKey") }
-        vocabulary = defaults.string(forKey: "vocabulary") ?? ""
+        let loadedVocabulary = defaults.string(forKey: "vocabulary") ?? ""
+        // 推荐词汇一次性合并进现有列表：保留用户自己写的词，只补缺失项。
+        if defaults.integer(forKey: "vocabularyPresetVersion") < VocabularyPresets.version {
+            let merged = VocabularyPresets.merged(into: loadedVocabulary)
+            vocabulary = merged
+            defaults.set(merged, forKey: "vocabulary")
+            defaults.set(VocabularyPresets.version, forKey: "vocabularyPresetVersion")
+        } else {
+            vocabulary = loadedVocabulary
+        }
         useMirror = defaults.bool(forKey: "useMirror")
         soundEffects = defaults.object(forKey: "soundEffects") as? Bool ?? true
         deviceBluetooth = defaults.object(forKey: "deviceBluetooth") as? Bool ?? true

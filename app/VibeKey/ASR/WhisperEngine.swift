@@ -117,7 +117,11 @@ nonisolated final class WhisperDecoder: SegmentDecoder, @unchecked Sendable {
         let chinese = language == "zh" || language == "yue"
         // 提示词:中文引导输出简体与标点,同时带上词汇表。
         var prompt = chinese ? "以下是普通话的句子，使用简体中文和标点。" : ""
-        if !options.vocabulary.isEmpty { prompt += " " + options.vocabulary.joined(separator: ", ") }
+        // Whisper 的提示词只有 200 个 token，推荐词汇可能上百条；只取前 60 条，
+        // 其余交给识别后的 VocabularyCorrector，避免提示词被截断后连中文指令一起丢掉。
+        if !options.vocabulary.isEmpty {
+            prompt += " " + options.vocabulary.prefix(60).joined(separator: ", ")
+        }
         let promptTokens = prompt.isEmpty ? nil : await runner.promptTokens(prompt)
         let decodeOptions = DecodingOptions(
             task: .transcribe,
