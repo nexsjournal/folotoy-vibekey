@@ -62,10 +62,17 @@ shasum -a 256 "${dmg}" | awk '{print $1}' > "${dmg}.sha256"
 sign_update="$(find build -path '*artifacts/sparkle/Sparkle/bin/sign_update' -type f 2>/dev/null | head -1)"
 if [[ -n "${sign_update}" ]]; then
     key_args=(); [[ -n "${SPARKLE_KEY_FILE:-}" ]] && key_args=(--ed-key-file "${SPARKLE_KEY_FILE}")
-    "${sign_update}" ${key_args[@]+"${key_args[@]}"} "${dmg}" > "${dmg}.sparkle"
-    signature="$(sed -nE 's/.*edSignature="([^"]+)".*/\1/p' "${dmg}.sparkle")"
-    "${sign_update}" ${key_args[@]+"${key_args[@]}"} --verify "${dmg}" "${signature}" >/dev/null
-    echo "==> Sparkle signature: $(cat "${dmg}.sparkle")"
+    signature_out="$(mktemp)"
+    if "${sign_update}" ${key_args[@]+"${key_args[@]}"} "${dmg}" > "${signature_out}" 2>&1 \
+        && grep -q 'edSignature=' "${signature_out}"; then
+        mv "${signature_out}" "${dmg}.sparkle"
+        signature="$(sed -nE 's/.*edSignature="([^"]+)".*/\1/p' "${dmg}.sparkle")"
+        "${sign_update}" ${key_args[@]+"${key_args[@]}"} --verify "${dmg}" "${signature}" >/dev/null
+        echo "==> Sparkle signature: $(cat "${dmg}.sparkle")"
+    else
+        rm -f "${signature_out}" "${dmg}.sparkle"
+        echo "warning: 没有可用的 Sparkle EdDSA 私钥，跳过应用内更新签名（GitHub 下载不受影响）" >&2
+    fi
 else
     echo "warning: 没找到 Sparkle 的 sign_update,这个 DMG 不能在 app 内安装" >&2
 fi
