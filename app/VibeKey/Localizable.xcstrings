@@ -972,6 +972,46 @@
         }
       }
     },
+    "上传一张照片，Mac 会把它裁成 240×320、像素化、转成绿色单色，并把顶部和底部压暗，保证状态栏、时钟和日期可读。原图只在内存里处理；应用后设备会重启一次。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload a photo. Your Mac crops it to 240×320, pixelates it, converts it to green monochrome, and darkens the top and bottom so the status bar, clock, and date stay readable. The original is processed only in memory; the device restarts once after applying."
+          }
+        }
+      }
+    },
+    "上传走当前 USB / Wi-Fi 链路，完成后设备自动重启。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploads over the current USB / Wi-Fi link. The device restarts when finished."
+          }
+        }
+      }
+    },
+    "上传超时，请保持连接后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload timed out. Keep the device connected and try again."
+          }
+        }
+      }
+    },
+    "上传过程中连接断开了，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection dropped during upload. Try again."
+          }
+        }
+      }
+    },
     "上次刷写失败：%@": {
       "localizations": {
         "en": {
@@ -2092,6 +2132,26 @@
         }
       }
     },
+    "图片太小，至少需要 32×32 像素。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image is too small; it must be at least 32×32 pixels."
+          }
+        }
+      }
+    },
+    "图片尺寸不正确，请重新选择。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image size is invalid. Choose another image."
+          }
+        }
+      }
+    },
     "在 Codex 里输入 /hooks 信任一次后生效": {
       "localizations": {
         "en": {
@@ -2712,6 +2772,26 @@
         }
       }
     },
+    "应用到 Passport": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply to Passport"
+          }
+        }
+      }
+    },
+    "建议选主体居中、明暗反差大的照片；会自动裁成 3:4。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a centered photo with strong contrast; it is cropped to 3:4 automatically."
+          }
+        }
+      }
+    },
     "开关实时字幕": {
       "localizations": {
         "en": {
@@ -2888,6 +2968,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Summarize what's new since the last summary"
+          }
+        }
+      }
+    },
+    "恢复默认": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Default"
           }
         }
       }
@@ -3408,6 +3498,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't detect the source language"
+          }
+        }
+      }
+    },
+    "无法读取这张图片，请换一张 PNG / JPEG / HEIC。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read this image. Try another PNG / JPEG / HEIC."
           }
         }
       }
@@ -3968,6 +4068,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Installing firmware"
+          }
+        }
+      }
+    },
+    "正在写入设备 %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing to device %lld%%"
           }
         }
       }
@@ -4688,6 +4798,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Approve First Option (1 + Return)"
+          }
+        }
+      }
+    },
+    "离线页背景": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline wallpaper"
           }
         }
       }
@@ -5542,6 +5662,16 @@
         }
       }
     },
+    "设备拒绝了这张图片，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device rejected this image. Try again."
+          }
+        }
+      }
+    },
     "设备无响应，正在重新连接": {
       "localizations": {
         "en": {
@@ -5818,6 +5948,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bring Codex to the front before holding OK."
+          }
+        }
+      }
+    },
+    "请先用 USB 或 Wi-Fi 连接 Passport（蓝牙传图片太慢）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Passport over USB or Wi-Fi first (Bluetooth is too slow for images)."
           }
         }
       }
@@ -6182,6 +6322,16 @@
         }
       }
     },
+    "选择图片…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Image…"
+          }
+        }
+      }
+    },
     "选择模型": {
       "localizations": {
         "en": {
@@ -6482,6 +6632,16 @@
         }
       }
     },
+    "需要先用 USB 或 Wi-Fi 连接 Passport；蓝牙传图片太慢。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Passport over USB or Wi-Fi first; Bluetooth is too slow for images."
+          }
+        }
+      }
+    },
     "需要先配置 AI 服务": {
       "localizations": {
         "en": {
@@ -6622,12 +6782,32 @@
         }
       }
     },
+    "默认猫图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default cat"
+          }
+        }
+      }
+    },
     "默认翻译成": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Default Translation Language"
+          }
+        }
+      }
+    },
+    "默认：内置像素猫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default: built-in pixel cat"
           }
         }
       }

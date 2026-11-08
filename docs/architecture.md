@@ -645,6 +645,28 @@ PassportSetupView「刷入固件」→ PassportSetupModel.flashFirmware
  → (可选)readFlash 整片 8 MB 存成 passport-<MAC>-flash.bin → writeFlash(eraseAll: false,flash 参数 keep)→ after(hard_reset)
 ```
 
+## 9a. 离线页自定义壁纸
+
+```
+设置 › Passport › 离线页背景
+ → fileImporter 选图 → WallpaperProcessor.process(url:)
+     → CGImage 3:4 居中裁切 → 60×80 降采样 → 亮度 + Bayer 抖动 → 24 级绿色
+     → 顶部 40 px / 底部 y=200 起压暗 → 4×4 放大成 240×320 预览
+     → 240×320 RGB565 小端、行优先输出(153600 字节)
+ → WallpaperSection.apply → DeviceLink.uploadWallpaper
+     → wallpaper start(size,crc) → 等设备回 p:"start"(擦除完成,15 s 超时)
+     → 每块 288 字节 base64,off 递增,每块 6 ms 节流
+     → wallpaper fin=1 → 设备校验长度 + CRC32、写头、回 p:"done"、500 ms 后重启
+ → WallpaperStore.save(240×320 预览 PNG)
+
+固件启动:ib_app_start → ib_wallpaper_init
+ → esp_partition_find_first(data, 0x40, "wallpaper")
+ → esp_partition_mmap(头 + 153600 字节) → 校验 VKW1 / size / CRC32
+ → ib_ui_offline.create 用映射指针构造 lv_image_dsc_t;无效则用 ib_offline_art.inc 内置猫图
+```
+
+壁纸分区 `0x310000/0x30000` 在 factory 与 cardid 之间；写头放在最后，断电或分块中断只会让 CRC 失效并回退默认图。Mac 端不保存用户原图，只保存处理后的预览；原图与像素数据都不进仓库。
+
 ## 10. 界面语言
 
 ```

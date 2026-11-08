@@ -34,6 +34,7 @@ class FlashLayoutTests(unittest.TestCase):
             entry("nvs", 1, 2, 0x9000, 0x6000),
             entry("phy_init", 1, 1, 0xf000, 0x1000),
             entry("factory", 0, 0, 0x10000, 0x300000),
+            entry("wallpaper", 1, 0x40, 0x310000, 0x30000),
             entry("cardid", 1, 2, 0x356000, 0x4000),
         ])))
         self.args = self.build / "flash_args"

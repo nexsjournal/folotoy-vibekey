@@ -32,6 +32,7 @@
 #include "ib_protocol.h"
 #include "ib_ui.h"
 #include "ib_usb.h"
+#include "ib_wallpaper.h"
 #include "ib_wifi.h"
 
 #include "esp_app_desc.h"
@@ -39,6 +40,7 @@
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -46,6 +48,7 @@
 #include "nvs_flash.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 static const char *TAG = "ib_app";
 
@@ -55,7 +58,7 @@ _Static_assert((int)IB_UI_KEY_UP == (int)IB_KEY_UP && (int)IB_UI_KEY_DOWN == (in
                (int)IB_UI_KEY_OK == (int)IB_KEY_OK, "ib_ui_key_t and ib_key_t must share the same order");
 
 #define EVENT_QUEUE_LEN      16
-#define APP_TASK_STACK       4096
+#define APP_TASK_STACK       8192
 #define APP_TASK_PRIO        5
 #define LOOP_PERIOD_MS       100
 #define BATTERY_PERIOD_MS    60000
@@ -127,6 +130,7 @@ _Static_assert(IB_CAPTION_APP_MAX == IB_UI_CAPTION_APP_MAX, "caption app buffer 
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
 static int64_t s_revert_at;             // done/err 自动回 IDLE 的时刻,0 表示无
 static bool s_list_ready;               // 收到过当前这轮的 list 命令
+static int64_t s_restart_at;            // 壁纸写入成功后延迟重启,先让 ack 发出去
 
 // 按键
 static ib_keys_t s_keys;
@@ -183,9 +187,18 @@ void ib_app_on_button(bsp_btn_t btn, bsp_btn_ev_t ev, void *user)
 
 static void post_command(ib_link_t link, const char *line, size_t len)
 {
-    app_event_t event = { .type = EV_COMMAND, .link = link };
-    if (!ib_parse_command(line, len, &event.cmd)) return;     // 非法或未知命令整条丢弃
-    xQueueSend(s_queue, &event, 0);
+    // 壁纸命令带 384 字符 base64，ib_cmd_t 约 1.1 KB。接收任务(USB / BLE / Wi-Fi)的栈
+    // 不够放大对象，改在堆上解析；xQueueSend 会复制进队列，随后即可释放。
+    app_event_t *event = calloc(1, sizeof(*event));
+    if (!event) return;
+    event->type = EV_COMMAND;
+    event->link = link;
+    if (!ib_parse_command(line, len, &event->cmd) || !s_queue) {
+        free(event);
+        return;     // 非法或未知命令整条丢弃
+    }
+    xQueueSend(s_queue, event, 0);
+    free(event);
 }
 
 static void on_usb_line(const char *line, size_t len)
@@ -644,6 +657,27 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
         s_caption_live = cmd->caption_live;
         if (s_ui_ok) ib_ui_set_caption(s_caption_src, s_caption_dst, s_caption_app, s_caption_live);
         break;
+    case IB_CMD_WALLPAPER: {
+        bool ok = false;
+        const char *phase = NULL;
+        if (cmd->wallpaper_clear) {
+            ok = ib_wallpaper_clear() == ESP_OK;
+            phase = "clear";
+        } else if (cmd->wallpaper_finish) {
+            ok = ib_wallpaper_finish() == ESP_OK;
+            phase = "done";
+        } else if (cmd->has_wallpaper_size && cmd->has_wallpaper_crc) {
+            ok = ib_wallpaper_begin(cmd->wallpaper_size, cmd->wallpaper_crc) == ESP_OK;
+            phase = "start";
+        } else if (cmd->has_wallpaper_off && cmd->has_wallpaper_data) {
+            ok = ib_wallpaper_write(cmd->wallpaper_off, cmd->wallpaper_data) == ESP_OK;
+        }
+        if (phase) {
+            send_to(link, msg, ib_format_wallpaper(msg, sizeof(msg), ok, phase));
+            if (ok && (cmd->wallpaper_finish || cmd->wallpaper_clear)) s_restart_at = now + 500;
+        }
+        break;
+    }
     case IB_CMD_BYE:
         break;
     }
@@ -653,6 +687,7 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
 
 static void refresh_timers(int64_t now)
 {
+    if (s_restart_at && now >= s_restart_at) esp_restart();
     if (s_wake_until && now >= s_wake_until) {
         if (!s_wake_failed) {
             s_wake_failed = true;
@@ -742,6 +777,7 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
     s_queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(app_event_t));
     ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "event queue alloc failed");
 
+    ib_wallpaper_init();
     if (s_ui_ok && ib_ui_init() != ESP_OK) {
         ESP_LOGE(TAG, "UI init failed, continue without screen");
         s_ui_ok = false;

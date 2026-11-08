@@ -27,6 +27,10 @@
 #define IB_MSG_MAX          128
 // config.screen_off 上限(秒),超出按上限处理。
 #define IB_SCREEN_OFF_MAX_S 86400
+// 离线页背景:240×320 RGB565,共 153600 字节。
+#define IB_WALLPAPER_MAX_BYTES (240 * 320 * 2)
+// wallpaper 分块命令里 base64 字段上限:288 字节编码为 384 字符,留出 NUL。
+#define IB_WALLPAPER_B64_MAX 388
 
 // 二进制帧:FF FE type seq len_lo len_hi + 负载(1..1024 字节)。
 #define IB_BIN_SYNC0        0xFF
@@ -86,6 +90,7 @@ typedef enum {
     IB_CMD_AGENT,
     IB_CMD_LIST,
     IB_CMD_CAPTION,
+    IB_CMD_WALLPAPER,
 } ib_cmd_type_t;
 
 typedef struct {
@@ -138,6 +143,17 @@ typedef struct {
     char caption_src[IB_CAPTION_MAX];
     char caption_dst[IB_CAPTION_MAX];
     char caption_app[IB_CAPTION_APP_MAX];
+    // wallpaper:start(size + crc)/ chunk(off + d)/ finish(fin=1)/ clear(clear=1)。
+    bool has_wallpaper_size;
+    uint32_t wallpaper_size;
+    bool has_wallpaper_crc;
+    uint32_t wallpaper_crc;
+    bool has_wallpaper_off;
+    uint32_t wallpaper_off;
+    bool has_wallpaper_data;
+    char wallpaper_data[IB_WALLPAPER_B64_MAX];
+    bool wallpaper_finish;
+    bool wallpaper_clear;
 } ib_cmd_t;
 
 const char *ib_key_name(ib_key_t key);          // "up" / "down" / "ok";越界 "?"
@@ -157,6 +173,8 @@ size_t ib_format_battery(char *buf, size_t cap, int soc, int mv, bool charging);
 size_t ib_format_pong(char *buf, size_t cap);
 // 设备 → Mac:OFFLINE 页按 OK 时请求重新握手。
 size_t ib_format_wake(char *buf, size_t cap);
+// 设备 → Mac:离线页背景写入 / 清除结果。phase 为 "start" / "done" / "clear"。
+size_t ib_format_wallpaper(char *buf, size_t cap, bool ok, const char *phase);
 
 // 写二进制帧头;payload_len 不在 1..IB_BIN_MAX 时返回 0。
 size_t ib_bin_header(uint8_t out[IB_BIN_HDR], uint8_t type, uint8_t seq, size_t payload_len);

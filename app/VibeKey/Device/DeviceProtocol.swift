@@ -48,6 +48,8 @@ nonisolated enum DeviceMessage: Equatable, Sendable {
     case pong
     case wake
     case wifi(DeviceWiFiStatus)
+    /// 离线页背景上传结果。`phase` 为 `start`（擦除完成）/ `done` / `clear`。
+    case wallpaper(ok: Bool, phase: String)
 
     static let firmwareName = "vibekey"
     /// 0.1.7 及更早的固件沿用了上游 `inputbetter` 标识;新 app 继续接受,避免必须先刷机才能连上。
@@ -112,6 +114,8 @@ nonisolated enum DeviceMessage: Equatable, Sendable {
             return .pong
         case "wake":
             return .wake
+        case "wallpaper":
+            return .wallpaper(ok: (int("ok") ?? 0) > 0, phase: string("p") ?? "")
         default:
             return nil
         }
@@ -138,6 +142,11 @@ nonisolated enum HostCommand: Equatable, Sendable {
     case list(title: String, sel: Int, total: Int, top: Int, items: [String])
     /// 字幕:应用名 + 当前原文 / 译文(UTF-8);`live` 表示末行还在变化。
     case caption(app: String, src: String, dst: String, live: Bool)
+    /// 离线页背景：分块上传 240×320 RGB565，设备写入独立分区后重启。
+    case wallpaperStart(size: Int, crc: UInt32)
+    case wallpaperChunk(offset: Int, base64: String)
+    case wallpaperFinish
+    case wallpaperClear
 
     /// 设备屏幕文本字段(msg、engine)的最大字节数。
     static let textMaxBytes = 23
@@ -149,6 +158,8 @@ nonisolated enum HostCommand: Equatable, Sendable {
     static let captionMaxBytes = 180
     /// 字幕应用名上限。
     static let captionAppMaxBytes = 48
+    /// 每块原始字节数；base64 后 384 字符，整行仍小于 511 字节。
+    static let wallpaperChunkBytes = 288
 
     /// 列表可见窗口的起始下标:尽量让选中项居中,并且不越过列表末尾。
     static func listTop(total: Int, selected: Int) -> Int {
@@ -169,6 +180,7 @@ nonisolated enum HostCommand: Equatable, Sendable {
         case .agent: "agent"
         case .list: "list"
         case .caption: "caption"
+        case .wallpaperStart, .wallpaperChunk, .wallpaperFinish, .wallpaperClear: "wallpaper"
         }
     }
 
@@ -212,6 +224,16 @@ nonisolated enum HostCommand: Equatable, Sendable {
             fields.append(("src", .string(DeviceText.utf8Tail(src, maxBytes: Self.captionMaxBytes))))
             fields.append(("dst", .string(DeviceText.utf8Tail(dst, maxBytes: Self.captionMaxBytes))))
             fields.append(("live", .int(live ? 1 : 0)))
+        case .wallpaperStart(let size, let crc):
+            fields.append(("size", .int(size)))
+            fields.append(("crc", .int(Int(crc))))
+        case .wallpaperChunk(let offset, let base64):
+            fields.append(("off", .int(offset)))
+            fields.append(("d", .string(base64)))
+        case .wallpaperFinish:
+            fields.append(("fin", .int(1)))
+        case .wallpaperClear:
+            fields.append(("clear", .int(1)))
         }
         return FlatJSON.encode(fields)
     }

@@ -5,6 +5,8 @@
 #include "ib_ui_dots.h"
 #include "ib_ui_gfx.h"
 #include "ib_ui_page.h"
+#include "ib_protocol.h"
+#include "ib_wallpaper.h"
 
 #define CLOCK_PITCH 6
 #define CLOCK_X0    ((IB_UI_W - 24 * CLOCK_PITCH) / 2)
@@ -25,6 +27,7 @@ static const lv_image_dsc_t OFFLINE_IMAGE = {
     .data_size = sizeof(OFFLINE_ART),
     .data = OFFLINE_ART,
 };
+static lv_image_dsc_t s_wallpaper_image;
 
 // 5x7 数字字模(每行 5 位,高位在左)。
 static const uint8_t DIGITS[10][7] = {
@@ -85,7 +88,15 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
     (void)ctx;
     lv_obj_t *root = ib_box_create(parent, 0, 0, IB_UI_W, IB_UI_H);
     lv_obj_t *background = lv_image_create(root);
-    lv_image_set_src(background, &OFFLINE_IMAGE);
+    const uint8_t *pixels = ib_wallpaper_pixels();
+    if (pixels) {
+        s_wallpaper_image = OFFLINE_IMAGE;
+        s_wallpaper_image.data_size = IB_WALLPAPER_MAX_BYTES;
+        s_wallpaper_image.data = pixels;
+        lv_image_set_src(background, &s_wallpaper_image);
+    } else {
+        lv_image_set_src(background, &OFFLINE_IMAGE);
+    }
     lv_obj_t *title = ib_label_create(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT, 0, IB_UI_W - 20);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, 10, IB_UI_BAR_H + 2);

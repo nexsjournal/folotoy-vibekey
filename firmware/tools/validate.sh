@@ -21,11 +21,13 @@ run_host() {
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_clock.c main/ib_clock.c -o "${out}/clock"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_keys.c main/ib_keys.c main/ib_links.c -o "${out}/keys"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_charge.c main/ib_charge.c -o "${out}/charge"
+    "${CC:-cc}" "${cflags[@]}" tests/test_ib_wallpaper.c main/ib_base64.c main/ib_crc32.c -o "${out}/wallpaper"
     "${out}/protocol"
     "${out}/adpcm"
     "${out}/clock"
     "${out}/keys"
     "${out}/charge"
+    "${out}/wallpaper"
     echo "Host tests: PASS"
 }
 
@@ -52,6 +54,11 @@ run_firmware() {
     fi
     if ! grep -Eq '^factory,[[:space:]]*app,[[:space:]]*factory,[[:space:]]*0x10000,[[:space:]]*0x300000' partitions.csv; then
         echo "ERROR: factory 分区必须为 0x10000 / 0x300000" >&2
+        return 1
+    fi
+    # 自定义壁纸分区必须完整落在 factory 与 cardid 之间的空闲区。
+    if ! grep -Eq '^wallpaper,[[:space:]]*data,[[:space:]]*0x40,[[:space:]]*0x310000,[[:space:]]*0x30000' partitions.csv; then
+        echo "ERROR: wallpaper 分区必须为 0x310000 / 0x30000" >&2
         return 1
     fi
     local size

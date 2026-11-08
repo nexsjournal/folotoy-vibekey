@@ -87,6 +87,12 @@ size_t ib_format_wake(char *buf, size_t cap)
     return finish(snprintf(buf, cap, "{\"t\":\"wake\"}\n"), cap);
 }
 
+size_t ib_format_wallpaper(char *buf, size_t cap, bool ok, const char *phase)
+{
+    if (!phase || (strcmp(phase, "start") != 0 && strcmp(phase, "done") != 0 && strcmp(phase, "clear") != 0)) return 0;
+    return finish(snprintf(buf, cap, "{\"t\":\"wallpaper\",\"ok\":%d,\"p\":\"%s\"}\n", ok ? 1 : 0, phase), cap);
+}
+
 size_t ib_bin_header(uint8_t out[IB_BIN_HDR], uint8_t type, uint8_t seq, size_t payload_len)
 {
     if (payload_len == 0 || payload_len > IB_BIN_MAX) return 0;
@@ -346,6 +352,7 @@ static const char *const KNOWN_KEYS[] = {
     "ok", "up", "down", "ev",
     "title", "n", "sel", "top", "i0", "i1", "i2", "i3", "i4", "i5",
     "src", "dst", "live", "app",
+    "size", "crc", "off", "d", "fin", "clear",
 };
 
 static bool is_known_key(const char *key)
@@ -401,6 +408,9 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             } else if (strcmp(key, "app") == 0) {
                 if (!read_string_utf8(&c, out->caption_app, sizeof(out->caption_app))) return false;
                 out->has_caption_app = true;
+            } else if (strcmp(key, "d") == 0) {
+                if (!read_string(&c, out->wallpaper_data, sizeof(out->wallpaper_data))) return false;
+                out->has_wallpaper_data = true;
             } else if (!read_string(&c, text, sizeof(text))) {
                 return false;
             }
@@ -503,6 +513,24 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
         } else if (strcmp(key, "live") == 0) {
             if (kind != VAL_UINT) return false;
             out->caption_live = num != 0;
+        } else if (strcmp(key, "size") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->wallpaper_size = num;
+            out->has_wallpaper_size = true;
+        } else if (strcmp(key, "crc") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->wallpaper_crc = num;
+            out->has_wallpaper_crc = true;
+        } else if (strcmp(key, "off") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->wallpaper_off = num;
+            out->has_wallpaper_off = true;
+        } else if (strcmp(key, "fin") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->wallpaper_finish = num != 0;
+        } else if (strcmp(key, "clear") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->wallpaper_clear = num != 0;
         }
 
     next:
@@ -548,6 +576,11 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
     } else if (strcmp(cmd, "caption") == 0) {
         if (!out->has_caption_src && !out->has_caption_dst && !out->has_caption_app) return false;
         out->type = IB_CMD_CAPTION;
+    } else if (strcmp(cmd, "wallpaper") == 0) {
+        bool start = out->has_wallpaper_size && out->has_wallpaper_crc;
+        bool chunk = out->has_wallpaper_off && out->has_wallpaper_data;
+        if (!start && !chunk && !out->wallpaper_finish && !out->wallpaper_clear) return false;
+        out->type = IB_CMD_WALLPAPER;
     } else {
         return false;
     }

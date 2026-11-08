@@ -83,6 +83,9 @@ import Security
     private var wifiConnectFailures = 0
     /// 配网时先发配置、等设备回 wifi 状态后再保存密钥；避免设备拒绝配置时两边密钥错位。
     private var pendingWiFiPair: (host: String, key: Data, timeout: Task<Void, Never>)?
+    private var wallpaperAck: CheckedContinuation<Void, Error>?
+    private var wallpaperAckPhase: String?
+    private var wallpaperAckTimeout: Task<Void, Never>?
     /// 系统唤醒后立刻重探 USB：Mac 睡眠时串口心跳会停，设备 15 秒后切 OFFLINE；
     /// 只等下一次 Codex 通知来唤醒 App 会让人误以为「USB 连着却离线」。
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
@@ -185,11 +188,66 @@ import Security
         usb.port.write(Data("{\"cmd\":\"wifi\",\"clear\":1}\n".utf8))
         pendingWiFiPair?.timeout.cancel()
         pendingWiFiPair = nil
+        wallpaperAckTimeout?.cancel()
+        wallpaperAckTimeout = nil
+        wallpaperAck?.resume(throwing: WallpaperError.linkChanged)
+        wallpaperAck = nil
+        wallpaperAckPhase = nil
         wifiHandshakeFailed = false
         wifiConnectFailures = 0
         wifi.forget()
         wifiStatus = .init(stage: "unconfigured", host: "", address: "")
     }
+
+    /// 上传 240×320 RGB565 离线页背景。只走 USB / Wi-Fi：BLE 传 150 KB 太慢。
+    /// 设备写完校验 CRC 后回 `wallpaper ok=1`，随后重启加载新图。
+    func uploadWallpaper(_ data: Data, onProgress: @escaping @MainActor (Double) -> Void) async throws {
+        guard data.count == Self.wallpaperBytes else { throw WallpaperError.invalidSize }
+        guard let link = active, isHandshaken(link), link != .ble else { throw WallpaperError.needsFastLink }
+        wallpaperAckTimeout?.cancel()
+        write(.wallpaperStart(size: data.count, crc: CRC32.checksum(data)), via: link)
+        // 设备会先擦除 150 KB 分区；等它回 start 再发分块，避免串口队列被丢弃。
+        try await waitForWallpaperAck(phase: "start", timeout: 15)
+        var offset = 0
+        while offset < data.count {
+            try Task.checkCancellation()
+            guard active == link else { throw WallpaperError.linkChanged }
+            let end = min(offset + HostCommand.wallpaperChunkBytes, data.count)
+            write(.wallpaperChunk(offset: offset, base64: data[offset..<end].base64EncodedString()), via: link)
+            offset = end
+            // 固件在应用任务里逐块写 Flash，这里按块让出，防止 16 条的事件队列溢出。
+            try await Task.sleep(for: .milliseconds(6))
+            if offset % (HostCommand.wallpaperChunkBytes * 8) == 0 || offset == data.count {
+                onProgress(Double(offset) / Double(data.count))
+            }
+        }
+        write(.wallpaperFinish, via: link)
+        try await waitForWallpaperAck(phase: "done", timeout: 30)
+    }
+
+    /// 删除设备上的自定义背景，恢复固件内置的猫图；设备会重启。
+    func clearWallpaper() async throws {
+        guard let link = active, isHandshaken(link) else { throw WallpaperError.needsFastLink }
+        write(.wallpaperClear, via: link)
+        try await waitForWallpaperAck(phase: "clear", timeout: 15)
+    }
+
+    private func waitForWallpaperAck(phase: String, timeout: TimeInterval) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            wallpaperAck = continuation
+            wallpaperAckPhase = phase
+            wallpaperAckTimeout?.cancel()
+            wallpaperAckTimeout = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(timeout))
+                guard !Task.isCancelled, let self, let ack = self.wallpaperAck else { return }
+                self.wallpaperAck = nil
+                self.wallpaperAckPhase = nil
+                ack.resume(throwing: WallpaperError.timeout)
+            }
+        }
+    }
+
+    static let wallpaperBytes = 240 * 320 * 2
 
     /// 开始监听 USB 串口并(按设置)扫描蓝牙;重复调用无效。
     func start() {
@@ -294,6 +352,11 @@ import Security
         heartbeatTask = nil
         pendingWiFiPair?.timeout.cancel()
         pendingWiFiPair = nil
+        wallpaperAckTimeout?.cancel()
+        wallpaperAckTimeout = nil
+        wallpaperAck?.resume(throwing: WallpaperError.linkChanged)
+        wallpaperAck = nil
+        wallpaperAckPhase = nil
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil
@@ -576,6 +639,13 @@ import Security
             charging = report.charging
         case .wifi(let status):
             handleWiFiStatus(status)
+        case .wallpaper(let ok, let phase):
+            guard let ack = wallpaperAck, wallpaperAckPhase == phase else { return }
+            wallpaperAck = nil
+            wallpaperAckPhase = nil
+            wallpaperAckTimeout?.cancel()
+            wallpaperAckTimeout = nil
+            if ok { ack.resume() } else { ack.resume(throwing: WallpaperError.rejected) }
         case .pong:
             break
         case .wake:
@@ -905,5 +975,24 @@ private final class USBSession {
         self.id = id
         self.path = path
         self.port = port
+    }
+}
+
+/// 离线页背景上传失败的原因；界面直接显示 `localizedDescription`。
+nonisolated enum WallpaperError: LocalizedError {
+    case needsFastLink
+    case invalidSize
+    case rejected
+    case timeout
+    case linkChanged
+
+    var errorDescription: String? {
+        switch self {
+        case .needsFastLink: String(localized: "请先用 USB 或 Wi-Fi 连接 Passport（蓝牙传图片太慢）。", bundle: .l10n)
+        case .invalidSize: String(localized: "图片尺寸不正确，请重新选择。", bundle: .l10n)
+        case .rejected: String(localized: "设备拒绝了这张图片，请重试。", bundle: .l10n)
+        case .timeout: String(localized: "上传超时，请保持连接后重试。", bundle: .l10n)
+        case .linkChanged: String(localized: "上传过程中连接断开了，请重试。", bundle: .l10n)
+        }
     }
 }

@@ -79,6 +79,7 @@ def verify(build: Path) -> None:
         "nvs": (1, 2, 0x9000, 0x6000, 0),
         "phy_init": (1, 1, 0xf000, 0x1000, 0),
         "factory": (0, 0, 0x10000, 0x300000, 0),
+        "wallpaper": (1, 0x40, 0x310000, 0x30000, 0),
         "cardid": (1, 2, CARDID, CARDID_SIZE, 0),
     }
     if entries != expected_partitions:

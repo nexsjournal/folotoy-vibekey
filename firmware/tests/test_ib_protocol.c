@@ -45,6 +45,11 @@ static void test_format(void)
     CHECK_STR(buf, "{\"t\":\"pong\"}\n");
     CHECK(ib_format_wake(buf, sizeof(buf)) > 0);
     CHECK_STR(buf, "{\"t\":\"wake\"}\n");
+    CHECK(ib_format_wallpaper(buf, sizeof(buf), true, "start") > 0);
+    CHECK_STR(buf, "{\"t\":\"wallpaper\",\"ok\":1,\"p\":\"start\"}\n");
+    CHECK(ib_format_wallpaper(buf, sizeof(buf), false, "done") > 0);
+    CHECK_STR(buf, "{\"t\":\"wallpaper\",\"ok\":0,\"p\":\"done\"}\n");
+    CHECK(ib_format_wallpaper(buf, sizeof(buf), true, "bad") == 0);
     char tiny[12];
     CHECK(ib_format_pong(tiny, sizeof(tiny)) == 0);
 
@@ -271,6 +276,31 @@ static void test_list(void)
     CHECK(!parse("{\"cmd\":\"list\",\"sel\":0,\"n\":3,\"title\":7}", &c));
 }
 
+static void test_wallpaper(void)
+{
+    ib_cmd_t c;
+    CHECK(parse("{\"cmd\":\"wallpaper\",\"size\":153600,\"crc\":4294967295}", &c));
+    CHECK(c.type == IB_CMD_WALLPAPER && c.has_wallpaper_size && c.wallpaper_size == 153600 &&
+          c.has_wallpaper_crc && c.wallpaper_crc == 4294967295U);
+
+    CHECK(parse("{\"cmd\":\"wallpaper\",\"off\":288,\"d\":\"TWFu\"}", &c));
+    CHECK(c.type == IB_CMD_WALLPAPER && c.has_wallpaper_off && c.wallpaper_off == 288 &&
+          c.has_wallpaper_data);
+    CHECK_STR(c.wallpaper_data, "TWFu");
+
+    CHECK(parse("{\"cmd\":\"wallpaper\",\"fin\":1}", &c) && c.type == IB_CMD_WALLPAPER && c.wallpaper_finish);
+    CHECK(parse("{\"cmd\":\"wallpaper\",\"clear\":1}", &c) && c.type == IB_CMD_WALLPAPER && c.wallpaper_clear);
+
+    // 不完整或类型错误的命令整条丢弃。
+    CHECK(!parse("{\"cmd\":\"wallpaper\"}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"size\":153600}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"fin\":0}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"off\":0}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"d\":\"TWFu\"}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"off\":0,\"d\":1}", &c));
+    CHECK(!parse("{\"cmd\":\"wallpaper\",\"size\":\"153600\",\"crc\":1}", &c));
+}
+
 typedef struct {
     int count;
     char last[IB_LINE_MAX];
@@ -332,6 +362,7 @@ int main(void)
     test_caption();
     test_keys_agent();
     test_list();
+    test_wallpaper();
     test_icons();
     test_line_framing();
     TEST_DONE("test_ib_protocol");

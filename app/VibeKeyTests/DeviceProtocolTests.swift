@@ -107,6 +107,14 @@ nonisolated final class DeviceProtocolTests: XCTestCase {
         XCTAssertEqual(DeviceMessage.parse(#"{"t":"pong"}"#), .pong)
         XCTAssertEqual(DeviceMessage.parse("{\"t\":\"pong\"}\r"), .pong)
         XCTAssertEqual(DeviceMessage.parse(#"{"t":"wake"}"#), .wake)
+        XCTAssertEqual(
+            DeviceMessage.parse(#"{"t":"wallpaper","ok":1,"p":"start"}"#),
+            .wallpaper(ok: true, phase: "start")
+        )
+        XCTAssertEqual(
+            DeviceMessage.parse(#"{"t":"wallpaper","ok":0,"p":"done"}"#),
+            .wallpaper(ok: false, phase: "done")
+        )
     }
 
     func testParseRejectsGarbage() {
@@ -151,6 +159,16 @@ nonisolated final class DeviceProtocolTests: XCTestCase {
         XCTAssertEqual(HostCommand.mic(true).line, #"{"cmd":"mic","on":1}"#)
         XCTAssertEqual(HostCommand.mic(false).line, #"{"cmd":"mic","on":0}"#)
         XCTAssertEqual(HostCommand.hello.data, Data("{\"cmd\":\"hello\"}\n".utf8))
+        XCTAssertEqual(
+            HostCommand.wallpaperStart(size: 153_600, crc: 0xDEAD_BEEF).line,
+            #"{"cmd":"wallpaper","size":153600,"crc":3735928559}"#
+        )
+        XCTAssertEqual(
+            HostCommand.wallpaperChunk(offset: 288, base64: "TWFu").line,
+            #"{"cmd":"wallpaper","off":288,"d":"TWFu"}"#
+        )
+        XCTAssertEqual(HostCommand.wallpaperFinish.line, #"{"cmd":"wallpaper","fin":1}"#)
+        XCTAssertEqual(HostCommand.wallpaperClear.line, #"{"cmd":"wallpaper","clear":1}"#)
     }
 
     func testLevelIsClamped() {

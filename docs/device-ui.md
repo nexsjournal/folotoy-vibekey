@@ -52,7 +52,8 @@
 
 ### OFFLINE(Mac 未连接)
 
-- 橙帽绿外套的像素猫咪坐在绿色窗景和终端面板前，占据屏幕上部；底部约 110 px 暗区留给时钟。左上角使用 14 px 终端字体把 `> OFFLINE_` 直接叠在窗景上，顶部状态栏也叠在图上。背景为 240 × 320 的 RGB565 图，真机与主机预览共用 `firmware/main/assets/offline-cat.rgb565`。
+- 默认是橙帽绿外套的像素猫咪坐在绿色窗景和终端面板前，占据屏幕上部；底部约 110 px 暗区留给时钟。左上角使用 14 px 终端字体把 `> OFFLINE_` 直接叠在窗景上，顶部状态栏也叠在图上。背景为 240 × 320 的 RGB565 图，真机与主机预览共用 `firmware/main/assets/offline-cat.rgb565`。
+- 自定义壁纸：设置 › Passport › 离线页背景选一张照片即可。Mac 端裁成 3:4、降到 60×80 后按 4×4 放大、Bayer 抖动成 24 级绿色，再把顶部 40 px 和底部从 y=200 起压暗；用户不需要预先做像素风。有效自定义图从 `wallpaper` 分区 mmap 读取，CRC 不符或没上传过时自动回退内置猫图。
 - 底部桌面上显示绿色 5×7 点阵时钟，数字以 6 px 为点距。冒号每秒渐变，每帧只重绘冒号区域。日期在 y=301，底部提示在 y=313：有 USB、BLE 或已配网 Wi-Fi 时显示 `PRESS OK TO RECONNECT`，完全没有链路时显示 `CHECK USB CABLE`。
 - 离线时按 OK 会通过当前 USB（或 BLE）发送 `wake`，让 Mac 重新握手；提示先变 `CONNECTING...`，3 秒无响应变 `NO RESPONSE - TRY AGAIN`，2 秒后恢复 `PRESS OK TO RECONNECT`。不需要拔插数据线。
 - 进入条件:全部链路都离线(15 s 没收到命令、`bye`、USB 连续 1 s 不在位、BLE 断开)。Mac 空闲被 App Nap 挂起也会触发 15 秒超时;Codex 的消息 hook 会唤醒 VibeKey，所以有时“发一条 Codex 消息就自己连上”。离线不清除 Mac 下发的状态,恢复在线后回到离线前的页面(例如字幕运行中直接回到 SUB 页)。

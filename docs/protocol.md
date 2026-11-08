@@ -46,6 +46,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | bat | `{"t":"bat","soc":87,"mv":4012,"chg":0}` | `hello` 之后及每 60 秒;读不到为 `-1`;`chg` 是否在充电(读不到为 0);判定为已充满时 `soc` 报 100、`chg` 为 0,`mv` 始终是实测电压 |
 | pong | `{"t":"pong"}` | 回复 `ping` |
 | wake | `{"t":"wake"}` | OFFLINE 页按 OK 时发送，请求 Mac 重新握手。USB/BLE 都可用时各发一次；Mac 收到后重置该链路握手状态并重发 `hello`，设备回 `hello` 后补发 `config` / `state` / `keys` |
+| wallpaper | `{"t":"wallpaper","ok":1,"p":"start"}` | 离线页背景上传的阶段回执。`p`:`start`(分区擦除完成)/ `done`(整图校验并写入成功)/ `clear`(恢复默认成功);`ok=0` 表示该阶段失败。只有 `start` / `done` / `clear` 会回,分块不回执 |
 
 - `seq` 本次上电后单调递增;`boot` 是每次上电随机生成的 8 位十六进制。Mac 用 `(boot, seq)` 去重。
 - `fw` 新固件为 `vibekey`;0.1.7 及更早固件仍是上游的 `inputbetter`,Mac 两种都接受,不需要先刷机才能升级 app。
@@ -72,6 +73,9 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 
 | list | `{"cmd":"list","title":"SWITCH APP","sel":2,"n":7,"top":0,"i0":"Ghostty","i1":"Chrome","i2":"Xcode","i3":"Finder","i4":"Mail","i5":"Notes"}` | 列表页内容(如应用切换器),选中项由 Mac 维护,设备只显示。`n`(总项数)与 `sel`(选中项绝对序号)必填,均为 0..65535,`n>0` 时要求 `sel<n`、`top<n`,否则整条丢弃;`top` 为 `i0` 在完整列表里的序号(缺省 0,用于滚动条);`title` 可选;`i0`..`i5` 为最多 6 个可见行(ASCII,最长 23 字节,可缺行),`i6` 及以后忽略。每次选中或滚动变化都重发整条 |
 | caption | `{"cmd":"caption","app":"ego lite","src":"今天讲一下 Passport 的字幕","dst":"Today we'll talk about Passport subtitles","live":0}` | SUB 页的 UTF-8 字幕。`app` 为应用名(优先于 `state.msg`);`src` / `dst` 为原文 / 译文,各最多 180 字节,Mac 只发最新内容的末尾;`live=1` 表示末句还在变化,译文用略暗颜色。字段可选,空字符串清空对应内容。旧固件忽略该命令 |
+| wallpaper | `{"cmd":"wallpaper","size":153600,"crc":3735928559}`<br>`{"cmd":"wallpaper","off":288,"d":"..."}`<br>`{"cmd":"wallpaper","fin":1}`<br>`{"cmd":"wallpaper","clear":1}` | 离线页背景。`start` 必须同时有 `size` / `crc`,设备先擦除独立分区再回 `p:"start"`;随后按 `off` 递增发送每块 288 字节的 Base64(`d`,编码后 384 字符);`fin=1` 时校验总长度与 CRC32,写入头后回 `p:"done"` 并重启。`clear=1` 只擦除头部并重启回内置猫图。只建议经 USB / Wi-Fi 上传；BLE 太慢 |
+
+壁纸分区为 `wallpaper,data,0x40,0x310000,0x30000`,不碰 `cardid`。内容为 16 字节头(`VKW1` + 小端 size + CRC32 + 保留)+ 240×320 RGB565 小端、行优先像素(153600 字节)。头最后写入；启动时 magic / 大小 / CRC 任一不符就回退固件内置猫图。CRC 是标准 IEEE 802.3(reflected `0xEDB88320`,init/xorout `0xFFFFFFFF`),与 Mac 端 `CRC32.checksum` 一致。
 
 `st` 取值:
 
