@@ -57,9 +57,8 @@ enum WallpaperProcessor {
                 bitsPerComponent: 8, bytesPerRow: pixelWidth * 4, space: space,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
             context.interpolationQuality = .high
-            // CGContext 原点在左下；翻转后让第 0 行对应图片顶部，暗带方向才正确。
-            context.translateBy(x: 0, y: CGFloat(pixelHeight))
-            context.scaleBy(x: 1, y: -1)
+            // CGBitmapContext 的第 0 行就是输出第 0 行（顶部）。不要再翻转，
+            // 否则照片会上下颠倒；暗带是在像素数组上按 y 计算的，不受这里影响。
             context.draw(cropped, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
         }
 

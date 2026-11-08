@@ -27,6 +27,14 @@ nonisolated final class WallpaperProcessorTests: XCTestCase {
         XCTAssertEqual(rgb565(artwork.rgb565, x: 4, y: 80), rgb565(artwork.rgb565, x: 7, y: 83))
     }
 
+    @MainActor func testKeepsPhotoUpright() throws {
+        // 测试图上半部亮、下半部暗；处理后的中间区域也必须保持上亮下暗。
+        let artwork = try WallpaperProcessor.process(image: gradientImage())
+        let upper = rgb565(artwork.rgb565, x: 120, y: 60)
+        let lower = rgb565(artwork.rgb565, x: 120, y: 190)
+        XCTAssertGreaterThan(luminance(upper), luminance(lower))
+    }
+
     @MainActor func testCRC32MatchesStandardVector() {
         XCTAssertEqual(CRC32.checksum(Data("123456789".utf8)), 0xCBF4_3926)
     }
