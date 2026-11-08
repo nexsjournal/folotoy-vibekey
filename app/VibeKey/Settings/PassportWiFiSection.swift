@@ -8,27 +8,39 @@ struct PassportWiFiSection: View {
     @State private var error: String?
 
     var body: some View {
-        SettingsSection(title: "Wi-Fi 无线连接", footer: "首次配网请保留 USB 连接。选择 2.4 GHz Wi-Fi；设备和 Mac 连接同一局域网后，拔掉数据线即可使用。密码只经 USB 发给设备。") {
+        SettingsSection(title: "Wi-Fi 无线连接", footer: "最多保存 4 个网络。首次添加请保留 USB；设备和 Mac 在同一局域网后，拔掉数据线即可使用。设备离线时长按 ▼ 也能切网；密码只经 USB 发给设备。") {
             Card {
                 VStack(alignment: .leading, spacing: DS.Space.m) {
                     HStack {
                         Image(systemName: "wifi").foregroundStyle(link.wifiReady ? DS.success : Color.secondary)
                         Text(status)
                         Spacer()
+                        if let count = link.wifiStatus?.count, count > 0 {
+                            Text("设备已存 \(count)/4").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
+                    if !link.wifiNetworks.isEmpty {
+                        Divider()
+                        ForEach(link.wifiNetworks) { network in
+                            networkRow(network)
+                        }
+                        Text("设备端：离线时长按 ▼ 打开网络列表，短按上下选择，短按 OK 切换；长按 OK 返回。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Divider()
                     TextField("Wi-Fi 名称", text: $ssid)
                         .textFieldStyle(.roundedBorder)
                     SecureField("Wi-Fi 密码", text: $password)
                         .textFieldStyle(.roundedBorder)
                     HStack {
-                        Button("保存并连接") {
+                        Button("添加并切换") {
                             do { try link.configureWiFi(ssid: ssid, password: password); password = ""; error = nil }
                             catch { self.error = error.localizedDescription }
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(link.usbPortPath == nil || ssid.isEmpty || (!password.isEmpty && !(8...63).contains(password.utf8.count)))
                         if link.wifiConfigured {
-                            Button("清除 Wi-Fi 配对") { link.forgetWiFi() }
+                            Button("清除全部 Wi-Fi") { link.forgetWiFi() }
                                 .disabled(link.usbPortPath == nil)
                         }
                         if link.usbPortPath == nil { Text("重新配网时需要 USB 连接").font(.caption).foregroundStyle(.secondary) }
@@ -42,8 +54,36 @@ struct PassportWiFiSection: View {
                 }
             }
         }
-        .onChange(of: link.wifiStatus?.ssid, initial: true) { _, name in
-            if ssid.isEmpty, let name { ssid = name }
+    }
+
+    @ViewBuilder
+    private func networkRow(_ network: PairedWiFiNetwork) -> some View {
+        let current = link.wifiActiveSSID == network.ssid || link.wifiStatus?.ssid == network.ssid
+        HStack(spacing: DS.Space.s) {
+            Image(systemName: current ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(current ? DS.success : Color.secondary)
+            Text(network.displayName).lineLimit(1)
+            if current {
+                Text("当前").font(.caption2).foregroundStyle(DS.success)
+            }
+            Spacer()
+            if !current {
+                Button("切换") {
+                    do { try link.selectWiFi(ssid: network.ssid); error = nil }
+                    catch { self.error = error.localizedDescription }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(link.usbPortPath == nil)
+                Button {
+                    do { try link.removeWiFi(ssid: network.ssid); error = nil }
+                    catch { self.error = error.localizedDescription }
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(DS.danger)
+                .disabled(link.usbPortPath == nil)
+            }
         }
     }
 

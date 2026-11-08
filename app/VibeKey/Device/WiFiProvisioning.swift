@@ -6,6 +6,7 @@ nonisolated struct WiFiProvisioning {
     let password: String
     let host: String
     let key: Data
+    var op = "add"
 
     func encoded() throws -> Data {
         guard !ssid.isEmpty, ssid.utf8.count <= 32, !ssid.contains("\0"), !password.contains("\0"),
@@ -14,7 +15,7 @@ nonisolated struct WiFiProvisioning {
               host.utf8.allSatisfy({ (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }) else {
             throw Failure.invalid
         }
-        let message: [String: Any] = ["cmd": "wifi", "ssid": ssid, "password": password, "host": host,
+        let message: [String: Any] = ["cmd": "wifi", "op": op, "ssid": ssid, "password": password, "host": host,
             "psk": key.map { String(format: "%02x", $0) }.joined()]
         var data = try JSONSerialization.data(withJSONObject: message)
         data.append(10)
@@ -25,6 +26,28 @@ nonisolated struct WiFiProvisioning {
     enum Failure: LocalizedError {
         case invalid
         var errorDescription: String? { String(localized: "Wi-Fi 名称或密码长度不正确", bundle: .l10n) }
+    }
+}
+
+/// USB 侧选择 / 移除网络。只发送 SSID；密码和 PSK 始终留在设备与本机凭据文件中。
+nonisolated struct WiFiNetworkControl {
+    enum Operation: String { case select, remove }
+
+    let operation: Operation
+    let ssid: String
+
+    func encoded() throws -> Data {
+        guard !ssid.isEmpty, ssid.utf8.count <= 32 else { throw Failure.invalid }
+        let message: [String: Any] = ["cmd": "wifi", "op": operation.rawValue, "ssid": ssid]
+        var data = try JSONSerialization.data(withJSONObject: message)
+        data.append(10)
+        guard data.count < 512 else { throw Failure.invalid }
+        return data
+    }
+
+    enum Failure: LocalizedError {
+        case invalid
+        var errorDescription: String? { String(localized: "Wi-Fi 网络名无效", bundle: .l10n) }
     }
 }
 

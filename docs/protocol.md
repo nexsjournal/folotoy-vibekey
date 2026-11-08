@@ -8,17 +8,27 @@ Passport 固件(`firmware/`)与 VibeKey macOS app(`app/`)之间的通信协议�
 | --- | --- | --- |
 | USB | ESP32-C3 USB Serial/JTAG(CDC) | `/dev/cu.usbmodem*`,VID `0x303A`;115200 raw、`TIOCEXCL`、关 HUPCL;打开后先清 RTS 再清 DTR(避免复位芯片) |
 | BLE | NimBLE GATT 外设,广播名 `VibeKey`,无配对 | CoreBluetooth central |
-| Wi-Fi | 2.4 GHz STA；TCP 8765，TLS 1.2 ECDHE-PSK-ChaCha20-Poly1305 | Network.framework；USB 配对的 `fb-<随机值>.local`，mDNS `_folobutton._tcp` |
+| Wi-Fi | 2.4 GHz STA；TCP 8765，TLS 1.2 ECDHE-PSK-ChaCha20-Poly1305 | Network.framework；USB 配对的多组 `fb-<随机值>.local`，mDNS `_folobutton._tcp` |
 
 USB 与 ESP-IDF 日志共用通道:Mac 只从 `{"t":` 处开始解析一行,其余内容忽略。链路优先级为 USB > Wi-Fi > BLE。Wi-Fi 在 USB 连接期间也可完成握手待机；USB 断开后重发缓存的 config/state/keys/mic 并切换 Wi-Fi。C3 无 PSRAM，为保证录音 DMA 和 TLS 的内存，设备有配网记录时只启用 Wi-Fi，无配网时启用 BLE；两种无线模式在重启边界切换，Wi-Fi 模式不会同时广播 BLE。按键只接收当前活动链路，之后再按 boot/seq 去重；音频也按活动链路过滤。
 
 ### USB 配网与局域网传输
 
-Mac 设置 › Passport › Wi-Fi 无线连接中填写网络名与密码。仅已握手 USB 接受 `{"cmd":"wifi","ssid":"<SSID>","password":"<密码>","host":"fb-<随机值>","psk":"<64位十六进制随机密钥>"}`，以换行结尾，总长小于 512 字节。SSID 按 UTF-8 计 1–32 字节；密码为空（开放网络）或 8–63 字节；不允许 NUL。此命令单独经 cJSON 解析，不经过屏幕文本的 ASCII 归一化。
+Mac 设置 › Passport › Wi-Fi 无线连接中填写网络名与密码。仅已握手 USB 接受 `{"cmd":"wifi","op":"add","ssid":"<SSID>","password":"<密码>","host":"fb-<随机值>","psk":"<64位十六进制随机密钥>"}`，以换行结尾，总长小于 512 字节。SSID 按 UTF-8 计 1–32 字节；密码为空（开放网络）或 8–63 字节；不允许 NUL。此命令单独经 cJSON 解析，不经过屏幕文本的 ASCII 归一化。没有 `op` 的旧命令按 `add` 处理。
 
-Mac 生成 32 字节随机 PSK，仅通过 USB 交给设备。Mac 只保存主机名与 PSK（私有 CredentialStore），设备将网络凭据与 PSK 原子保存到普通 NVS 的 `ib_wifi/config`，不改 cardid。设备只向 USB 上报 `{"t":"wifi","stage":"connecting|ready|auth_error|not_found|config_error|network_error|server_error","host":"fb-<随机值>","ip":"<局域网地址或空>"}`，不返回密码或密钥。USB hello 也会补发当前状态；可附加 `heap` 空闲堆字节数用于诊断，界面不展示该实现细节。初始化失败时返回 network_error，不保留虚假的 connecting。`ssid` 可返回实际保存的网络名（不含密码）。`ready` 表示设备获得 IP；Mac 的 Wi-Fi `hello` 握手完成才显示无线可用。
+设备最多保存 4 个网络，每组的 host 与 PSK 独立；同一 SSID 再次 `add` 时覆盖原记录并设为当前网络。普通 NVS 的 `ib_wifi/networks` 保存 `version=2 + count + active + networks[]`，不改 cardid；旧 `ib_wifi/config`（version 1）在首次启动时迁移，成功后删除旧键。
 
-USB 发送 `{"cmd":"wifi","clear":1}` 仅清除 `ib_wifi/config`；设备重启恢复 BLE，其他 NVS 与 cardid 保留。首次配网也会短暂重启，从 BLE 切到 Wi-Fi。
+| USB 命令 | 行为 |
+| --- | --- |
+| `{"cmd":"wifi","op":"add",...}` | 新增/覆盖网络并设为当前，重启 Wi-Fi 栈 |
+| `{"cmd":"wifi","op":"select","ssid":"Office"}` | 切换当前网络，重启 Wi-Fi 栈 |
+| `{"cmd":"wifi","op":"remove","ssid":"Office"}` | 删除网络；若删的是当前项则选择剩余第一项 |
+| `{"cmd":"wifi","op":"list"}` | 返回网络列表，不重启 |
+| `{"cmd":"wifi","op":"clear"}` 或 `{"clear":1}` | 清除全部网络，重启恢复 BLE |
+
+Mac 生成 32 字节随机 PSK，仅通过 USB 交给设备。Mac 私有 CredentialStore 保存网络数组（SSID + host + PSK）；旧版单条 host/key 首次读取时自动迁移。设备只向 USB 上报 `{"t":"wifi","stage":"connecting|ready|auth_error|not_found|config_error|network_error|server_error","host":"fb-<随机值>","ip":"<局域网地址或空>","ssid":"<SSID>","active":0,"count":2}`，不返回密码或密钥。`stage:"list"` 另带 `networks:[{"ssid":"Home","host":"fb-home","active":0},...]`。USB hello 也会补发当前状态；可附加 `heap` 空闲堆字节数用于诊断，界面不展示该实现细节。初始化失败时返回 network_error，不保留虚假的 connecting。`ready` 表示设备获得 IP；Mac 的 Wi-Fi `hello` 握手完成才显示无线可用。
+
+设备离线时长按 ▼ 打开本地网络列表，短按 OK 写入 NVS active 后重启；这条路径不经过 Mac 协议。Mac 会同时尝试本机保存的所有 `host.local`，第一个 TLS 握手成功的即当前网络。
 
 TLS 使用 USB 配对 PSK 验证双方并加密，无需云端。加密流内部沿用现有 JSON Lines 与 FF FE ADPCM 帧；2 个 ADPCM 块一帧，同 USB。断线自动重连并重发状态；心跳和超时策略与 USB 相同。局域网需允许设备间访问与 mDNS，访客隔离网络不适用；Mac 需运行且未锁屏，系统询问本地网络权限时允许 VibeKey。跨互联网连接不在本次范围内。
 

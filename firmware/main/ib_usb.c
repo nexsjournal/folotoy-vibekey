@@ -19,7 +19,8 @@
 
 static const char *TAG = "ib_usb";
 
-#define RX_TASK_STACK       3072
+// cJSON + newlib sprintf 输出 Wi-Fi 网络列表时调用链较深；3072 字节会在真机上触发栈保护重启。
+#define RX_TASK_STACK       6144
 #define RX_TASK_PRIO        5
 // 发送环要放得下两个音频帧(2 x 334 字节)加上文本行与日志。
 #define TX_RING_BYTES       4096

@@ -125,6 +125,14 @@ static bool s_caption_live;
 // OFFLINE 页按 OK 请求 Mac 重新握手;CONNECTING → NO RESPONSE → 可再次尝试。
 static int64_t s_wake_until;
 static bool s_wake_failed;
+// OFFLINE 页本地网络列表：不经过 Mac，直接切 NVS 中的 active 网络后重启。
+#define WIFI_MENU_TIMEOUT_MS 30000
+static bool s_wifi_menu;
+static bool s_wifi_menu_ok;
+static uint8_t s_wifi_menu_sel;
+static int64_t s_wifi_menu_touched;
+static int64_t s_wifi_restart_at;
+static const char *offline_hint(void);
 _Static_assert(IB_CAPTION_MAX == IB_UI_CAPTION_MAX, "caption buffer size mismatch");
 _Static_assert(IB_CAPTION_APP_MAX == IB_UI_CAPTION_APP_MAX, "caption app buffer size mismatch");
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
@@ -287,6 +295,89 @@ static void show_screen(ib_ui_screen_t screen)
 {
     s_screen = screen;
     if (s_ui_ok) ib_ui_show(screen, ui_mode(), s_msg);
+}
+
+static void wifi_menu_update(int64_t now)
+{
+    size_t count = ib_wifi_network_count();
+    if (!count) { s_wifi_menu = false; return; }
+    if (s_wifi_menu_sel >= count) s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
+    s_wifi_menu_touched = now;
+    if (!s_ui_ok) return;
+    ib_ui_list_t list = { 0 };
+    snprintf(list.title, sizeof(list.title), "WIFI NETWORK");
+    size_t rows = count > IB_UI_LIST_ROWS ? IB_UI_LIST_ROWS : count;
+    for (size_t i = 0; i < rows; i++) {
+        char ssid[IB_UI_LIST_TEXT_MAX - 2];
+        if (!ib_wifi_network_name(i, ssid, sizeof(ssid))) break;
+        snprintf(list.items[i], sizeof(list.items[i]), "%s%s",
+                 i == ib_wifi_active_network() ? "* " : "  ", ssid);
+    }
+    list.rows = (uint8_t)rows;
+    list.n = (uint16_t)count;
+    list.top = 0;
+    list.sel = s_wifi_menu_sel;
+    ib_ui_set_list(&list);
+    if (s_screen != IB_UI_LIST) show_screen(IB_UI_LIST);
+}
+
+static void wifi_menu_close(void)
+{
+    s_wifi_menu = false;
+    s_wifi_menu_ok = false;
+    if (!s_online) {
+        if (s_ui_ok) ib_ui_set_offline_hint(offline_hint());
+        show_screen(IB_UI_OFFLINE);
+    }
+}
+
+static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
+{
+    if (!s_online && !s_wifi_menu && key == IB_KEY_DOWN && ev == IB_KEY_EV_LONG) {
+        if (ib_wifi_network_count() == 0) {
+            if (s_ui_ok) ib_ui_set_offline_hint("USB TO ADD WIFI");
+            return true;
+        }
+        s_wifi_menu = true;
+        s_wifi_menu_ok = false;
+        s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
+        wifi_menu_update(now);
+        return true;
+    }
+    if (!s_wifi_menu) return false;
+
+    s_wifi_menu_touched = now;
+    size_t count = ib_wifi_network_count();
+    if (!count) { wifi_menu_close(); return true; }
+    if (key == IB_KEY_OK) {
+        if (ev == IB_KEY_EV_DOWN) {
+            s_wifi_menu_ok = true;
+        } else if (ev == IB_KEY_EV_LONG) {
+            wifi_menu_close();
+        } else if (ev == IB_KEY_EV_UP && s_wifi_menu_ok) {
+            s_wifi_menu_ok = false;
+            size_t selected = s_wifi_menu_sel;
+            if (selected == ib_wifi_active_network()) {
+                wifi_menu_close();
+            } else if (ib_wifi_select_network(selected)) {
+                s_wifi_menu = false;
+                if (s_ui_ok) ib_ui_set_offline_hint("SWITCHING WI-FI...");
+                show_screen(IB_UI_OFFLINE);
+                s_wifi_restart_at = now + 700;
+            } else if (s_ui_ok) {
+                ib_ui_set_offline_hint("WIFI SWITCH FAILED");
+            }
+        }
+        return true;
+    }
+    if (ev == IB_KEY_EV_DOWN && key == IB_KEY_UP) {
+        s_wifi_menu_sel = s_wifi_menu_sel == 0 ? (uint8_t)(count - 1) : (uint8_t)(s_wifi_menu_sel - 1);
+        wifi_menu_update(now);
+    } else if (ev == IB_KEY_EV_DOWN && key == IB_KEY_DOWN) {
+        s_wifi_menu_sel = (uint8_t)((s_wifi_menu_sel + 1) % count);
+        wifi_menu_update(now);
+    }
+    return true;
 }
 
 // ---- 麦克风 ----
@@ -490,6 +581,8 @@ static void go_offline(void)
     s_list_ready = false;
     s_wake_until = 0;
     s_wake_failed = false;
+    s_wifi_menu = false;
+    s_wifi_menu_ok = false;
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
         ib_ui_set_level(0);
@@ -522,6 +615,8 @@ static void refresh_links(int64_t now)
         if (online) {
             s_wake_until = 0;
             s_wake_failed = false;
+            s_wifi_menu = false;
+            s_wifi_menu_ok = false;
             show_screen(screen_for(s_st));      // 回到离线前 Mac 下发的页面
             wake(now);                          // 真正重连,用户需要看到
         } else {
@@ -560,6 +655,7 @@ static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
         wake(now);
         if (s_ui_ok && !dark) ib_ui_key_press((ib_ui_key_t)key);
     }
+    if (wifi_menu_key(key, ev, now)) return;
     if (ev == IB_KEY_EV_DOWN && key == IB_KEY_OK && !s_online && s_screen == IB_UI_OFFLINE) {
         char msg[IB_MSG_MAX];
         size_t len = ib_format_wake(msg, sizeof(msg));
@@ -695,6 +791,8 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
 static void refresh_timers(int64_t now)
 {
     if (s_restart_at && now >= s_restart_at) esp_restart();
+    if (s_wifi_restart_at && now >= s_wifi_restart_at) esp_restart();
+    if (s_wifi_menu && now - s_wifi_menu_touched >= WIFI_MENU_TIMEOUT_MS) wifi_menu_close();
     if (s_wake_until && now >= s_wake_until) {
         if (!s_wake_failed) {
             s_wake_failed = true;

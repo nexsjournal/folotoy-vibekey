@@ -5,6 +5,15 @@ nonisolated struct DeviceWiFiStatus: Equatable, Sendable {
     let host: String
     let address: String
     var ssid: String = ""
+    var active: Int?
+    var count: Int?
+    var networks: [DeviceWiFiNetwork] = []
+}
+
+nonisolated struct DeviceWiFiNetwork: Equatable, Sendable {
+    var ssid: String
+    var host: String
+    var active: Bool
 }
 
 // MARK: - 设备 → Mac
@@ -87,7 +96,26 @@ nonisolated enum DeviceMessage: Equatable, Sendable {
         switch type {
         case "wifi":
             guard let stage = string("stage") else { return nil }
-            return .wifi(.init(stage: stage, host: string("host") ?? "", address: string("ip") ?? "", ssid: string("ssid") ?? ""))
+            var networks: [DeviceWiFiNetwork] = []
+            if let rows = object["networks"] as? [[String: Any]] {
+                networks = rows.compactMap { row in
+                    guard let ssid = row["ssid"] as? String else { return nil }
+                    return DeviceWiFiNetwork(
+                        ssid: ssid,
+                        host: row["host"] as? String ?? "",
+                        active: (row["active"] as? NSNumber)?.intValue == 1
+                    )
+                }
+            }
+            return .wifi(.init(
+                stage: stage,
+                host: string("host") ?? "",
+                address: string("ip") ?? "",
+                ssid: string("ssid") ?? "",
+                active: int("active"),
+                count: int("count"),
+                networks: networks
+            ))
         case "hello":
             guard let firmware = string("fw") else { return nil }
             return .hello(DeviceHello(

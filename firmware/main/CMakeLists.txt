@@ -14,6 +14,7 @@ idf_component_register(
          "ib_clock.c"
          "ib_usb.c"
          "ib_ble.c"
+         "ib_wifi_store.c"
          "ib_wifi.c"
          "ib_audio.c"
          "ib_adpcm.c"

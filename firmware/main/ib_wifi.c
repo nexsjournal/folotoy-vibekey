@@ -2,6 +2,7 @@
 #include "ib_wifi.h"
 #include "ib_protocol.h"
 #include "ib_usb.h"
+#include "ib_wifi_store.h"
 #include "cJSON.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -22,16 +23,19 @@
 
 #define WIFI_PORT 8765
 #define IP_READY BIT0
-#define CONFIG_VERSION 1
+#define NVS_NAMESPACE "ib_wifi"
+#define NVS_STORE_KEY "networks"
+#define NVS_LEGACY_KEY "config"
 // 最大上行音频帧 334 字节，JSON 回复也小于 512；无需为每个队列项预留 1 KB。
 #define PACKET_MAX 512
-typedef struct { uint32_t version; char ssid[33]; char password[65]; char host[32]; uint8_t key[32]; } wifi_config_store_t;
 typedef struct { size_t len; uint8_t bytes[PACKET_MAX]; } packet_t;
 static QueueHandle_t s_config_queue, s_tx;
 static EventGroupHandle_t s_events;
 static ib_wifi_line_cb_t s_line;
 static ib_wifi_link_cb_t s_link;
-static wifi_config_store_t s_config;
+static ib_wifi_network_t s_config;
+static ib_wifi_store_t s_store;
+static bool s_store_loaded;
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
 static volatile uint32_t s_generation;
 static volatile bool s_configured, s_session;
@@ -39,26 +43,90 @@ static volatile bool s_available;
 static char s_stage[24] = "unconfigured";
 static esp_netif_t *s_netif;
 
-static bool load_config(wifi_config_store_t *config)
+static bool save_store(const ib_wifi_store_t *store)
 {
     nvs_handle_t nvs;
-    size_t size = sizeof(*config);
-    if (nvs_open("ib_wifi", NVS_READONLY, &nvs) != ESP_OK) return false;
-    bool valid = nvs_get_blob(nvs, "config", config, &size) == ESP_OK && size == sizeof(*config)
-        && config->version == CONFIG_VERSION
-        && memchr(config->ssid, 0, sizeof(config->ssid)) && config->ssid[0]
-        && memchr(config->password, 0, sizeof(config->password))
-        && memchr(config->host, 0, sizeof(config->host)) && config->host[0];
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) != ESP_OK) return false;
+    bool ok = ib_wifi_store_valid(store)
+        && nvs_set_blob(nvs, NVS_STORE_KEY, store, sizeof(*store)) == ESP_OK
+        && nvs_commit(nvs) == ESP_OK;
     nvs_close(nvs);
-    return valid;
+    return ok;
+}
+
+static bool load_store(ib_wifi_store_t *store)
+{
+    ib_wifi_store_init(store);
+    nvs_handle_t nvs;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) != ESP_OK) return false;
+
+    size_t size = sizeof(*store);
+    if (nvs_get_blob(nvs, NVS_STORE_KEY, store, &size) == ESP_OK
+        && size == sizeof(*store) && ib_wifi_store_valid(store)) {
+        nvs_close(nvs);
+        return true;
+    }
+
+    ib_wifi_legacy_t legacy;
+    memset(&legacy, 0, sizeof(legacy));
+    size = sizeof(legacy);
+    if (nvs_get_blob(nvs, NVS_LEGACY_KEY, &legacy, &size) == ESP_OK
+        && ib_wifi_store_from_legacy(store, &legacy, size)) {
+        // 先提交新结构，再删除旧键；迁移过程中掉电也能在下次启动重试。
+        if (nvs_set_blob(nvs, NVS_STORE_KEY, store, sizeof(*store)) == ESP_OK
+            && nvs_commit(nvs) == ESP_OK) {
+            nvs_erase_key(nvs, NVS_LEGACY_KEY);
+            nvs_commit(nvs);
+        }
+    } else {
+        ib_wifi_store_init(store);
+    }
+    memset(&legacy, 0, sizeof(legacy));
+    nvs_close(nvs);
+    return true;
+}
+
+static ib_wifi_store_t store_snapshot(void)
+{
+    ib_wifi_store_t store;
+    bool loaded;
+    portENTER_CRITICAL(&s_lock);
+    loaded = s_store_loaded;
+    store = s_store;
+    portEXIT_CRITICAL(&s_lock);
+    if (!loaded) {
+        ib_wifi_store_t fresh;
+        if (!load_store(&fresh)) {
+            ib_wifi_store_init(&fresh);
+            return fresh;
+        }
+        portENTER_CRITICAL(&s_lock);
+        if (!s_store_loaded) { s_store = fresh; s_store_loaded = true; }
+        else fresh = s_store;
+        portEXIT_CRITICAL(&s_lock);
+        store = fresh;
+    }
+    return store;
+}
+
+static void replace_store(const ib_wifi_store_t *store)
+{
+    portENTER_CRITICAL(&s_lock);
+    s_store = *store;
+    s_store_loaded = true;
+    portEXIT_CRITICAL(&s_lock);
+}
+
+static bool active_network(const ib_wifi_store_t *store, ib_wifi_network_t *network)
+{
+    if (!ib_wifi_store_valid(store) || !store->count || store->active >= store->count) return false;
+    *network = store->networks[store->active];
+    return true;
 }
 
 bool ib_wifi_is_configured(void)
 {
-    wifi_config_store_t config;
-    bool configured = load_config(&config);
-    memset(&config, 0, sizeof(config));
-    return configured;
+    return store_snapshot().count > 0;
 }
 
 static void status(const char *stage, const char *ip)
@@ -68,6 +136,7 @@ static void status(const char *stage, const char *ip)
     snprintf(s_stage, sizeof(s_stage), "%s", stage);
     memcpy(host, s_config.host, sizeof(host));
     memcpy(ssid, s_config.ssid, sizeof(ssid));
+    ib_wifi_store_t store = s_store;
     portEXIT_CRITICAL(&s_lock);
     cJSON *root = cJSON_CreateObject();
     if (!root) return;
@@ -76,7 +145,34 @@ static void status(const char *stage, const char *ip)
     cJSON_AddStringToObject(root, "host", host);
     cJSON_AddStringToObject(root, "ssid", ssid);
     cJSON_AddStringToObject(root, "ip", ip ? ip : "");
+    cJSON_AddNumberToObject(root, "active", store.count ? store.active : 0);
+    cJSON_AddNumberToObject(root, "count", store.count);
     cJSON_AddNumberToObject(root, "heap", esp_get_free_heap_size());
+    if (cJSON_PrintPreallocated(root, out, sizeof(out) - 1, false)) {
+        size_t n = strlen(out); out[n++] = '\n'; ib_usb_send(out, n);
+    }
+    cJSON_Delete(root);
+}
+
+static void send_network_list(void)
+{
+    ib_wifi_store_t store = store_snapshot();
+    static char out[1536];
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return;
+    cJSON_AddStringToObject(root, "t", "wifi");
+    cJSON_AddStringToObject(root, "stage", "list");
+    cJSON_AddNumberToObject(root, "count", store.count);
+    cJSON_AddNumberToObject(root, "active", store.count ? store.active : 0);
+    cJSON *networks = cJSON_AddArrayToObject(root, "networks");
+    for (uint8_t i = 0; networks && i < store.count; i++) {
+        cJSON *item = cJSON_CreateObject();
+        if (!item) break;
+        cJSON_AddStringToObject(item, "ssid", store.networks[i].ssid);
+        cJSON_AddStringToObject(item, "host", store.networks[i].host);
+        cJSON_AddNumberToObject(item, "active", i == store.active ? 1 : 0);
+        cJSON_AddItemToArray(networks, item);
+    }
     if (cJSON_PrintPreallocated(root, out, sizeof(out) - 1, false)) {
         size_t n = strlen(out); out[n++] = '\n'; ib_usb_send(out, n);
     }
@@ -87,7 +183,8 @@ void ib_wifi_report_status(void)
 {
     char stage[24], ip[16] = "";
     portENTER_CRITICAL(&s_lock); memcpy(stage, s_stage, sizeof(stage)); portEXIT_CRITICAL(&s_lock);
-    if (!s_available && ib_wifi_is_configured()) strcpy(stage, "network_error");
+    if (!ib_wifi_is_configured()) strcpy(stage, "unconfigured");
+    else if (!s_available) strcpy(stage, "network_error");
     if (s_netif && s_available) {
         esp_netif_ip_info_t info;
         if (esp_netif_get_ip_info(s_netif, &info) == ESP_OK && info.ip.addr) {
@@ -160,7 +257,7 @@ static void server_task(void *arg)
         struct timeval timeout = { .tv_sec = 4, .tv_usec = 0 };
         setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
         setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        wifi_config_store_t config;
+        ib_wifi_network_t config;
         portENTER_CRITICAL(&s_lock); config = s_config; uint32_t generation = s_generation; portEXIT_CRITICAL(&s_lock);
         psk_hint_key_t psk = { .key = config.key, .key_size = sizeof(config.key), .hint = "folobutton" };
         esp_tls_cfg_server_t tls_config = { .psk_hint_key = &psk };
@@ -199,7 +296,7 @@ static void server_task(void *arg)
 static void config_task(void *arg)
 {
     (void)arg;
-    wifi_config_store_t next;
+    ib_wifi_network_t next;
     for (;;) {
         if (xQueueReceive(s_config_queue, &next, portMAX_DELAY) != pdTRUE) continue;
         s_configured = false;
@@ -238,25 +335,81 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     if (!root) return false;
     const cJSON *command = cJSON_GetObjectItemCaseSensitive(root, "cmd");
     if (!cJSON_IsString(command) || strcmp(command->valuestring, "wifi") != 0) { cJSON_Delete(root); return false; }
+    const cJSON *op = cJSON_GetObjectItemCaseSensitive(root, "op");
     const cJSON *clear = cJSON_GetObjectItemCaseSensitive(root, "clear");
-    if (cJSON_IsNumber(clear) && clear->valueint == 1) {
+    const char *operation = cJSON_IsString(op) ? op->valuestring : "add";
+    if ((cJSON_IsNumber(clear) && clear->valueint == 1) || strcmp(operation, "clear") == 0) {
         nvs_handle_t nvs;
-        bool cleared = nvs_open("ib_wifi", NVS_READWRITE, &nvs) == ESP_OK;
+        bool cleared = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) == ESP_OK;
         if (cleared) {
-            esp_err_t error = nvs_erase_key(nvs, "config");
-            cleared = (error == ESP_OK || error == ESP_ERR_NVS_NOT_FOUND) && nvs_commit(nvs) == ESP_OK;
+            esp_err_t error = nvs_erase_key(nvs, NVS_STORE_KEY);
+            if (error != ESP_OK && error != ESP_ERR_NVS_NOT_FOUND) cleared = false;
+            error = nvs_erase_key(nvs, NVS_LEGACY_KEY);
+            if (error != ESP_OK && error != ESP_ERR_NVS_NOT_FOUND) cleared = false;
+            cleared = cleared && nvs_commit(nvs) == ESP_OK;
             nvs_close(nvs);
         }
+        ib_wifi_store_t empty;
+        ib_wifi_store_init(&empty);
+        replace_store(&empty);
+        portENTER_CRITICAL(&s_lock);
+        memset(&s_config, 0, sizeof(s_config));
+        portEXIT_CRITICAL(&s_lock);
         cJSON_Delete(root);
         status(cleared ? "unconfigured" : "config_error", NULL);
         if (cleared) { vTaskDelay(pdMS_TO_TICKS(150)); esp_restart(); }
         return true;
     }
+
+    if (strcmp(operation, "list") == 0) {
+        send_network_list();
+        cJSON_Delete(root);
+        return true;
+    }
+
+    if (strcmp(operation, "select") == 0 || strcmp(operation, "remove") == 0) {
+        const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "ssid");
+        ib_wifi_store_t store = store_snapshot();
+        int index = cJSON_IsString(ssid) ? ib_wifi_store_find(&store, ssid->valuestring) : -1;
+        bool ok = index >= 0;
+        if (ok && strcmp(operation, "select") == 0) ok = ib_wifi_store_set_active(&store, (uint8_t)index);
+        if (ok && strcmp(operation, "remove") == 0) ok = ib_wifi_store_remove(&store, ssid->valuestring);
+        ok = ok && save_store(&store);
+        if (ok) {
+            replace_store(&store);
+            ib_wifi_network_t active = { 0 };
+            if (active_network(&store, &active)) {
+                portENTER_CRITICAL(&s_lock);
+                s_config = active;
+                portEXIT_CRITICAL(&s_lock);
+            } else {
+                portENTER_CRITICAL(&s_lock);
+                memset(&s_config, 0, sizeof(s_config));
+                portEXIT_CRITICAL(&s_lock);
+            }
+            memset(&active, 0, sizeof(active));
+            status(store.count ? "connecting" : "unconfigured", NULL);
+            cJSON_Delete(root);
+            vTaskDelay(pdMS_TO_TICKS(150));
+            esp_restart();
+            return true;
+        }
+        status("config_error", NULL);
+        cJSON_Delete(root);
+        return true;
+    }
+
+    if (strcmp(operation, "add") != 0) {
+        status("config_error", NULL);
+        cJSON_Delete(root);
+        return true;
+    }
+
     const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "ssid");
     const cJSON *password = cJSON_GetObjectItemCaseSensitive(root, "password");
     const cJSON *host = cJSON_GetObjectItemCaseSensitive(root, "host");
     const cJSON *key = cJSON_GetObjectItemCaseSensitive(root, "psk");
-    wifi_config_store_t config = { .version = CONFIG_VERSION };
+    ib_wifi_network_t config = { 0 };
     bool valid = cJSON_IsString(ssid) && strlen(ssid->valuestring) > 0 && strlen(ssid->valuestring) <= 32
         && cJSON_IsString(password) && strlen(password->valuestring) <= 63
         && (strlen(password->valuestring) == 0 || strlen(password->valuestring) >= 8)
@@ -274,25 +427,31 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     }
     if (valid) {
         strcpy(config.ssid, ssid->valuestring); strcpy(config.password, password->valuestring); strcpy(config.host, host->valuestring);
-        nvs_handle_t nvs;
-        valid = nvs_open("ib_wifi", NVS_READWRITE, &nvs) == ESP_OK;
-        if (valid) { valid = nvs_set_blob(nvs, "config", &config, sizeof(config)) == ESP_OK && nvs_commit(nvs) == ESP_OK; nvs_close(nvs); }
-        if (valid && s_available) { xQueueOverwrite(s_config_queue, &config); }
+        ib_wifi_store_t store = store_snapshot();
+        int index = ib_wifi_store_add(&store, &config);
+        valid = index >= 0 && ib_wifi_store_set_active(&store, (uint8_t)index) && save_store(&store);
+        if (valid) {
+            replace_store(&store);
+            portENTER_CRITICAL(&s_lock);
+            s_config = config;
+            portEXIT_CRITICAL(&s_lock);
+        }
     }
     if (!valid) status(s_available ? "config_error" : "network_error", NULL);
     memset(&config, 0, sizeof(config));
     cJSON_Delete(root);
-    // 未配网时只运行 BLE；第一次 USB 配网后重启切 Wi-Fi，避免两套协议栈挤掉音频 DMA。
-    if (valid && !s_available) { status("connecting", NULL); vTaskDelay(pdMS_TO_TICKS(150)); esp_restart(); }
+    // 新增或切换网络都重启到新的 host / PSK；C3 上同时保留两套无线协议栈会挤掉音频 DMA。
+    if (valid) { status("connecting", NULL); vTaskDelay(pdMS_TO_TICKS(150)); esp_restart(); }
     return true;
 }
 
 esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
 {
     s_line = line; s_link = link;
-    if (!ib_wifi_is_configured()) return ESP_OK;
+    ib_wifi_store_t store = store_snapshot();
+    if (!store.count) return ESP_OK;
     s_events = xEventGroupCreate();
-    s_config_queue = xQueueCreate(1, sizeof(wifi_config_store_t));
+    s_config_queue = xQueueCreate(1, sizeof(ib_wifi_network_t));
     s_tx = xQueueCreate(8, sizeof(packet_t));
     if (!s_events || !s_config_queue || !s_tx) return ESP_ERR_NO_MEM;
     esp_err_t error = esp_netif_init(); if (error != ESP_OK) return error;
@@ -311,8 +470,41 @@ esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
     if (xTaskCreate(config_task, "ib_wifi_cfg", 4096, NULL, 4, NULL) != pdPASS) return ESP_ERR_NO_MEM;
     if (xTaskCreate(server_task, "ib_wifi_tls", 8192, NULL, 4, NULL) != pdPASS) return ESP_ERR_NO_MEM;
     s_available = true;
-    wifi_config_store_t config;
-    if (load_config(&config)) xQueueOverwrite(s_config_queue, &config);
+    ib_wifi_network_t config;
+    if (active_network(&store, &config)) xQueueOverwrite(s_config_queue, &config);
     memset(&config, 0, sizeof(config));
     return ESP_OK;
+}
+
+size_t ib_wifi_network_count(void)
+{
+    return store_snapshot().count;
+}
+
+size_t ib_wifi_active_network(void)
+{
+    ib_wifi_store_t store = store_snapshot();
+    return store.count ? store.active : 0;
+}
+
+bool ib_wifi_network_name(size_t index, char *out, size_t cap)
+{
+    ib_wifi_store_t store = store_snapshot();
+    if (!out || cap == 0 || index >= store.count) return false;
+    snprintf(out, cap, "%s", store.networks[index].ssid);
+    return true;
+}
+
+bool ib_wifi_select_network(size_t index)
+{
+    ib_wifi_store_t store = store_snapshot();
+    if (index >= store.count || !ib_wifi_store_set_active(&store, (uint8_t)index) || !save_store(&store)) return false;
+    replace_store(&store);
+    ib_wifi_network_t active = { 0 };
+    active_network(&store, &active);
+    portENTER_CRITICAL(&s_lock);
+    s_config = active;
+    portEXIT_CRITICAL(&s_lock);
+    status("connecting", NULL);
+    return true;
 }

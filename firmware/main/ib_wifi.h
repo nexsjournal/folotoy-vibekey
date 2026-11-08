@@ -14,3 +14,9 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len);
 void ib_wifi_send(const uint8_t *data, size_t len);
 // USB 重连握手时补发真实状态，不能让 Mac 长期保留旧的 connecting。
 void ib_wifi_report_status(void);
+// 设备离线页使用：只读取 / 切换本机 NVS 中的网络名，不向屏幕暴露密码或 PSK。
+size_t ib_wifi_network_count(void);
+size_t ib_wifi_active_network(void);
+bool ib_wifi_network_name(size_t index, char *out, size_t cap);
+// 写入 active 后由调用方延迟重启；返回 false 表示下标非法或 NVS 写入失败。
+bool ib_wifi_select_network(size_t index);

@@ -22,12 +22,14 @@ run_host() {
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_keys.c main/ib_keys.c main/ib_links.c -o "${out}/keys"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_charge.c main/ib_charge.c -o "${out}/charge"
     "${CC:-cc}" "${cflags[@]}" tests/test_ib_wallpaper.c main/ib_base64.c main/ib_crc32.c -o "${out}/wallpaper"
+    "${CC:-cc}" "${cflags[@]}" tests/test_ib_wifi_store.c main/ib_wifi_store.c -o "${out}/wifi_store"
     "${out}/protocol"
     "${out}/adpcm"
     "${out}/clock"
     "${out}/keys"
     "${out}/charge"
     "${out}/wallpaper"
+    "${out}/wifi_store"
     echo "Host tests: PASS"
 }
 
