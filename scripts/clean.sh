@@ -6,7 +6,7 @@
 #   ./scripts/clean.sh --dry-run        只列出会删除什么,不删
 #
 # 删除的内容(都在 .gitignore 里,不会碰到受版本管理的文件):
-#   app/build/                         build.sh / test.sh / release.sh 的 DerivedData、VibeKey.app、DMG、dmgbuild 虚拟环境
+#   app/build/                         build.sh / test.sh / release.sh 的 DerivedData、FoloVibe Key.app、DMG、dmgbuild 虚拟环境
 #   app/VibeKey.xcodeproj/         XcodeGen 生成的工程(build.sh / test.sh 会重新生成)
 #   app/DeviceAssets/                  bundle-device-assets.sh 下载的 esptool(--keep-downloads 保留)
 #   app/Packages/AppUpdateKit/.build/  swift test 的产物

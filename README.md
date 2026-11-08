@@ -1,10 +1,10 @@
-# VibeKey
+# FoloVibe Key
 
-FoloToy VibeKey:本地语音输入的 macOS app,配套 FoloToy AI Passport 硬件。默认所有语音识别都在本机完成,也可以接入自己的云端识别服务。
+FoloVibe Key：全面的 AI 语音指令助手。macOS 本地语音输入 app，配套 FoloToy AI Passport 硬件。默认所有语音识别都在本机完成，也可以接入自己的云端识别服务。
 
 仓库:<https://github.com/nexsjournal/folotoy-vibekey>
 
-VibeKey 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 `ab1fd9f3e7a1c0a6cbb04533c07829845ddc9b0b` 派生,沿用上游 MIT 许可与开发规范。上游版权、第三方组件许可见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+FoloVibe Key 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 `ab1fd9f3e7a1c0a6cbb04533c07829845ddc9b0b` 派生,沿用上游 MIT 许可与开发规范。上游版权、第三方组件许可见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 为兼容已经安装的版本,内部标识仍沿用 `local.folobutton.dev`(Bundle ID)、`folobutton-dev://`(URL scheme)、`_folobutton._tcp`(mDNS)和 `FoloButtonDev`(数据目录)。这些是升级兼容标识,不是产品名;改名会让系统权限、hooks 和本机数据失效。
 
@@ -94,12 +94,12 @@ DEVELOPMENT_TEAM = YOURTEAMID
 
 ```bash
 cd app
-./scripts/build.sh            # 产物:app/build/VibeKey.app
+./scripts/build.sh            # 产物:app/build/FoloVibe Key.app
 ./scripts/test.sh             # 单元测试
-open build/VibeKey.app
+open "build/FoloVibe Key.app"
 ```
 
-有 Developer ID 证书时,`./scripts/install.sh` 会编译签名公证正式版、替换 `/Applications/VibeKey.app` 并启动(自测用,凭据配置见 [docs/website.md](docs/website.md))。
+有 Developer ID 证书时,`./scripts/install.sh` 会编译签名公证正式版、替换 `/Applications/FoloVibe Key.app` 并启动(自测用,凭据配置见 [docs/website.md](docs/website.md))。
 
 编译、测试、打包之后想恢复干净目录:仓库根目录运行 `./scripts/clean.sh`(删除 app 与固件的全部产物;`--keep-downloads` 保留需联网下载的 esptool 与 ESP-IDF 组件,`--dry-run` 只列出不删)。
 
@@ -138,7 +138,7 @@ IB_UPDATE_APP_ID = vibekey    // 可选,作为 X-App-ID 请求头发送
     "version": "1.2.0",
     "build": "42",
     "notes": {"zh": "- 新增……", "en": "- New…"},
-    "url": "https://example.com/VibeKey-1.2.0.dmg"
+    "url": "https://example.com/FoloVibe-Key-1.2.0.dmg"
   },
   "requiredAtOrBelow": "1.0.3"
 }

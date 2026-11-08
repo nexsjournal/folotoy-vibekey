@@ -19,7 +19,7 @@ struct AboutSection: View {
                             .frame(width: 52, height: 52)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(verbatim: "VibeKey").font(.system(size: 15, weight: .semibold))
+                            Text(verbatim: "FoloVibe Key").font(.system(size: 15, weight: .semibold))
                             Text("版本 \(Self.version)")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)

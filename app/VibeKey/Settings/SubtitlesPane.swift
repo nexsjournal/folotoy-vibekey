@@ -61,7 +61,7 @@ struct SubtitlesPane: View {
                     }
                 }
             }
-            SettingsSection(title: "字幕记录", footer: "VibeKey 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 \(Image(systemName: "text.page")) 打开。") {
+            SettingsSection(title: "字幕记录", footer: "FoloVibe Key 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 \(Image(systemName: "text.page")) 打开。") {
                 Card {
                     SettingRow(title: "结束字幕前确认") {
                         Toggle("", isOn: $settings.confirmStopCaptions).labelsHidden().toggleStyle(.switch)

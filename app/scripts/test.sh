@@ -6,9 +6,9 @@ cd "$(dirname "$0")/.."
 
 # Xcode 的 app-hosted unit test 偶尔会留下 PPID 1 的测试宿主，并让 LaunchServices
 # 延迟再次启动同一 bundle ID。测试前后清理进程并注销测试 App，再明确登记正式 App。
-test_app="$PWD/build/DerivedData/Build/Products/Debug/VibeKey.app"
-test_host="${test_app}/Contents/MacOS/VibeKey"
-release_app="$PWD/build/VibeKey.app"
+test_app="$PWD/build/DerivedData/Build/Products/Debug/FoloVibe Key.app"
+test_host="${test_app}/Contents/MacOS/FoloVibe Key"
+release_app="$PWD/build/FoloVibe Key.app"
 lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 cleanup_test_host() {
     for pid in $(pgrep -f -- "${test_host}" 2>/dev/null || true); do

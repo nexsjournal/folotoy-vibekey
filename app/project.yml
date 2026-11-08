@@ -26,8 +26,8 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "11"
+    MARKETING_VERSION: "0.2.1"
+    CURRENT_PROJECT_VERSION: "12"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     ARCHS: arm64
     ENABLE_HARDENED_RUNTIME: YES
@@ -65,19 +65,20 @@ targets:
     info:
       path: VibeKey/Info.plist
       properties:
-        CFBundleName: VibeKey
-        CFBundleDisplayName: VibeKey
+        # 对外品牌使用 FoloVibe Key；Bundle ID / URL scheme / 数据目录仍保留兼容标识。
+        CFBundleName: FoloVibe Key
+        CFBundleDisplayName: FoloVibe Key
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         CFBundleLocalizations: [zh-Hans, en]
-        NSMicrophoneUsageDescription: VibeKey 需要使用麦克风，把你说的话转成文字输入。
-        NSAudioCaptureUsageDescription: VibeKey 需要录制所选应用播放的声音，用于生成实时字幕。
+        NSMicrophoneUsageDescription: FoloVibe Key 需要使用麦克风，把你说的话转成文字输入。
+        NSAudioCaptureUsageDescription: FoloVibe Key 需要录制所选应用播放的声音，用于生成实时字幕。
         NSLocalNetworkUsageDescription: 通过同一 Wi-Fi 连接 Passport，传输按键、录音和设备状态。
         NSBonjourServices: ["_folobutton._tcp"]
-        NSBluetoothAlwaysUsageDescription: VibeKey 通过蓝牙连接 Passport，接收按键并显示状态。
+        NSBluetoothAlwaysUsageDescription: FoloVibe Key 通过蓝牙连接 Passport，接收按键并显示状态。
         NSSpeechRecognitionUsageDescription: 使用 Apple 语音识别引擎在本机转录语音。
         # 检查更新的接口与应用标识,来自 Config/App.xcconfig(本机 Update.local.xcconfig 填写);为空时不检查更新。
         IBUpdateFeedURL: $(IB_UPDATE_FEED_URL)
@@ -92,7 +93,8 @@ targets:
             CFBundleURLSchemes: [folobutton-dev]
     settings:
       base:
-        PRODUCT_NAME: VibeKey
+        PRODUCT_NAME: FoloVibe Key
+        PRODUCT_MODULE_NAME: VibeKey
         PRODUCT_BUNDLE_IDENTIFIER: local.folobutton.dev
         INFOPLIST_FILE: VibeKey/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -107,7 +109,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.folobutton.dev.tests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VibeKey.app/Contents/MacOS/VibeKey
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/FoloVibe Key.app/Contents/MacOS/FoloVibe Key"
         BUNDLE_LOADER: $(TEST_HOST)
 schemes:
   VibeKey:

@@ -101,10 +101,10 @@ nonisolated enum FirmwareError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .toolMissing: String(localized: "app 缺少烧录工具 esptool，请重新安装 VibeKey，或在官网用浏览器刷入", bundle: .l10n)
+        case .toolMissing: String(localized: "app 缺少烧录工具 esptool，请重新安装 FoloVibe Key，或在官网用浏览器刷入", bundle: .l10n)
         case .network(let m): String(localized: "无法从官网获取固件：\(m)", bundle: .l10n)
         case .badManifest(let m): String(localized: "官网固件清单有误（\(m)），已停止", bundle: .l10n)
-        case .incompatible(let v): String(localized: "官网的固件 \(v) 需要更新版本的 VibeKey，请先更新 app", bundle: .l10n)
+        case .incompatible(let v): String(localized: "官网的固件 \(v) 需要更新版本的 FoloVibe Key，请先更新 app", bundle: .l10n)
         case .checksumMismatch(let f): String(localized: "下载的 \(f) 校验不通过，请重试", bundle: .l10n)
         case .unsafeOffset(let f): String(localized: "\(f) 的写入范围会覆盖受保护分区，已停止", bundle: .l10n)
         case .noPort: String(localized: "没有找到 USB 连接的 Passport", bundle: .l10n)

@@ -6,13 +6,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey records audio from the app you choose to generate live captions."
+            "value": "FoloVibe Key records audio from the app you choose to generate live captions."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey 需要录制所选应用播放的声音，用于生成实时字幕。"
+            "value": "FoloVibe Key 需要录制所选应用播放的声音，用于生成实时字幕。"
           }
         }
       }
@@ -22,13 +22,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey connects to Passport over Bluetooth to receive key presses and show status."
+            "value": "FoloVibe Key connects to Passport over Bluetooth to receive key presses and show status."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey 通过蓝牙连接 Passport，接收按键并显示状态。"
+            "value": "FoloVibe Key 通过蓝牙连接 Passport，接收按键并显示状态。"
           }
         }
       }
@@ -38,13 +38,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey uses the microphone to turn what you say into text."
+            "value": "FoloVibe Key uses the microphone to turn what you say into text."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey 需要使用麦克风，把你说的话转成文字输入。"
+            "value": "FoloVibe Key 需要使用麦克风，把你说的话转成文字输入。"
           }
         }
       }

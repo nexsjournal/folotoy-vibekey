@@ -50,7 +50,7 @@ NOTARY_KEY=<AuthKey_XXXXXXXXXX.p8 路径> NOTARY_KEY_ID=<Key ID> NOTARY_ISSUER=<
 - 检查更新接口在本机 `app/Config/Update.local.xcconfig` 配置(见 README「官网版与开源版」);`release.sh` 会打印编进 app 的接口地址,没配置时给出警告。
 - Sparkle 的 EdDSA 私钥用 Sparkle `generate_keys` 生成,存在发布者本机的登录钥匙串里(另有一份导出备份,只在本机);公钥写在 `Update.local.xcconfig` 的 `IB_UPDATE_PUBLIC_ED_KEY`。私钥丢失后已安装的 app 无法再在 app 内更新,务必备份。也可以用 `SPARKLE_KEY_FILE=<导出的私钥文件>` 代替钥匙串。
 - 第三方的 `esptool` 保留 Espressif 自己的 Developer ID 签名,不重签。
-- 产物在 `app/build/release/`(已在 .gitignore 中),不提交到仓库。
+- 产物在 `app/build/release/`(已在 .gitignore 中),DMG 名为 `FoloVibe-Key-<版本>.dmg`;不提交到仓库。
 - 发版前记得改 `app/project.yml` 的 `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`。
 
 ## 本机安装正式版(自测)
@@ -59,7 +59,7 @@ NOTARY_KEY=<AuthKey_XXXXXXXXXX.p8 路径> NOTARY_KEY_ID=<Key ID> NOTARY_ISSUER=<
 cd app && ./scripts/install.sh
 ```
 
-- 和发布版走同样的签名、公证(提交 zip,票据 staple 到 app 上),只是不打包 DMG;然后正常退出正在运行的 VibeKey(10 秒没退再强制结束),替换 `/Applications/VibeKey.app` 并启动。
+- 和发布版走同样的签名、公证(提交 zip,票据 staple 到 app 上),只是不打包 DMG;然后正常退出正在运行的 FoloVibe Key(10 秒没退再强制结束),替换 `/Applications/FoloVibe Key.app` 并启动，并清理旧 `VibeKey.app`。
 - `SKIP_NOTARIZE=1` 只签名不公证(本机编译的 app 没有隔离属性,也能打开);`NO_LAUNCH=1` 装好后不启动。
 - 签名证书和之前装的版本不同时(如之前是 Xcode 的 Apple Development 签名),系统会当成另一个 app,麦克风 / 辅助功能 / 屏幕录制权限需要重新授权。
 

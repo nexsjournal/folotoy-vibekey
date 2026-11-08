@@ -37,7 +37,7 @@ final class InputDevices {
                   let uid = CoreAudioQuery.string(id, kAudioDevicePropertyDeviceUID),
                   let name = CoreAudioQuery.string(id, kAudioObjectPropertyName) else { return nil }
             // 跳过本 app 和其他软件创建的私有聚合设备。
-            if uid.hasPrefix("VibeKey") { return nil }
+            if uid.hasPrefix("VibeKey") || uid.hasPrefix("FoloVibe-Key") { return nil }
             return InputDevice(id: id, uid: uid, name: name)
         }
         if let def = CoreAudioQuery.defaultInputDevice(),

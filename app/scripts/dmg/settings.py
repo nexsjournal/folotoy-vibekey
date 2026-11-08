@@ -1,5 +1,5 @@
 # dmgbuild 配置(release.sh 调用):安装窗口的大小、背景、图标位置。
-#   dmgbuild -s scripts/dmg/settings.py -D app=<VibeKey.app> -D background=<background.tiff> "<卷名>" <输出.dmg>
+#   dmgbuild -s scripts/dmg/settings.py -D app=<FoloVibe Key.app> -D background=<background.tiff> "<卷名>" <输出.dmg>
 # 图标中心坐标必须与 background.swift 的 appCenter / applicationsCenter 一致。
 # Finder 会忽略 .DS_Store 里的路径栏设置而沿用用户自己的偏好,所以背景底部不放任何内容。
 import os.path

@@ -162,7 +162,7 @@ nonisolated final class AppAudioTap: AudioSource, @unchecked Sendable {
         description.uuid = UUID()
         description.muteBehavior = .unmuted
         description.isPrivate = true
-        description.name = "VibeKey Tap"
+        description.name = "FoloVibe Key Tap"
 
         var tap = AudioObjectID(kAudioObjectUnknown)
         var err = AudioHardwareCreateProcessTap(description, &tap)
@@ -178,8 +178,8 @@ nonisolated final class AppAudioTap: AudioSource, @unchecked Sendable {
 
         let outputUID = CoreAudioQuery.defaultOutputDevice().flatMap { CoreAudioQuery.string($0, kAudioDevicePropertyDeviceUID) } ?? ""
         let aggregate: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "VibeKey Tap",
-            kAudioAggregateDeviceUIDKey: "VibeKey-Tap-\(UUID().uuidString)",
+            kAudioAggregateDeviceNameKey: "FoloVibe Key Tap",
+            kAudioAggregateDeviceUIDKey: "FoloVibe-Key-Tap-\(UUID().uuidString)",
             kAudioAggregateDeviceMainSubDeviceKey: outputUID,
             kAudioAggregateDeviceIsPrivateKey: true,
             kAudioAggregateDeviceIsStackedKey: false,

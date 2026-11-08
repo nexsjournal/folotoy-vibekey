@@ -24,7 +24,7 @@ struct VocabularyPane: View {
                         .frame(minHeight: 300)
                         .overlay(alignment: .topLeading) {
                             if settings.vocabulary.isEmpty {
-                                Text("Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey")
+                                Text("Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nFoloVibe Key = VibeKey")
                                     .font(.system(size: 13, design: .monospaced))
                                     .foregroundStyle(.tertiary)
                                     .padding(.leading, 5)

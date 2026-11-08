@@ -745,7 +745,7 @@ import Security
     private func handleHello(_ hello: DeviceHello, via link: DeviceLinkKind) {
         guard DeviceMessage.acceptsFirmware(hello.firmware) else {
             if link == .usb { pendingForeignFirmware = hello.firmware }
-            handshakeFailed(link, reason: String(localized: "不是 VibeKey 固件（\(hello.firmware)）", bundle: .l10n))
+            handshakeFailed(link, reason: String(localized: "不是 FoloVibe Key 固件（\(hello.firmware)）", bundle: .l10n))
             return
         }
         // 握手重试期间设备可能回多个 hello,只处理第一个。
@@ -942,7 +942,7 @@ import Security
         DeviceLog.link.info("bluetooth: \(String(describing: state), privacy: .public)")
         switch state {
         case .unauthorized:
-            lastError = String(localized: "未获得蓝牙权限，可在 系统设置 > 隐私与安全性 > 蓝牙 中允许 VibeKey", bundle: .l10n)
+            lastError = String(localized: "未获得蓝牙权限，可在 系统设置 > 隐私与安全性 > 蓝牙 中允许 FoloVibe Key", bundle: .l10n)
         case .poweredOff:
             if connection == .disconnected { lastError = String(localized: "蓝牙已关闭", bundle: .l10n) }
         case .unsupported:

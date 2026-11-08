@@ -18,7 +18,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         self.build = build
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
-        statusItem.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "VibeKey")
+        statusItem.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "FoloVibe Key")
         menu.delegate = self
         statusItem.menu = menu
     }

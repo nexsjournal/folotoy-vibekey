@@ -29,7 +29,7 @@ struct OnboardingView: View {
             case .model: String(localized: "所有识别都在本机完成，声音不会离开你的 Mac。可以随时在设置里切换。", bundle: .l10n)
             case .hotkey: String(localized: "默认是 ⌥ 空格，点录制框可以改成你顺手的组合键。", bundle: .l10n)
             case .ai: String(localized: "下载系统翻译语言即可离线翻译字幕和听写；再连接 AI，还能润色口语、让译文更准确。", bundle: .l10n)
-            case .passport: String(localized: "FoloToy AI Passport 是 VibeKey 的硬件搭档：按住说话、一键发送，Agent 完成时提醒你。", bundle: .l10n)
+            case .passport: String(localized: "FoloToy AI Passport 是 FoloVibe Key 的硬件搭档：按住说话、一键发送，Agent 完成时提醒你。", bundle: .l10n)
             case .tryIt: String(localized: "把光标放进下面的输入框，按住快捷键说一句话。", bundle: .l10n)
             }
         }
@@ -243,7 +243,7 @@ private struct WelcomeStep: View {
                 .scaleEffect(appeared ? 1 : 0.6)
                 .opacity(appeared ? 1 : 0)
             VStack(spacing: DS.Space.s) {
-                Text("VibeKey").font(.system(size: 34, weight: .bold, design: .rounded))
+                Text("FoloVibe Key").font(.system(size: 34, weight: .bold, design: .rounded))
                 Text("说话，就是最快的输入。识别全部在本机完成。")
                     .font(.system(size: 14)).foregroundStyle(.secondary)
             }
@@ -323,7 +323,7 @@ private struct TryItStep: View {
             }
             HStack(spacing: DS.Space.s) {
                 Image(systemName: "lightbulb.fill").foregroundStyle(DS.warning)
-                Hint("屏幕底部的小胶囊是 VibeKey 的状态条，鼠标移上去可以开始听写或打开实时字幕。")
+                Hint("屏幕底部的小胶囊是 FoloVibe Key 的状态条，鼠标移上去可以开始听写或打开实时字幕。")
             }
             .onAppear { app.showPill() }
             if app.deviceLink.connection != .disconnected {

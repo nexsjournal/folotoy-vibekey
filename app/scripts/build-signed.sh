@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 编译 Release 并用 Developer ID 签名(Hardened Runtime + 安全时间戳),供 release.sh(打包 DMG)和 install.sh(装到本机)共用。
-# 凭据见 signing-env.sh。产物:app/build/ReleaseDerivedData/Build/Products/Release/VibeKey.app。
+# 凭据见 signing-env.sh。产物:app/build/ReleaseDerivedData/Build/Products/Release/FoloVibe Key.app。
 # 第三方的 esptool 保留 Espressif 自己的 Developer ID 签名(已带 Hardened Runtime 与时间戳),不重签。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -9,12 +9,12 @@ source scripts/signing-env.sh
 
 version="$(sed -nE 's/^ *MARKETING_VERSION: *"?([^"]+)"?$/\1/p' project.yml | head -1)"
 derived="build/ReleaseDerivedData"
-app="${derived}/Build/Products/Release/VibeKey.app"
+app="${derived}/Build/Products/Release/FoloVibe Key.app"
 
 # 打包烧录工具 esptool(发布版必须带上,否则用户无法在 app 里刷固件);固件本身刷写时从官网下载。
 ./scripts/bundle-device-assets.sh
 xcodegen generate --quiet
-echo "==> Building VibeKey ${version} (Release, ${DEVELOPER_ID})"
+echo "==> Building FoloVibe Key ${version} (Release, ${DEVELOPER_ID})"
 rm -rf "${app}"
 set +e
 xcodebuild -project VibeKey.xcodeproj -scheme VibeKey -configuration Release \
@@ -25,7 +25,7 @@ xcodebuild -project VibeKey.xcodeproj -scheme VibeKey -configuration Release \
 build_pipeline_status=("${PIPESTATUS[@]}")
 set -e
 build_status="${build_pipeline_status[0]}"
-[[ -x "${app}/Contents/MacOS/VibeKey" ]] || {
+[[ -x "${app}/Contents/MacOS/FoloVibe Key" ]] || {
     echo "构建失败: 未生成可执行文件 (xcodebuild exit ${build_status})" >&2
     exit 1
 }

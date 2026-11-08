@@ -416,12 +416,12 @@
         }
       }
     },
-    "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey": {
+    "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nFoloVibe Key = VibeKey": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nVibeKey"
+            "value": "Claude Code\nSwiftUI\nDeepSeek = DIPSEEK, deep seek, 迪普希克\nFoloVibe Key = VibeKey"
           }
         }
       }
@@ -486,12 +486,12 @@
         }
       }
     },
-    "FoloToy AI Passport 是 VibeKey 的硬件搭档：按住说话、一键发送，Agent 完成时提醒你。": {
+    "FoloToy AI Passport 是 FoloVibe Key 的硬件搭档：按住说话、一键发送，Agent 完成时提醒你。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FoloToy AI Passport is VibeKey's hardware companion: hold to talk, send with one press, and get notified when your agent is done."
+            "value": "FoloToy AI Passport is FoloVibe Key's hardware companion: hold to talk, send with one press, and get notified when your agent is done."
           }
         }
       }
@@ -657,7 +657,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If USB is plugged in but Passport shows OFFLINE, click Reconnect to reopen the serial port — no need to unplug. VibeKey works fine without Passport."
+            "value": "If USB is plugged in but Passport shows OFFLINE, click Reconnect to reopen the serial port — no need to unplug. FoloVibe Key works fine without Passport."
           }
         }
       }
@@ -678,52 +678,52 @@
     "VibeKey": {
       "shouldTranslate": false
     },
-    "VibeKey %@ 是目前的最新版本。": {
+    "FoloVibe Key %@ 是目前的最新版本。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey %@ is the latest version."
+            "value": "FoloVibe Key %@ is the latest version."
           }
         }
       }
     },
-    "VibeKey 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 %@ 打开。": {
+    "FoloVibe Key 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 %@ 打开。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey doesn't keep caption history: the transcript lives only in memory and is cleared when you start new captions or quit. After you end captions, the Transcript window opens so you can review, translate, summarize and save it; while captions are running, click %@ on the caption bar to open it."
+            "value": "FoloVibe Key doesn't keep caption history: the transcript lives only in memory and is cleared when you start new captions or quit. After you end captions, the Transcript window opens so you can review, translate, summarize and save it; while captions are running, click %@ on the caption bar to open it."
           }
         }
       }
     },
-    "VibeKey 有新版本": {
+    "FoloVibe Key 有新版本": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A new version of VibeKey is available"
+            "value": "A new version of FoloVibe Key is available"
           }
         }
       }
     },
-    "VibeKey 设置": {
+    "FoloVibe Key 设置": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey Settings"
+            "value": "FoloVibe Key Settings"
           }
         }
       }
     },
-    "VibeKey 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。": {
+    "FoloVibe Key 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey is still running, perhaps because live captions are active. Finish what you are doing, then click Continue Installation."
+            "value": "FoloVibe Key is still running, perhaps because live captions are active. Finish what you are doing, then click Continue Installation."
           }
         }
       }
@@ -824,12 +824,12 @@
         }
       }
     },
-    "app 缺少烧录工具 esptool，请重新安装 VibeKey，或在官网用浏览器刷入": {
+    "app 缺少烧录工具 esptool，请重新安装 FoloVibe Key，或在官网用浏览器刷入": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app is missing the esptool flashing tool. Reinstall VibeKey, or install the firmware in your browser on the website."
+            "value": "The app is missing the esptool flashing tool. Reinstall FoloVibe Key, or install the firmware in your browser on the website."
           }
         }
       }
@@ -1127,22 +1127,22 @@
         }
       }
     },
-    "下载后会校验安装包签名，自动替换并重新打开 VibeKey，设置和模型都会保留。": {
+    "下载后会校验安装包签名，自动替换并重新打开 FoloVibe Key，设置和模型都会保留。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After downloading, the installer verifies the signature, replaces and reopens VibeKey, and keeps your settings and models."
+            "value": "After downloading, the installer verifies the signature, replaces and reopens FoloVibe Key, and keeps your settings and models."
           }
         }
       }
     },
-    "下载后打开安装包，把 VibeKey 拖到「应用程序」替换旧版即可，设置和模型都会保留。": {
+    "下载后打开安装包，把 FoloVibe Key 拖到「应用程序」替换旧版即可，设置和模型都会保留。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After downloading, open the disk image and drag VibeKey to Applications to replace the old version. Your settings and models are kept."
+            "value": "After downloading, open the disk image and drag FoloVibe Key to Applications to replace the old version. Your settings and models are kept."
           }
         }
       }
@@ -1247,12 +1247,12 @@
         }
       }
     },
-    "不是 VibeKey 固件（%@）": {
+    "不是 FoloVibe Key 固件（%@）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not VibeKey firmware (%@)"
+            "value": "Not FoloVibe Key firmware (%@)"
           }
         }
       }
@@ -2597,32 +2597,32 @@
         }
       }
     },
-    "官网的固件 %@ 需要更新版本的 VibeKey": {
+    "官网的固件 %@ 需要更新版本的 FoloVibe Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer VibeKey"
+            "value": "Firmware %@ on the website needs a newer FoloVibe Key"
           }
         }
       }
     },
-    "官网的固件 %@ 需要更新版本的 VibeKey，请先更新 app": {
+    "官网的固件 %@ 需要更新版本的 FoloVibe Key，请先更新 app": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer version of VibeKey. Update the app first."
+            "value": "Firmware %@ on the website needs a newer version of FoloVibe Key. Update the app first."
           }
         }
       }
     },
-    "官网的固件 %@ 需要更新版本的 VibeKey，请先更新 app。": {
+    "官网的固件 %@ 需要更新版本的 FoloVibe Key，请先更新 app。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer version of VibeKey. Update the app first."
+            "value": "Firmware %@ on the website needs a newer version of FoloVibe Key. Update the app first."
           }
         }
       }
@@ -2777,12 +2777,12 @@
         }
       }
     },
-    "屏幕底部的小胶囊是 VibeKey 的状态条，鼠标移上去可以开始听写或打开实时字幕。": {
+    "屏幕底部的小胶囊是 FoloVibe Key 的状态条，鼠标移上去可以开始听写或打开实时字幕。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The small pill at the bottom of the screen is VibeKey. Hover over it to start dictation or Live Captions."
+            "value": "The small pill at the bottom of the screen is FoloVibe Key. Hover over it to start dictation or Live Captions."
           }
         }
       }
@@ -2837,12 +2837,12 @@
         }
       }
     },
-    "已在浏览器中下载。下载完成后打开安装包，把 VibeKey 拖到「应用程序」替换旧版，再重新打开。": {
+    "已在浏览器中下载。下载完成后打开安装包，把 FoloVibe Key 拖到「应用程序」替换旧版，再重新打开。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Downloading in your browser. When it finishes, open the disk image, drag VibeKey to Applications to replace the old version, then open it again."
+            "value": "Downloading in your browser. When it finishes, open the disk image, drag FoloVibe Key to Applications to replace the old version, then open it again."
           }
         }
       }
@@ -3032,17 +3032,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This version is no longer supported. Update to keep using VibeKey."
+            "value": "This version is no longer supported. Update to keep using FoloVibe Key."
           }
         }
       }
     },
-    "当前运行的是「%@」。刷入 VibeKey 固件后，它才能配合听写、显示状态并提醒 Agent 进度。": {
+    "当前运行的是「%@」。刷入 FoloVibe Key 固件后，它才能配合听写、显示状态并提醒 Agent 进度。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It's running “%@”. Install the VibeKey firmware so it can drive dictation, show status and notify you about your agent."
+            "value": "It's running “%@”. Install the FoloVibe Key firmware so it can drive dictation, show status and notify you about your agent."
           }
         }
       }
@@ -4007,12 +4007,12 @@
         }
       }
     },
-    "未获得蓝牙权限，可在 系统设置 > 隐私与安全性 > 蓝牙 中允许 VibeKey": {
+    "未获得蓝牙权限，可在 系统设置 > 隐私与安全性 > 蓝牙 中允许 FoloVibe Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Bluetooth access. Allow VibeKey in System Settings › Privacy & Security › Bluetooth."
+            "value": "No Bluetooth access. Allow FoloVibe Key in System Settings › Privacy & Security › Bluetooth."
           }
         }
       }
@@ -4267,12 +4267,12 @@
         }
       }
     },
-    "欢迎使用 VibeKey": {
+    "欢迎使用 FoloVibe Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Welcome to VibeKey"
+            "value": "Welcome to FoloVibe Key"
           }
         }
       }
@@ -4347,12 +4347,12 @@
         }
       }
     },
-    "正在刷入 VibeKey 固件": {
+    "正在刷入 FoloVibe Key 固件": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installing VibeKey Firmware"
+            "value": "Installing FoloVibe Key Firmware"
           }
         }
       }
@@ -4387,12 +4387,12 @@
         }
       }
     },
-    "正在安装，VibeKey 会自动重新打开…": {
+    "正在安装，FoloVibe Key 会自动重新打开…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installing; VibeKey will reopen automatically…"
+            "value": "Installing; FoloVibe Key will reopen automatically…"
           }
         }
       }
@@ -6327,12 +6327,12 @@
         }
       }
     },
-    "请确认它正在播放，并在系统设置里允许 VibeKey 录制系统音频": {
+    "请确认它正在播放，并在系统设置里允许 FoloVibe Key 录制系统音频": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure it is playing, and allow VibeKey to record system audio in System Settings"
+            "value": "Make sure it is playing, and allow FoloVibe Key to record system audio in System Settings"
           }
         }
       }
@@ -6537,12 +6537,12 @@
         }
       }
     },
-    "这个版本的 app 缺少烧录工具，请重新安装 VibeKey，或在官网 input.0os.io 用浏览器刷入。": {
+    "这个版本的 app 缺少烧录工具，请重新安装 FoloVibe Key，或在官网 input.0os.io 用浏览器刷入。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This copy of the app is missing its flashing tool. Reinstall VibeKey, or install the firmware in your browser at input.0os.io."
+            "value": "This copy of the app is missing its flashing tool. Reinstall FoloVibe Key, or install the firmware in your browser at input.0os.io."
           }
         }
       }
@@ -6637,12 +6637,12 @@
         }
       }
     },
-    "退出 VibeKey": {
+    "退出 FoloVibe Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quit VibeKey"
+            "value": "Quit FoloVibe Key"
           }
         }
       }
@@ -7007,22 +7007,22 @@
         }
       }
     },
-    "需要刷入 VibeKey 固件": {
+    "需要刷入 FoloVibe Key 固件": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey Firmware Needed"
+            "value": "FoloVibe Key Firmware Needed"
           }
         }
       }
     },
-    "需要更新 VibeKey": {
+    "需要更新 FoloVibe Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VibeKey Needs an Update"
+            "value": "FoloVibe Key Needs an Update"
           }
         }
       }
@@ -7122,7 +7122,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The microphone hears what you say. Accessibility lets VibeKey type into the current window."
+            "value": "The microphone hears what you say. Accessibility lets FoloVibe Key type into the current window."
           }
         }
       }

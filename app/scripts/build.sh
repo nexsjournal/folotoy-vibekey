@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 生成 Xcode 工程并编译 app,产物复制到 app/build/VibeKey.app。
+# 生成 Xcode 工程并编译 app,产物复制到 app/build/FoloVibe Key.app。
 #   CONFIGURATION=Debug ./scripts/build.sh   编译 Debug(默认 Release)
 #   SIGN_IDENTITY=- ./scripts/build.sh        没有开发证书时改用 ad-hoc 签名(每次编译后需重新授权辅助功能)
 set -euo pipefail
@@ -25,12 +25,12 @@ settings=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="${sign_identity}")
 xcodebuild -project VibeKey.xcodeproj -scheme VibeKey -configuration "${configuration}" \
     -derivedDataPath "${derived}" -destination 'platform=macOS' ${settings[@]+"${settings[@]}"} build 2>&1 | grep -E "error:|warning:|BUILD"
 # 失败时 set -o pipefail 会在这里退出,不能把中间产物当成可运行的 app。
-test -x "${derived}/Build/Products/${configuration}/VibeKey.app/Contents/MacOS/VibeKey"
-rm -rf build/VibeKey.app
-cp -R "${derived}/Build/Products/${configuration}/VibeKey.app" build/VibeKey.app
+test -x "${derived}/Build/Products/${configuration}/FoloVibe Key.app/Contents/MacOS/FoloVibe Key"
+rm -rf "build/FoloVibe Key.app"
+cp -R "${derived}/Build/Products/${configuration}/FoloVibe Key.app" "build/FoloVibe Key.app"
 # SwiftPM 带入的 onnxruntime.framework 含指向自身的符号链接,codesign 严格校验会报链接层级过深。
 # 所有本地构建都在统一签名前移除断链,避免把不可校验的产物复制到 build。
-removed_symlinks="$(scripts/remove-broken-symlinks.sh build/VibeKey.app)"
+removed_symlinks="$(scripts/remove-broken-symlinks.sh "build/FoloVibe Key.app")"
 if [[ -n "${removed_symlinks}" ]]; then
     echo "Removing broken / looping symlinks:"
     echo "${removed_symlinks}"
@@ -39,7 +39,7 @@ fi
 # 开发包在这里统一做一次深签名;固定证书只重签被移除符号链接影响的 framework 和外层 app,
 # 避免覆盖 Sparkle 等已经由 Xcode 正确签名的嵌套组件。
 if [[ "${sign_identity}" == "-" ]]; then
-    codesign --force --deep --sign - build/VibeKey.app
+    codesign --force --deep --sign - "build/FoloVibe Key.app"
 elif [[ -n "${removed_symlinks}" ]]; then
     resigned_frameworks=$'\n'
     while IFS= read -r link; do
@@ -51,7 +51,7 @@ elif [[ -n "${removed_symlinks}" ]]; then
         fi
     done <<<"${removed_symlinks}"
     codesign --force --sign "${sign_identity}" --options runtime \
-        --preserve-metadata=identifier,entitlements,requirements,flags build/VibeKey.app
+        --preserve-metadata=identifier,entitlements,requirements,flags "build/FoloVibe Key.app"
 fi
-codesign --verify --deep --strict --verbose=2 build/VibeKey.app
-echo "Built $(pwd)/build/VibeKey.app"
+codesign --verify --deep --strict --verbose=2 "build/FoloVibe Key.app"
+echo "Built $(pwd)/build/FoloVibe Key.app"

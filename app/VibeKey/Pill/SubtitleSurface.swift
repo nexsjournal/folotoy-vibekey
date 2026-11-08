@@ -176,7 +176,7 @@ struct SubtitleSurface: View {
                     Button("检查录音权限") { permissions.openSystemAudioSettings() }
                         .buttonStyle(.borderless)
                         .font(.system(size: 12, weight: .medium))
-                        .help("请确认它正在播放，并在系统设置里允许 VibeKey 录制系统音频")
+                        .help("请确认它正在播放，并在系统设置里允许 FoloVibe Key 录制系统音频")
                 }
             } else {
                 VStack(alignment: .leading, spacing: 4) {

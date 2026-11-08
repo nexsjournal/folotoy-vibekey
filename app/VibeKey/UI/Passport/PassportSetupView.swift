@@ -74,9 +74,9 @@ struct PassportSetupView: View {
                 VStack(alignment: .leading, spacing: DS.Space.s) {
                     HStack(spacing: 6) {
                         Text("发现 Passport").font(.system(size: 14, weight: .semibold))
-                        Tag(text: "需要刷入 VibeKey 固件", color: DS.warning)
+                        Tag(text: "需要刷入 FoloVibe Key 固件", color: DS.warning)
                     }
-                    Text("当前运行的是「\(device.firmware ?? String(localized: "其他固件", bundle: .l10n))」。刷入 VibeKey 固件后，它才能配合听写、显示状态并提醒 Agent 进度。")
+                    Text("当前运行的是「\(device.firmware ?? String(localized: "其他固件", bundle: .l10n))」。刷入 FoloVibe Key 固件后，它才能配合听写、显示状态并提醒 Agent 进度。")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if FirmwareFlasher.onlineFirmwareAllowed {
@@ -101,9 +101,9 @@ struct PassportSetupView: View {
         switch model.flasher.phase {
         case .idle, .done:
             if model.flasher.esptool == nil {
-                Hint("这个版本的 app 缺少烧录工具，请重新安装 VibeKey，或在官网 input.0os.io 用浏览器刷入。")
+                Hint("这个版本的 app 缺少烧录工具，请重新安装 FoloVibe Key，或在官网 input.0os.io 用浏览器刷入。")
             } else if case .incompatible(let manifest) = model.flasher.latest {
-                Hint("官网的固件 \(manifest.version) 需要更新版本的 VibeKey，请先更新 app。")
+                Hint("官网的固件 \(manifest.version) 需要更新版本的 FoloVibe Key，请先更新 app。")
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     if let version = model.flasher.latestManifest?.version {
@@ -170,7 +170,7 @@ struct PassportSetupView: View {
     private var flashingCard: some View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.s) {
-                Text("正在刷入 VibeKey 固件").font(.system(size: 14, weight: .semibold))
+                Text("正在刷入 FoloVibe Key 固件").font(.system(size: 14, weight: .semibold))
                 Text("大约 1 分钟，期间不要拔线。").font(.system(size: 12)).foregroundStyle(.secondary)
                 flashControls.padding(.top, 4)
             }
@@ -214,7 +214,7 @@ struct PassportSetupView: View {
         case .available:
             return String(localized: "已是最新固件", bundle: .l10n)
         case .incompatible(let latest):
-            return String(localized: "官网的固件 \(latest.version) 需要更新版本的 VibeKey", bundle: .l10n)
+            return String(localized: "官网的固件 \(latest.version) 需要更新版本的 FoloVibe Key", bundle: .l10n)
         case .checking, .unknown:
             return String(localized: "正在检查新固件…", bundle: .l10n)
         case .failed:

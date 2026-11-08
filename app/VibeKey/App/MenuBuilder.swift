@@ -15,7 +15,7 @@ final class MenuBuilder {
         let settings = app.settings
 
         let model = ModelCatalog.model(settings.dictationModelID)
-        menu.addItem(.header("VibeKey · " + (model?.name ?? String(localized: "未选择模型", bundle: .l10n))))
+        menu.addItem(.header("FoloVibe Key · " + (model?.name ?? String(localized: "未选择模型", bundle: .l10n))))
 
         let dictating = app.dictation.phase.isBusy
         menu.addItem(ActionItem(dictating ? String(localized: "结束听写", bundle: .l10n) : String(localized: "开始听写", bundle: .l10n), key: app.hotkeys.dictateDescription) { [app] in
@@ -62,7 +62,7 @@ final class MenuBuilder {
         if let updates = app.updates {
             menu.addItem(ActionItem(String(localized: "检查更新…", bundle: .l10n)) { updates.checkNow() })
         }
-        menu.addItem(ActionItem(String(localized: "退出 VibeKey", bundle: .l10n), key: "⌘Q") { NSApp.terminate(nil) })
+        menu.addItem(ActionItem(String(localized: "退出 FoloVibe Key", bundle: .l10n), key: "⌘Q") { NSApp.terminate(nil) })
         return menu
     }
 

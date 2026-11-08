@@ -31,7 +31,7 @@ fi
 [[ -e "${port}" ]] || die "串口 ${port} 不存在。"
 
 # VibeKey / Passport Keys app 会以 TIOCEXCL 独占串口;其它程序(串口监视器等)也要先关掉。
-for app in VibeKey PassportKeys; do
+for app in "FoloVibe Key" VibeKey PassportKeys; do
     if pgrep -xq "${app}"; then
         die "${app} app 正在运行并可能独占串口,请先退出它再烧录。"
     fi

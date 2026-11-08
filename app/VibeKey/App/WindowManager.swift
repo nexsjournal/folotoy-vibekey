@@ -25,8 +25,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
         super.init()
         // 切换界面语言时同步更新窗口标题。
         observeChanges({ [weak self] in _ = self?.app.language.locale }) { [weak self] in
-            self?.settingsWindow?.title = String(localized: "VibeKey 设置", bundle: .l10n)
-            self?.onboardingWindow?.title = String(localized: "欢迎使用 VibeKey", bundle: .l10n)
+            self?.settingsWindow?.title = String(localized: "FoloVibe Key 设置", bundle: .l10n)
+            self?.onboardingWindow?.title = String(localized: "欢迎使用 FoloVibe Key", bundle: .l10n)
             self?.transcriptWindow?.title = String(localized: "字幕记录", bundle: .l10n)
             self?.updateWindow?.title = String(localized: "软件更新", bundle: .l10n)
         }
@@ -49,7 +49,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if let provider { settingsNavigation.configure(provider, useFor: scenario) }
         if systemTranslation { settingsNavigation.configureSystemTranslation() }
         if settingsWindow == nil {
-            settingsWindow = makeWindow(title: String(localized: "VibeKey 设置", bundle: .l10n), size: NSSize(width: 940, height: 700),
+            settingsWindow = makeWindow(title: String(localized: "FoloVibe Key 设置", bundle: .l10n), size: NSSize(width: 940, height: 700),
                                         resizable: .init(minSize: NSSize(width: 820, height: 560), autosaveName: "VibeKeySettings"),
                                         content: LocalizedRoot(language: app.language) { SettingsView(app: self.app, navigation: self.settingsNavigation) })
         }
@@ -58,7 +58,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     func showOnboarding() {
         if onboardingWindow == nil {
-            onboardingWindow = makeWindow(title: String(localized: "欢迎使用 VibeKey", bundle: .l10n), size: NSSize(width: 680, height: 560),
+            onboardingWindow = makeWindow(title: String(localized: "欢迎使用 FoloVibe Key", bundle: .l10n), size: NSSize(width: 680, height: 560),
                                           content: LocalizedRoot(language: app.language) {
                                               // 完成时只关窗口:finishOnboarding 统一在 windowWillClose 里调用一次
                                               // (用户直接关掉引导窗口也走同一条路)。
@@ -120,7 +120,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         case .upToDate:
             let version = app.updates?.currentVersion.description ?? ""
             alert(String(localized: "已是最新版本", bundle: .l10n),
-                  String(localized: "VibeKey \(version) 是目前的最新版本。", bundle: .l10n))
+                  String(localized: "FoloVibe Key \(version) 是目前的最新版本。", bundle: .l10n))
         case .failed(let reason):
             alert(String(localized: "无法检查更新", bundle: .l10n),
                   String(localized: "请检查网络连接后再试。(\(reason))", bundle: .l10n), style: .warning)

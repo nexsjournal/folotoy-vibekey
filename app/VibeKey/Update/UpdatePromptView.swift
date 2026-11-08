@@ -73,7 +73,7 @@ struct UpdatePromptView: View {
             .opacity(appeared ? 1 : 0)
 
             VStack(spacing: 6) {
-                Text(required ? "需要更新 VibeKey" : "VibeKey 有新版本")
+                Text(required ? "需要更新 FoloVibe Key" : "FoloVibe Key 有新版本")
                     .font(.system(size: 20, weight: .semibold))
                 Text(required ? "当前版本已停止支持，更新后才能继续使用。" : "新版本已经发布，建议更新以获得最新功能和修复。")
                     .font(.system(size: 13))
@@ -146,10 +146,10 @@ struct UpdatePromptView: View {
             } else {
                 Label {
                     Text(installer != nil
-                         ? "下载后会校验安装包签名，自动替换并重新打开 VibeKey，设置和模型都会保留。"
+                         ? "下载后会校验安装包签名，自动替换并重新打开 FoloVibe Key，设置和模型都会保留。"
                          : downloadStarted
-                         ? "已在浏览器中下载。下载完成后打开安装包，把 VibeKey 拖到「应用程序」替换旧版，再重新打开。"
-                         : "下载后打开安装包，把 VibeKey 拖到「应用程序」替换旧版即可，设置和模型都会保留。")
+                         ? "已在浏览器中下载。下载完成后打开安装包，把 FoloVibe Key 拖到「应用程序」替换旧版，再重新打开。"
+                         : "下载后打开安装包，把 FoloVibe Key 拖到「应用程序」替换旧版即可，设置和模型都会保留。")
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: downloadStarted ? "checkmark.circle.fill" : "info.circle")
@@ -170,7 +170,7 @@ struct UpdatePromptView: View {
         let phase = installer?.phase ?? .idle
         return HStack(spacing: DS.Space.s) {
             if required {
-                Button("退出 VibeKey", action: onQuit).buttonStyle(SecondaryButtonStyle())
+                Button("退出 FoloVibe Key", action: onQuit).buttonStyle(SecondaryButtonStyle())
             } else if !phase.isBusy {
                 Button("跳过此版本", action: onSkip)
                     .buttonStyle(.plain)
@@ -243,7 +243,7 @@ private struct InstallProgressView: View {
                 }
                 .font(.system(size: 12))
             case .waitingToQuit:
-                Label("VibeKey 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。", systemImage: "pause.circle.fill")
+                Label("FoloVibe Key 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。", systemImage: "pause.circle.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             default:
@@ -267,7 +267,7 @@ private struct InstallProgressView: View {
         case .checking: "正在连接更新服务器…"
         case .downloading: "正在下载"
         case .extracting: "正在校验签名并解压…"
-        case .installing: "正在安装，VibeKey 会自动重新打开…"
+        case .installing: "正在安装，FoloVibe Key 会自动重新打开…"
         default: ""
         }
     }
