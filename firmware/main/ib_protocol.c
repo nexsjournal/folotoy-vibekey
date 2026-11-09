@@ -354,7 +354,8 @@ static const char *const KNOWN_KEYS[] = {
     "src", "dst", "live", "app",
     "uapp", "utoday", "uweek", "utotal", "utab", "uleft", "uquota",
     "ureset", "uplan", "ucredit",
-    "u5quota", "u5left", "u5reset", "uready",
+    "u5quota", "u5left", "u5reset",
+    "u1l", "u1v", "u1p", "u2l", "u2v", "u2p", "udetail", "ufl", "ufr", "uready",
     "size", "crc", "off", "d", "fin", "clear",
 };
 
@@ -437,6 +438,22 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
                 else if (strcmp(key, "ureset") == 0) out->has_usage_reset = true;
                 else if (strcmp(key, "u5reset") == 0) out->has_usage_5reset = true;
                 else out->has_usage_plan = true;
+            } else if (strcmp(key, "u1l") == 0 || strcmp(key, "u1v") == 0 ||
+                       strcmp(key, "u2l") == 0 || strcmp(key, "u2v") == 0) {
+                int row = key[1] == '1' ? 0 : 1;
+                char *dst = key[2] == 'l' ? out->usage_panel_label[row] : out->usage_panel_value[row];
+                if (!read_string(&c, dst, IB_TEXT_MAX)) return false;
+                if (key[2] == 'l') out->has_usage_panel_label[row] = true;
+                else out->has_usage_panel_value[row] = true;
+            } else if (strcmp(key, "udetail") == 0) {
+                if (!read_string(&c, out->usage_panel_detail, IB_TEXT_MAX)) return false;
+                out->has_usage_panel_detail = true;
+            } else if (strcmp(key, "ufl") == 0) {
+                if (!read_string(&c, out->usage_panel_footer_left, IB_TEXT_MAX)) return false;
+                out->has_usage_panel_footer_left = true;
+            } else if (strcmp(key, "ufr") == 0) {
+                if (!read_string(&c, out->usage_panel_footer_right, IB_TEXT_MAX)) return false;
+                out->has_usage_panel_footer_right = true;
             } else if (!read_string(&c, text, sizeof(text))) {
                 return false;
             }
@@ -579,6 +596,11 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             if (kind != VAL_UINT) return false;
             out->usage_5quota = num != 0;
             out->has_usage_5quota = true;
+        } else if (strcmp(key, "u1p") == 0 || strcmp(key, "u2p") == 0) {
+            if (kind != VAL_UINT || num > 100) return false;
+            int row = key[1] == '1' ? 0 : 1;
+            out->usage_panel_percent[row] = (uint8_t)num;
+            out->has_usage_panel_percent[row] = true;
         } else if (strcmp(key, "uready") == 0) {
             if (kind != VAL_UINT) return false;
             out->usage_ready = num != 0;

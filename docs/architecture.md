@@ -332,14 +332,18 @@ AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测�
 隐私:只解析 token_count / rate_limits 元数据，不读取或持久化聊天正文；名称和用量不写日志。
 失败处理:未安装 / 未登录 / 超时 / 进程退出都显示明确状态，不用 0 或示例数据冒充真实额度。
 
-设备端同一条数据链:
+设备端同一条数据链(Codex 走官方额度;其他 Agent 只读本地会话元数据):
 
 ```
 切换应用 → DeviceBridge.beginUsageHome(app)
  → AgentUsageService.load(for:)
      ├─ Codex → CodexUsageService → CodexUsageSnapshot
-     └─ DSH NEXT → DSHUsageReader(只读 session_projcache 开头的 tokenUsage.val.totals)
- → Codex 的 primary / secondary 分别映射为 5 小时 / 每周额度
+     ├─ DSH NEXT → DSHUsageReader(tokenUsage + sessionStats + contextPressure + modelSelection)
+     ├─ Claude → ClaudeUsageReader(projects/*.jsonl 的 model / usage / timestamp)
+     ├─ ZCode → ZCodeUsageReader(rollout 的 model / usage / startedAt)
+     └─ WorkBuddy → WorkBuddyUsageReader(trace 的 totalTokens / spanCount / startedAt)
+ → Codex 的 primary / secondary 分别映射为 5 小时 / 每周额度;其他 Agent 映射为本地
+   sessions / turns / context / model / last-active 等两行信息
  → DeviceUsage(格式化后的 ASCII) → DeviceLink.sendUsage → 固件 ib_ui_usage
  → 短按 OK: 隐藏用量页 → state idle(READY)，READY 底部提示 TAP OK: USAGE
  → READY 短按 OK(<500 ms): 重新显示 usageHome，不录入这次按压

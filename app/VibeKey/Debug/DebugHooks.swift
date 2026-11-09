@@ -49,7 +49,13 @@ enum DebugHooks {
     static func run(app: AppState) {
         if let probe = env["IB_AGENT_USAGE"] {
             Task {
-                let bundleID = probe == "dsh" ? "ai.deepseek.dsh.desktop.next" : AccessibilityCodexDesktopAdapter.bundleIdentifier
+                let bundleID: String = switch probe {
+                case "dsh": "ai.deepseek.dsh.desktop.next"
+                case "claude": "com.anthropic.claudefordesktop"
+                case "zcode": "dev.zcode.app"
+                case "workbuddy": "com.tencent.workbuddy.mac"
+                default: AccessibilityCodexDesktopAdapter.bundleIdentifier
+                }
                 let target = AgentSessionApp(pid: 0, bundleID: bundleID, name: probe)
                 let snapshot = await AgentUsageService.load(for: target)
                 print("[IB_AGENT_USAGE] app=\(snapshot.app) ready=\(snapshot.ready) "
@@ -57,7 +63,10 @@ enum DebugHooks {
                     + "week=\(snapshot.week.map(String.init) ?? "nil") "
                     + "total=\(snapshot.total.map(String.init) ?? "nil") "
                     + "left=\(snapshot.weeklyLeftPercent.map(String.init) ?? "nil") "
-                    + "reset=\(snapshot.reset ?? "nil") plan=\(snapshot.plan ?? "nil")")
+                    + "reset=\(snapshot.reset ?? "nil") plan=\(snapshot.plan ?? "nil") "
+                    + "panel=\(snapshot.panel?.label1 ?? "-"):\(snapshot.panel?.value1 ?? "-")/"
+                    + "\(snapshot.panel?.label2 ?? "-"):\(snapshot.panel?.value2 ?? "-") "
+                    + "detail=\(snapshot.panel?.detail ?? "-") footer=\(snapshot.panel?.footerLeft ?? "-")/\(snapshot.panel?.footerRight ?? "-")")
                 fflush(stdout)
                 exit(0)
             }

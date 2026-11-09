@@ -38,7 +38,11 @@ struct AgentUsageTests {
         let snapshot = AgentUsageSnapshot(
             app: "CODEX", today: 43_051_522, week: 43_051_522, total: 4_938_713_816,
             weeklyLeftPercent: 7, reset: "4D 1H", plan: "plus", credits: 0, ready: true,
-            fiveHourLeftPercent: 63, fiveHourReset: "2H 10M")
+            fiveHourLeftPercent: 63, fiveHourReset: "2H 10M",
+            panel: AgentUsagePanel(
+                label1: "CONTEXT", value1: "19%", percent1: 19,
+                label2: "SESSIONS", value2: "136", percent2: nil,
+                detail: "LAST 2H", footerLeft: "DEEPSEEK-V4.1", footerRight: "TURNS 228"))
         let device = snapshot.device(tab: 2)
         #expect(device.today == "43,051,522")
         #expect(device.total == "4,938,713,816")
@@ -46,5 +50,26 @@ struct AgentUsageTests {
         #expect(device.leftPercent == 7)
         #expect(device.fiveHourLeftPercent == 63)
         #expect(device.fiveHourReset == "2H 10M")
+        #expect(device.panel1Label == "CONTEXT")
+        #expect(device.panel1Percent == 19)
+        #expect(device.panel2Label == "SESSIONS")
+        #expect(device.panelFooterLeft == "DEEPSEEK-V4.1")
+    }
+
+    @Test func encodesGenericPanel() {
+        let usage = DeviceUsage(
+            app: "DSH", today: "1,000", week: "2,000", total: "3,000", tab: 0,
+            leftPercent: nil, reset: "", plan: "", credits: nil, ready: true,
+            panel1Label: "CONTEXT", panel1Value: "19%", panel1Percent: 19,
+            panel2Label: "SESSIONS", panel2Value: "136", panel2Percent: nil,
+            panelDetail: "LAST 2H", panelFooterLeft: "DEEPSEEK-V4.1", panelFooterRight: "TURNS 228")
+        let line = HostCommand.usage(usage).line
+        #expect(line.contains("\"u1l\":\"CONTEXT\""))
+        #expect(line.contains("\"u1v\":\"19%\""))
+        #expect(line.contains("\"u1p\":19"))
+        #expect(line.contains("\"u2l\":\"SESSIONS\""))
+        #expect(line.contains("\"udetail\":\"LAST 2H\""))
+        #expect(line.contains("\"ufl\":\"DEEPSEEK-V4.1\""))
+        #expect(line.contains("\"ufr\":\"TURNS 228\""))
     }
 }

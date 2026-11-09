@@ -44,6 +44,15 @@ nonisolated struct DeviceUsage: Equatable, Sendable {
     var ready: Bool
     var fiveHourLeftPercent: Int? = nil
     var fiveHourReset: String = ""
+    var panel1Label: String = ""
+    var panel1Value: String = ""
+    var panel1Percent: Int? = nil
+    var panel2Label: String = ""
+    var panel2Value: String = ""
+    var panel2Percent: Int? = nil
+    var panelDetail: String = ""
+    var panelFooterLeft: String = ""
+    var panelFooterRight: String = ""
 }
 
 /// 模块内部用的链路类型。`DeviceLink.Connection` 是主 actor 上的公开状态,

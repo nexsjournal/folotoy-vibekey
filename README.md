@@ -20,7 +20,7 @@ FoloVibe Key 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 
   - USB、BLE 或同一局域网 Wi‑Fi 连接；首次通过 USB 在 设置 › Passport 配置 2.4 GHz Wi‑Fi，显示无线就绪后可拔线；最多保存 4 个网络。首次添加新网络须通过 USB；已经保存的网络可在设备离线时长按 ▼，用上下键选择，短按 OK 切换；
   - 设置 › Passport › 连接状态显示当前链路、最后在线、固件 build、电量和充电电压；Agent 导航可逐个检测 Codex、DeepSeek、WorkBuddy、ZCode、Claude 等是否能读到项目和会话；
   - 设置 › 智能体 › 用量：读取 Codex 官方 app-server 的真实账户数据，显示今日 / 本周 / 累计 Token、每周额度剩余、重置倒计时、套餐和重置券；不读聊天正文，其他 Agent 没有公开用量接口时显示暂无数据；
-  - 进入 Codex、DSH NEXT、WorkBuddy、ZCode、Claude 等 Agent 后，Passport 先显示该应用的 USAGE 首页：今日 / 本周 / 累计 Token、5 小时与每周额度、重置时间；短按 OK 进入 READY，READY 再次短按 OK 返回用量首页，长按 OK 直接说话，短按上下切换周期；DSH 没有额度接口时显示 NO DATA；
+  - 进入 Codex、DSH NEXT、WorkBuddy、ZCode、Claude 等 Agent 后，Passport 先显示该应用的 USAGE 首页：Codex 显示今日 / 本周 / 累计 Token、5 小时与每周额度；DSH 显示上下文、会话数、模型、轮次；Claude / ZCode / WorkBuddy 显示各自的 sessions / turns / traces / spans 与最近活动；短按 OK 进入 READY，READY 再次短按 OK 返回用量首页，长按 OK 直接说话，短按上下切换周期；
   - 离线页背景可换：设置 › Passport › 离线页背景选一张照片，Mac 会自动裁成 240×320、做绿色像素化和上下暗带，再经 USB / Wi-Fi 写入设备；不调用生图模型，也不上传原图。恢复默认可随时回到内置像素猫；
   - 按住 OK 立即采音，同时自动前置并聚焦记住的目标应用（默认 Codex），松开后输入识别或翻译结果;
   - 上键安全发送当前 Codex 输入框中的手动／语音草稿,下键停止当前 Codex 任务(默认值;也可在 设置 › Passport › 按键 改成普通快捷键);

@@ -274,6 +274,29 @@ nonisolated enum HostCommand: Equatable, Sendable {
             if !usage.fiveHourReset.isEmpty {
                 fields.append(("u5reset", .string(DeviceText.ascii(usage.fiveHourReset, maxBytes: Self.keyHintMaxBytes))))
             }
+            if !usage.panel1Label.isEmpty {
+                fields.append(("u1l", .string(DeviceText.ascii(usage.panel1Label, maxBytes: Self.textMaxBytes))))
+                fields.append(("u1v", .string(DeviceText.ascii(usage.panel1Value, maxBytes: Self.textMaxBytes))))
+                if let percent = usage.panel1Percent {
+                    fields.append(("u1p", .int(min(max(percent, 0), 100))))
+                }
+            }
+            if !usage.panel2Label.isEmpty {
+                fields.append(("u2l", .string(DeviceText.ascii(usage.panel2Label, maxBytes: Self.textMaxBytes))))
+                fields.append(("u2v", .string(DeviceText.ascii(usage.panel2Value, maxBytes: Self.textMaxBytes))))
+                if let percent = usage.panel2Percent {
+                    fields.append(("u2p", .int(min(max(percent, 0), 100))))
+                }
+            }
+            if !usage.panelDetail.isEmpty {
+                fields.append(("udetail", .string(DeviceText.ascii(usage.panelDetail, maxBytes: Self.textMaxBytes))))
+            }
+            if !usage.panelFooterLeft.isEmpty {
+                fields.append(("ufl", .string(DeviceText.ascii(usage.panelFooterLeft, maxBytes: Self.textMaxBytes))))
+            }
+            if !usage.panelFooterRight.isEmpty {
+                fields.append(("ufr", .string(DeviceText.ascii(usage.panelFooterRight, maxBytes: Self.textMaxBytes))))
+            }
             fields.append(("uready", .int(usage.ready ? 1 : 0)))
         case .caption(let app, let src, let dst, let live):
             fields.append(("app", .string(DeviceText.utf8(app, maxBytes: Self.captionAppMaxBytes))))

@@ -363,6 +363,9 @@ static void test_usage(void)
                 "\"uweek\":\"43,051,522\",\"utotal\":\"4,938,713,816\",\"utab\":2,"
                 "\"uquota\":1,\"uleft\":7,\"ureset\":\"4D 2H\",\"uplan\":\"PLUS\","
                 "\"ucredit\":0,\"u5quota\":1,\"u5left\":63,\"u5reset\":\"2H 10M\","
+                "\"u1l\":\"CONTEXT\",\"u1v\":\"19%\",\"u1p\":19,"
+                "\"u2l\":\"SESSIONS\",\"u2v\":\"136\",\"udetail\":\"LAST 2H\","
+                "\"ufl\":\"DEEPSEEK-V4.1\",\"ufr\":\"TURNS 228\","
                 "\"uready\":1}", &c));
     CHECK(c.type == IB_CMD_USAGE);
     CHECK(c.has_usage_app);
@@ -378,6 +381,14 @@ static void test_usage(void)
     CHECK(c.has_usage_5quota && c.usage_5quota);
     CHECK(c.has_usage_5left && c.usage_5left == 63);
     CHECK_STR(c.usage_5reset, "2H 10M");
+    CHECK(c.has_usage_panel_label[0]);
+    CHECK_STR(c.usage_panel_label[0], "CONTEXT");
+    CHECK_STR(c.usage_panel_value[0], "19%");
+    CHECK(c.has_usage_panel_percent[0] && c.usage_panel_percent[0] == 19);
+    CHECK_STR(c.usage_panel_label[1], "SESSIONS");
+    CHECK_STR(c.usage_panel_detail, "LAST 2H");
+    CHECK_STR(c.usage_panel_footer_left, "DEEPSEEK-V4.1");
+    CHECK_STR(c.usage_panel_footer_right, "TURNS 228");
     CHECK(c.has_usage_ready && c.usage_ready);
 
     // DSH 没有额度数据:只带 token 和 app + ready。
@@ -388,6 +399,7 @@ static void test_usage(void)
     CHECK(!parse("{\"cmd\":\"usage\",\"utab\":3}", &c));
     CHECK(!parse("{\"cmd\":\"usage\",\"uleft\":101}", &c));
     CHECK(!parse("{\"cmd\":\"usage\",\"u5left\":101}", &c));
+    CHECK(!parse("{\"cmd\":\"usage\",\"u1p\":101}", &c));
 }
 
 int main(void)

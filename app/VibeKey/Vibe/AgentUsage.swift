@@ -1,5 +1,19 @@
 import Foundation
 
+/// 设备侧额度框的通用两行信息。Codex 填 5 小时 / 每周额度；其他 Agent
+/// 可以填会话数、上下文、轮次、模型等本地元数据。
+nonisolated struct AgentUsagePanel: Equatable, Sendable {
+    var label1: String
+    var value1: String
+    var percent1: Int?
+    var label2: String
+    var value2: String
+    var percent2: Int?
+    var detail: String
+    var footerLeft: String
+    var footerRight: String
+}
+
 /// 设备 / Mac 共用的 Agent 用量摘要。数字保留原始值，显示时再格式化。
 nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
     var app: String
@@ -13,6 +27,7 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
     var ready: Bool
     var fiveHourLeftPercent: Int? = nil
     var fiveHourReset: String? = nil
+    var panel: AgentUsagePanel? = nil
 
     static func unavailable(app: String) -> AgentUsageSnapshot {
         AgentUsageSnapshot(app: app, today: nil, week: nil, total: nil,
@@ -20,7 +35,18 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
     }
 
     func device(tab: Int) -> DeviceUsage {
-        DeviceUsage(
+        let panel = panel ?? AgentUsagePanel(
+            label1: "5H LEFT",
+            value1: fiveHourLeftPercent.map { "\($0)%" } ?? "NO DATA",
+            percent1: fiveHourLeftPercent,
+            label2: "WEEK LEFT",
+            value2: weeklyLeftPercent.map { "\($0)%" } ?? "NO DATA",
+            percent2: weeklyLeftPercent,
+            detail: reset.map { "RESET \($0)" } ?? "RESET --",
+            footerLeft: "PLAN \(plan?.uppercased() ?? "--")",
+            footerRight: credits.map { "CREDITS \($0)" } ?? "CREDITS --"
+        )
+        return DeviceUsage(
             app: app,
             today: today.map(CodexUsageFormat.tokens) ?? "",
             week: week.map(CodexUsageFormat.tokens) ?? "",
@@ -32,7 +58,16 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
             credits: credits,
             ready: ready,
             fiveHourLeftPercent: fiveHourLeftPercent,
-            fiveHourReset: fiveHourReset ?? ""
+            fiveHourReset: fiveHourReset ?? "",
+            panel1Label: panel.label1,
+            panel1Value: panel.value1,
+            panel1Percent: panel.percent1,
+            panel2Label: panel.label2,
+            panel2Value: panel.value2,
+            panel2Percent: panel.percent2,
+            panelDetail: panel.detail,
+            panelFooterLeft: panel.footerLeft,
+            panelFooterRight: panel.footerRight
         )
     }
 }
@@ -46,6 +81,12 @@ nonisolated enum AgentUsageService {
             return await codex()
         case "ai.deepseek.dsh.desktop.next":
             return await DSHUsageReader.load()
+        case "com.anthropic.claudefordesktop", "com.anthropic.claude":
+            return await ClaudeUsageReader.load()
+        case "dev.zcode.app":
+            return await ZCodeUsageReader.load()
+        case "com.tencent.workbuddy.mac":
+            return await WorkBuddyUsageReader.load()
         default:
             return .unavailable(app: app.shortName)
         }
@@ -71,9 +112,8 @@ nonisolated enum AgentUsageService {
     }
 }
 
-/// DSH NEXT 的会话缓存把 token 用量放在独立的 `tokenUsage` 投影里。
-/// 这里只读取每个文件开头的一小段，并只解析 `tokenUsage.val.totals`；
-/// 不解析、不输出、不保存标题或聊天内容。
+/// DSH NEXT 的会话缓存包含 tokenUsage / sessionStats / contextPressure /
+/// modelSelection 元数据。这里只读这些字段，不解析、不输出、不保存标题或聊天内容。
 nonisolated enum DSHUsageReader {
     static func load() async -> AgentUsageSnapshot {
         await Task.detached(priority: .utility) { loadSync() }.value
@@ -94,73 +134,104 @@ nonisolated enum DSHUsageReader {
         var total: Int64 = 0
         var today: Int64 = 0
         var week: Int64 = 0
+        var sessions = 0
+        var turns = 0
         var found = false
+        var foundTokens = false
+        var model: String?
+        var contextPercent: Int?
+        var lastActivity: Date?
 
         for file in files where file.pathExtension == "json" {
-            guard let tokens = tokenTotal(in: file) else { continue }
+            guard let data = try? Data(contentsOf: file),
+                  let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let record = root["record"] as? [String: Any],
+                  let rows = record["rows"] as? [String: Any] else { continue }
             found = true
-            total += tokens
-            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            if modified >= todayStart { today += tokens }
-            if modified >= weekStart { week += tokens }
+            sessions += 1
+
+            let tokenTotal = dshTokenTotal(rows)
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+                ?? .distantPast
+            if let tokenTotal, tokenTotal > 0 {
+                foundTokens = true
+                total += tokenTotal
+                if modified >= todayStart { today += tokenTotal }
+                if modified >= weekStart { week += tokenTotal }
+            }
+            turns += dshSessionTurns(rows)
+
+            let promptAt = dshLastPrompt(rows)
+            let activity = promptAt ?? modified
+            if lastActivity == nil || activity > lastActivity! {
+                lastActivity = activity
+                let latestModel = dshModel(rows)
+                if let latestModel { model = latestModel }
+                contextPercent = dshContextPercent(rows)
+            } else if model == nil {
+                model = dshModel(rows)
+            }
         }
         guard found else { return .unavailable(app: "DSH") }
+        let panel = AgentUsagePanel(
+            label1: "CONTEXT",
+            value1: contextPercent.map { "\($0)%" } ?? "--",
+            percent1: contextPercent,
+            label2: "SESSIONS",
+            value2: AgentUsageFormat.count(sessions),
+            percent2: nil,
+            detail: "LAST \(AgentUsageFormat.ago(lastActivity))",
+            footerLeft: AgentUsageFormat.model(model) ?? "DEEPSEEK",
+            footerRight: "TURNS \(AgentUsageFormat.count(turns))"
+        )
         return AgentUsageSnapshot(
             app: "DSH",
-            today: today,
-            week: week,
-            total: total,
+            today: foundTokens ? today : nil,
+            week: foundTokens ? week : nil,
+            total: foundTokens ? total : nil,
             weeklyLeftPercent: nil,
             reset: nil,
             plan: "DEEPSEEK",
             credits: nil,
-            ready: true
+            ready: true,
+            panel: panel
         )
     }
 
-    /// session_projcache 是格式化过的 JSON，tokenUsage 通常在前几 KB。只读 128 KB 前缀；
-    /// 找到 `totals` 后按括号配对截取那一个小对象，再交给 JSONDecoder。
-    private static func tokenTotal(in file: URL) -> Int64? {
-        guard let handle = try? FileHandle(forReadingFrom: file) else { return nil }
-        defer { try? handle.close() }
-        guard let prefix = try? handle.read(upToCount: 128 * 1024), !prefix.isEmpty else { return nil }
-        let text = String(decoding: prefix, as: UTF8.self)
-        guard let usage = text.range(of: "\"tokenUsage\""),
-              let totals = text.range(of: "\"totals\"", range: usage.upperBound..<text.endIndex),
-              let open = text.range(of: "{", range: totals.upperBound..<text.endIndex) else { return nil }
-        guard let object = balancedObject(in: text, from: open.lowerBound) else { return nil }
-        guard let data = object.data(using: .utf8),
-              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+    private static func rowValue(_ rows: [String: Any], _ key: String) -> [String: Any]? {
+        (rows[key] as? [String: Any])?["val"] as? [String: Any]
+    }
+
+    private static func dshTokenTotal(_ rows: [String: Any]) -> Int64? {
+        guard let usage = rowValue(rows, "tokenUsage"),
+              let totals = usage["totals"] as? [String: Any] else { return nil }
         let keys = ["uncachedInputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"]
-        var sum: Int64 = 0
-        for key in keys {
-            if let n = raw[key] as? NSNumber { sum += n.int64Value }
+        let sum = keys.reduce(Int64(0)) { partial, key in
+            partial + ((totals[key] as? NSNumber)?.int64Value ?? 0)
         }
         return sum > 0 ? sum : nil
     }
 
-    /// 从 `{` 开始返回配对到 `}` 的子串（字符串里的括号不参与配对）。
-    private static func balancedObject(in text: String, from start: String.Index) -> String? {
-        var depth = 0
-        var inString = false
-        var escaped = false
-        var index = start
-        while index < text.endIndex {
-            let ch = text[index]
-            if inString {
-                if escaped { escaped = false }
-                else if ch == "\\" { escaped = true }
-                else if ch == "\"" { inString = false }
-            } else if ch == "\"" {
-                inString = true
-            } else if ch == "{" {
-                depth += 1
-            } else if ch == "}" {
-                depth -= 1
-                if depth == 0 { return String(text[start...index]) }
-            }
-            index = text.index(after: index)
-        }
-        return nil
+    private static func dshSessionTurns(_ rows: [String: Any]) -> Int {
+        ((rowValue(rows, "sessionStats")?["turns"] as? NSNumber)?.intValue) ?? 0
+    }
+
+    private static func dshModel(_ rows: [String: Any]) -> String? {
+        let last = rowValue(rows, "modelSelection")?["lastUsed"] as? [String: Any]
+        return last?["model"] as? String
+    }
+
+    private static func dshContextPercent(_ rows: [String: Any]) -> Int? {
+        guard let pressure = rowValue(rows, "contextPressure"),
+              let surface = (pressure["surfaceTokens"] as? NSNumber)?.doubleValue,
+              let window = (pressure["contextWindow"] as? NSNumber)?.doubleValue,
+              window > 0 else { return nil }
+        return min(100, max(0, Int((surface * 100 / window).rounded())))
+    }
+
+    private static func dshLastPrompt(_ rows: [String: Any]) -> Date? {
+        guard let ms = (rowValue(rows, "sessionListMetadata")?["lastPromptAt"] as? NSNumber)?.doubleValue,
+              ms > 0 else { return nil }
+        return Date(timeIntervalSince1970: ms / 1000)
     }
 }

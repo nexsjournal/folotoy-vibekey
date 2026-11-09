@@ -776,6 +776,22 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
         if (cmd->has_usage_reset) memcpy(usage.reset, cmd->usage_reset, sizeof(usage.reset));
         if (cmd->has_usage_5reset) memcpy(usage.five_hour_reset, cmd->usage_5reset, sizeof(usage.five_hour_reset));
         if (cmd->has_usage_plan) memcpy(usage.plan, cmd->usage_plan, sizeof(usage.plan));
+        for (int i = 0; i < 2; i++) {
+            if (cmd->has_usage_panel_label[i]) {
+                memcpy(usage.panel_label[i], cmd->usage_panel_label[i], sizeof(usage.panel_label[i]));
+                usage.has_panel = true;
+            }
+            if (cmd->has_usage_panel_value[i]) {
+                memcpy(usage.panel_value[i], cmd->usage_panel_value[i], sizeof(usage.panel_value[i]));
+            }
+            if (cmd->has_usage_panel_percent[i]) {
+                usage.panel_percent[i] = cmd->usage_panel_percent[i];
+                usage.panel_has_percent[i] = true;
+            }
+        }
+        if (cmd->has_usage_panel_detail) memcpy(usage.panel_detail, cmd->usage_panel_detail, sizeof(usage.panel_detail));
+        if (cmd->has_usage_panel_footer_left) memcpy(usage.panel_footer_left, cmd->usage_panel_footer_left, sizeof(usage.panel_footer_left));
+        if (cmd->has_usage_panel_footer_right) memcpy(usage.panel_footer_right, cmd->usage_panel_footer_right, sizeof(usage.panel_footer_right));
         if (s_ui_ok) ib_ui_set_usage(&usage);
         break;
     }

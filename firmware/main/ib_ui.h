@@ -75,6 +75,14 @@ typedef struct {
     uint8_t five_hour_left_percent;       // 0..100
     bool has_five_hour_quota;             // false 时显示 NO DATA
     char five_hour_reset[IB_UI_USAGE_TEXT_MAX];
+    bool has_panel;                       // 使用通用两行信息面板
+    char panel_label[2][IB_UI_USAGE_TEXT_MAX];
+    char panel_value[2][IB_UI_USAGE_TEXT_MAX];
+    uint8_t panel_percent[2];             // 0..100
+    bool panel_has_percent[2];
+    char panel_detail[IB_UI_USAGE_TEXT_MAX];
+    char panel_footer_left[IB_UI_USAGE_TEXT_MAX];
+    char panel_footer_right[IB_UI_USAGE_TEXT_MAX];
     int16_t credits;                      // -1 表示未知
     bool ready;                           // false 时显示 READING USAGE...
 } ib_ui_usage_t;

@@ -166,6 +166,18 @@ typedef struct {
     uint8_t usage_5left;
     bool has_usage_5reset;
     char usage_5reset[IB_TEXT_MAX];
+    bool has_usage_panel_label[2];
+    char usage_panel_label[2][IB_TEXT_MAX];
+    bool has_usage_panel_value[2];
+    char usage_panel_value[2][IB_TEXT_MAX];
+    bool has_usage_panel_percent[2];
+    uint8_t usage_panel_percent[2];
+    bool has_usage_panel_detail;
+    char usage_panel_detail[IB_TEXT_MAX];
+    bool has_usage_panel_footer_left;
+    char usage_panel_footer_left[IB_TEXT_MAX];
+    bool has_usage_panel_footer_right;
+    char usage_panel_footer_right[IB_TEXT_MAX];
     bool has_usage_ready;
     bool usage_ready;
     // caption(UTF-8):当前字幕原文 / 译文 / 应用名;live 表示末行还在变化。

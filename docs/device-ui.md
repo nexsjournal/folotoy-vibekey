@@ -70,7 +70,7 @@
 
 - 从「切换应用」选中 Codex、DSH NEXT、WorkBuddy、ZCode、Claude、千问办公、豆包工作等 Agent 后,先显示这一页,而不是直接进入 READY。
 - 顶部 `> CODEX` / `> DSH`;三行 Tab `TODAY / WEEK / ALL`,短按上下键切换;中间用 26 px 大号数字显示选中周期的 Token 数,下面只保留 `TOKENS`,不再重复 Tab 名称。整页文字统一左对齐,长数字不居中偏移。
-- 下方是加高的额度区,同时显示 `5H LEFT` 与 `WEEK LEFT` 两条剩余额度进度;每周窗口保留 `RESET` 倒计时,底部用一行小号 `PLAN` / `CREDITS`。额度区不使用灰色填充卡片,只保留 READY 页同款细绿色描边。没有额度接口的 Agent(如 DSH)显示 `NO DATA` / `RESET --`,不伪造额度。
+- 下方是加高的两行信息区。Codex 显示 `5H LEFT` / `WEEK LEFT` 与进度条、`RESET` 倒计时、`PLAN` / `CREDITS`;DSH 显示 `CONTEXT` / `SESSIONS`、最近活动、模型和 `TURNS`;Claude / ZCode / WorkBuddy 显示各自的 sessions/turns/traces/spans、最近活动和模型。没有某项数据时不伪造,直接显示 `--` 或 `NO DATA`。
 - 短按 OK 进入原 READY 页;长按 OK 直接从用量页开始录音;长按上键切模式;长按下键打开应用 / 项目 / 会话列表。
 - READY 页有可用用量页时,底部显示 `TAP OK: USAGE`;短按 OK(<500 ms)返回用量首页,按住 OK 仍然是说话。
 - 数据由 Mac 的 `usage` 命令下发;设备只排版,不解析金额或聊天内容。读取中显示 `READING USAGE...`,失败显示 `NO USAGE DATA`。

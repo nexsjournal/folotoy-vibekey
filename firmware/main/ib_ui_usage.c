@@ -87,18 +87,33 @@ static void fx_draw(lv_event_t *e)
     int tab = s_view.tab > 2 ? 0 : s_view.tab;
     ib_fx_rect(&fx, TAB_X0 + tab * TAB_PITCH, 49, 44, 2, 1, soft, LV_OPA_COVER);
 
-    // 5 小时窗口和每周额度:只有 Mac 明确给出额度时才画填充。
-    if (s_view.has_five_hour_quota) {
-        int32_t left = s_view.five_hour_left_percent > 100 ? 100 : s_view.five_hour_left_percent;
-        ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
-        int32_t fill = INNER_W * left / 100;
-        if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
-    }
-    if (s_view.has_quota) {
-        int32_t left = s_view.left_percent > 100 ? 100 : s_view.left_percent;
-        ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
-        int32_t fill = INNER_W * left / 100;
-        if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+    // 两行额度 / 信息:通用面板有百分比时才画进度条。
+    if (s_view.has_panel) {
+        if (s_view.panel_has_percent[0]) {
+            int32_t left = s_view.panel_percent[0] > 100 ? 100 : s_view.panel_percent[0];
+            ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
+            int32_t fill = INNER_W * left / 100;
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
+        }
+        if (s_view.panel_has_percent[1]) {
+            int32_t left = s_view.panel_percent[1] > 100 ? 100 : s_view.panel_percent[1];
+            ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
+            int32_t fill = INNER_W * left / 100;
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+        }
+    } else {
+        if (s_view.has_five_hour_quota) {
+            int32_t left = s_view.five_hour_left_percent > 100 ? 100 : s_view.five_hour_left_percent;
+            ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
+            int32_t fill = INNER_W * left / 100;
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
+        }
+        if (s_view.has_quota) {
+            int32_t left = s_view.left_percent > 100 ? 100 : s_view.left_percent;
+            ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
+            int32_t fill = INNER_W * left / 100;
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+        }
     }
     ib_fx_rect(&fx, INNER_X, DIVIDER_Y, INNER_W, 1, 0, frame, LV_OPA_COVER);
 }
@@ -170,40 +185,57 @@ static void update(const ib_ui_ctx_t *ctx)
     lv_label_set_text_static(s_detail, !s_view.ready ? "READING USAGE..." :
                              (tokens[0] ? "TOKENS" : "NO USAGE DATA"));
 
-    if (s_view.has_five_hour_quota && s_view.ready) {
-        snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%u%%", (unsigned)s_view.five_hour_left_percent);
+    if (s_view.has_panel) {
+        lv_label_set_text_static(s_five, s_view.panel_label[0]);
+        lv_label_set_text_static(s_five_pct, s_view.panel_value[0][0] ? s_view.panel_value[0] :
+                                 (!s_view.ready ? "..." : "--"));
+        lv_obj_set_style_text_color(s_five_pct, lv_color_hex(s_view.panel_has_percent[0] && s_view.ready
+                                                                 ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
+        lv_label_set_text_static(s_week, s_view.panel_label[1]);
+        lv_label_set_text_static(s_pct, s_view.panel_value[1][0] ? s_view.panel_value[1] :
+                                     (!s_view.ready ? "..." : "--"));
+        lv_obj_set_style_text_color(s_pct, lv_color_hex(s_view.panel_has_percent[1] && s_view.ready
+                                                            ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
+        lv_label_set_text_static(s_reset, s_view.panel_detail[0] ? s_view.panel_detail :
+                                 (!s_view.ready ? "READING USAGE..." : ""));
+        lv_label_set_text_static(s_plan, s_view.panel_footer_left);
+        lv_label_set_text_static(s_credit, s_view.panel_footer_right);
     } else {
-        snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%s", s_view.ready ? "NO DATA" : "...");
-    }
-    lv_label_set_text_static(s_five, "5H LEFT");
-    lv_label_set_text_static(s_five_pct, s_five_pct_text);
-    lv_obj_set_style_text_color(s_five_pct, lv_color_hex(s_view.has_five_hour_quota && s_view.ready
-                                                             ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
+        if (s_view.has_five_hour_quota && s_view.ready) {
+            snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%u%%", (unsigned)s_view.five_hour_left_percent);
+        } else {
+            snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%s", s_view.ready ? "NO DATA" : "...");
+        }
+        lv_label_set_text_static(s_five, "5H LEFT");
+        lv_label_set_text_static(s_five_pct, s_five_pct_text);
+        lv_obj_set_style_text_color(s_five_pct, lv_color_hex(s_view.has_five_hour_quota && s_view.ready
+                                                                 ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
 
-    if (s_view.has_quota && s_view.ready) {
-        snprintf(s_pct_text, sizeof(s_pct_text), "%u%%", (unsigned)s_view.left_percent);
-    } else {
-        snprintf(s_pct_text, sizeof(s_pct_text), "%s", s_view.ready ? "NO DATA" : "...");
-    }
-    lv_label_set_text_static(s_week, "WEEK LEFT");
-    lv_label_set_text_static(s_pct, s_pct_text);
-    lv_obj_set_style_text_color(s_pct, lv_color_hex(s_view.has_quota && s_view.ready
-                                                        ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
+        if (s_view.has_quota && s_view.ready) {
+            snprintf(s_pct_text, sizeof(s_pct_text), "%u%%", (unsigned)s_view.left_percent);
+        } else {
+            snprintf(s_pct_text, sizeof(s_pct_text), "%s", s_view.ready ? "NO DATA" : "...");
+        }
+        lv_label_set_text_static(s_week, "WEEK LEFT");
+        lv_label_set_text_static(s_pct, s_pct_text);
+        lv_obj_set_style_text_color(s_pct, lv_color_hex(s_view.has_quota && s_view.ready
+                                                            ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
 
-    if (s_view.ready && s_view.reset[0]) {
-        snprintf(s_reset_text, sizeof(s_reset_text), "RESET %s", s_view.reset);
-    } else {
-        snprintf(s_reset_text, sizeof(s_reset_text), "RESET --");
+        if (s_view.ready && s_view.reset[0]) {
+            snprintf(s_reset_text, sizeof(s_reset_text), "RESET %s", s_view.reset);
+        } else {
+            snprintf(s_reset_text, sizeof(s_reset_text), "RESET --");
+        }
+        lv_label_set_text_static(s_reset, s_reset_text);
+        snprintf(s_plan_text, sizeof(s_plan_text), "PLAN %s", s_view.ready && s_view.plan[0] ? s_view.plan : "--");
+        lv_label_set_text_static(s_plan, s_plan_text);
+        if (s_view.ready && s_view.credits >= 0) {
+            snprintf(s_credit_text, sizeof(s_credit_text), "CREDITS %u", (unsigned)s_view.credits);
+        } else {
+            snprintf(s_credit_text, sizeof(s_credit_text), "CREDITS --");
+        }
+        lv_label_set_text_static(s_credit, s_credit_text);
     }
-    lv_label_set_text_static(s_reset, s_reset_text);
-    snprintf(s_plan_text, sizeof(s_plan_text), "PLAN %s", s_view.ready && s_view.plan[0] ? s_view.plan : "--");
-    lv_label_set_text_static(s_plan, s_plan_text);
-    if (s_view.ready && s_view.credits >= 0) {
-        snprintf(s_credit_text, sizeof(s_credit_text), "CREDITS %u", (unsigned)s_view.credits);
-    } else {
-        snprintf(s_credit_text, sizeof(s_credit_text), "CREDITS --");
-    }
-    lv_label_set_text_static(s_credit, s_credit_text);
 
     lv_label_set_text_static(s_footer, s_view.ready ? "TAP OK: READY  HOLD: TALK" : "READING USAGE...");
     lv_obj_invalidate(s_fx);
