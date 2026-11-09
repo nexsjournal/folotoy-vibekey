@@ -20,7 +20,7 @@ struct SettingsView: View {
             case .ai: String(localized: "AI 服务", bundle: .l10n)
             case .subtitles: String(localized: "实时字幕", bundle: .l10n)
             case .passport: String(localized: "Passport", bundle: .l10n)
-            case .vibe: String(localized: "Vibe Coding", bundle: .l10n)
+            case .vibe: String(localized: "智能体", bundle: .l10n)
             case .vocabulary: String(localized: "词汇表", bundle: .l10n)
             }
         }

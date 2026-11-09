@@ -63,6 +63,7 @@ typedef enum {
     IB_ST_ERR,
     IB_ST_SUB,
     IB_ST_LIST,             // 列表页(Mac 驱动的应用切换器等),内容由 list 命令提供
+    IB_ST_USAGE,            // Agent 用量首页,内容由 usage 命令提供
     IB_ST_COUNT,
 } ib_state_t;
 
@@ -91,6 +92,7 @@ typedef enum {
     IB_CMD_KEYS,
     IB_CMD_AGENT,
     IB_CMD_LIST,
+    IB_CMD_USAGE,
     IB_CMD_CAPTION,
     IB_CMD_WALLPAPER,
 } ib_cmd_type_t;
@@ -137,6 +139,29 @@ typedef struct {
     bool has_list_sel;
     uint16_t list_sel;              // 选中项的绝对序号
     uint16_t list_top;              // i0 在完整列表里的序号(缺省 0)
+    // usage:Agent 用量首页。字符串均为 ASCII;数字已由 Mac 格式化。
+    bool has_usage_app;
+    char usage_app[IB_TEXT_MAX];
+    bool has_usage_today;
+    char usage_today[IB_TEXT_MAX];
+    bool has_usage_week;
+    char usage_week[IB_TEXT_MAX];
+    bool has_usage_total;
+    char usage_total[IB_TEXT_MAX];
+    bool has_usage_tab;
+    uint8_t usage_tab;
+    bool has_usage_left;
+    uint8_t usage_left;
+    bool has_usage_quota;
+    bool usage_quota;
+    bool has_usage_reset;
+    char usage_reset[IB_TEXT_MAX];
+    bool has_usage_plan;
+    char usage_plan[IB_TEXT_MAX];
+    bool has_usage_credits;
+    uint8_t usage_credits;
+    bool has_usage_ready;
+    bool usage_ready;
     // caption(UTF-8):当前字幕原文 / 译文 / 应用名;live 表示末行还在变化。
     bool has_caption_src;
     bool has_caption_dst;

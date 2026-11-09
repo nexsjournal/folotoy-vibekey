@@ -84,6 +84,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | agent | `{"cmd":"agent","ev":"done","msg":"Claude Code"}` | 编程 Agent 通知(vibe coding):`ev` 为 `done`(任务完成)/ `input`(等待你确认或输入)/ `clear`(撤销通知);`msg` 为来源名或 `OK OPEN <项目名>`。设备弹出全屏通知层并播放提示音(`input` 每 20 秒提醒一次),任意键或 `clear` 关闭;按键仍上报 `key` 并附加 `"ack":1`。短按 OK 可由 Mac 解释为打开绑定会话 |
 
 | list | `{"cmd":"list","title":"SWITCH APP","sel":2,"n":7,"top":0,"i0":"Ghostty","i1":"Chrome","i2":"Xcode","i3":"Finder","i4":"Mail","i5":"Notes"}` | 列表页内容(如应用切换器),选中项由 Mac 维护,设备只显示。`n`(总项数)与 `sel`(选中项绝对序号)必填,均为 0..65535,`n>0` 时要求 `sel<n`、`top<n`,否则整条丢弃;`top` 为 `i0` 在完整列表里的序号(缺省 0,用于滚动条);`title` 可选;`i0`..`i5` 为最多 6 个可见行(UTF-8,每项 ≤47 字节,可缺行),`i6` 及以后忽略。固件用 12 px 中文字库显示中文项目 / 会话名,超出宽度时末尾显示 `..`。每次选中或滚动变化都重发整条 |
+| usage | `{"cmd":"usage","uapp":"CODEX","utoday":"43,051,522","uweek":"43,051,522","utotal":"4,938,713,816","utab":0,"uquota":1,"uleft":7,"ureset":"4D 1H","uplan":"PLUS","ucredit":0,"uready":1}` | Agent 用量首页。`uapp` / `utoday` / `uweek` / `utotal` 为 ASCII(数字由 Mac 格式化);`utab` 0/1/2 = 今日/本周/累计;`uquota` 省略表示没有额度接口(`NO DATA`);`ureset` / `uplan` 为短 ASCII;`ucredit` 省略表示未知;`uready=0` 显示 `READING USAGE...`。字段均可选,但至少要带 `uapp` / `uready` / 一个 token 字段 |
 | caption | `{"cmd":"caption","app":"ego lite","src":"今天讲一下 Passport 的字幕","dst":"Today we'll talk about Passport subtitles","live":0}` | SUB 页的 UTF-8 字幕。`app` 为应用名(优先于 `state.msg`);`src` / `dst` 为原文 / 译文,各最多 180 字节,Mac 只发最新内容的末尾;`live=1` 表示末句还在变化,译文用略暗颜色。字段可选,空字符串清空对应内容。旧固件忽略该命令 |
 | wallpaper | `{"cmd":"wallpaper","size":153600,"crc":3735928559}`<br>`{"cmd":"wallpaper","off":288,"d":"..."}`<br>`{"cmd":"wallpaper","fin":1}`<br>`{"cmd":"wallpaper","clear":1}` | 离线页背景。`start` 必须同时有 `size` / `crc`,设备先擦除独立分区再回 `p:"start"`;随后按 `off` 递增发送每块 288 字节的 Base64(`d`,编码后 384 字符);`fin=1` 时校验总长度与 CRC32,写入头后回 `p:"done"` 并重启。`clear=1` 只擦除头部并重启回内置猫图。只建议经 USB / Wi-Fi 上传；BLE 太慢 |
 
@@ -100,6 +101,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | `err` | 失败,`msg` 为原因;约 2 秒后自行回到 idle |
 | `sub` | 字幕运行中,`msg` 为应用名 |
 | `list` | 列表页。设备收到 `st:"list"` **且**收到过 `list` 命令(先后不限)才显示列表页;切到其它 `st` 即离开,旧列表作废(下次需重发 `list`)。列表页上按键仍按原样上报 `key` 事件,上下移动与确认都由 Mac 解释 |
+| `usage` | Agent 用量首页。切到该 `st` 前 Mac 先发 `usage` 数据;设备只显示。短按 OK 由 Mac 转成 `idle`(READY),长按 OK 直接开始录音,短按上下切 Tab |
 
 握手成功后 Mac 立即下发 `config` 和当前 `state`;之后状态变化时下发 `state`,设置变化时下发 `config`,每 5 分钟重发 `config` 校准时钟。
 

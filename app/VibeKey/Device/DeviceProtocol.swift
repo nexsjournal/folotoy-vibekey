@@ -168,6 +168,8 @@ nonisolated enum HostCommand: Equatable, Sendable {
     case agent(DeviceAgentEvent, msg: String)
     /// 列表页(如切换应用):最多 6 行可见,`top` 为第一行在完整列表中的下标,`sel` 为选中项的绝对下标。
     case list(title: String, sel: Int, total: Int, top: Int, items: [String])
+    /// Agent 用量首页;字符串已格式化,设备只排版。
+    case usage(DeviceUsage)
     /// 字幕:应用名 + 当前原文 / 译文(UTF-8);`live` 表示末行还在变化。
     case caption(app: String, src: String, dst: String, live: Bool)
     /// 离线页背景：分块上传 240×320 RGB565，设备写入独立分区后重启。
@@ -209,6 +211,7 @@ nonisolated enum HostCommand: Equatable, Sendable {
         case .keys: "keys"
         case .agent: "agent"
         case .list: "list"
+        case .usage: "usage"
         case .caption: "caption"
         case .wallpaperStart, .wallpaperChunk, .wallpaperFinish, .wallpaperClear: "wallpaper"
         }
@@ -249,6 +252,22 @@ nonisolated enum HostCommand: Equatable, Sendable {
             for (i, item) in items.prefix(Self.listVisibleRows).enumerated() {
                 fields.append(("i\(i)", .string(DeviceText.utf8(item, maxBytes: Self.listTextMaxBytes))))
             }
+        case .usage(let usage):
+            fields.append(("uapp", .string(DeviceText.ascii(usage.app, maxBytes: Self.textMaxBytes))))
+            fields.append(("utoday", .string(DeviceText.ascii(usage.today, maxBytes: Self.textMaxBytes))))
+            fields.append(("uweek", .string(DeviceText.ascii(usage.week, maxBytes: Self.textMaxBytes))))
+            fields.append(("utotal", .string(DeviceText.ascii(usage.total, maxBytes: Self.textMaxBytes))))
+            fields.append(("utab", .int(min(max(usage.tab, 0), 2))))
+            if let left = usage.leftPercent {
+                fields.append(("uquota", .int(1)))
+                fields.append(("uleft", .int(min(max(left, 0), 100))))
+            }
+            fields.append(("ureset", .string(DeviceText.ascii(usage.reset, maxBytes: Self.keyHintMaxBytes))))
+            fields.append(("uplan", .string(DeviceText.ascii(usage.plan, maxBytes: Self.keyHintMaxBytes))))
+            if let credits = usage.credits {
+                fields.append(("ucredit", .int(min(max(credits, 0), 255))))
+            }
+            fields.append(("uready", .int(usage.ready ? 1 : 0)))
         case .caption(let app, let src, let dst, let live):
             fields.append(("app", .string(DeviceText.utf8(app, maxBytes: Self.captionAppMaxBytes))))
             fields.append(("src", .string(DeviceText.utf8Tail(src, maxBytes: Self.captionMaxBytes))))

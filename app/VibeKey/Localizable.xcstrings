@@ -21,6 +21,9 @@
         }
       }
     },
+    "%@ tokens": {
+      "shouldTranslate": false
+    },
     "%@ · %lld 句。结束后可以在字幕记录窗口里查看、总结和保存。": {
       "localizations": {
         "en": {
@@ -200,6 +203,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld seconds ago"
+          }
+        }
+      }
+    },
+    "%lld分钟后重置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min until reset"
+          }
+        }
+      }
+    },
+    "%lld天%lld小时后重置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldd %lldh until reset"
+          }
+        }
+      }
+    },
+    "%lld小时后重置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldh until reset"
           }
         }
       }
@@ -426,6 +459,46 @@
         }
       }
     },
+    "Codex / 待命中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex / Ready"
+          }
+        }
+      }
+    },
+    "Codex / 未连接": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex / Offline"
+          }
+        }
+      }
+    },
+    "Codex / 读取中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex / Loading"
+          }
+        }
+      }
+    },
+    "Codex 未登录或用量暂不可用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex isn't signed in or usage is unavailable."
+          }
+        }
+      }
+    },
     "Codex 正在等待审批，请先在 Mac 上处理": {
       "localizations": {
         "en": {
@@ -442,6 +515,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex is running. Wait for it to finish or stop the current task first."
+          }
+        }
+      }
+    },
+    "Codex 用量进程已退出。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Codex usage process exited."
           }
         }
       }
@@ -491,7 +574,60 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FoloToy AI Passport is FoloVibe Key's hardware companion: hold to talk, send with one press, and get notified when your agent is done."
+            "value": "FoloToy AI Passport is FoloVibe Key's hardware companion: hold to talk, send with one key, and get notified when an agent finishes."
+          }
+        }
+      }
+    },
+    "FoloVibe Key": {
+      "shouldTranslate": false
+    },
+    "FoloVibe Key %@ 是目前的最新版本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FoloVibe Key %@ is the latest version."
+          }
+        }
+      }
+    },
+    "FoloVibe Key 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 %@ 打开。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FoloVibe Key doesn't keep caption history: the transcript lives in memory only and is cleared when you start captions again or quit. When captions end, the Transcript window opens so you can review, translate, summarize, and save it. While captions are running, click %@ on the caption bar to open it."
+          }
+        }
+      }
+    },
+    "FoloVibe Key 有新版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new version of FoloVibe Key is available"
+          }
+        }
+      }
+    },
+    "FoloVibe Key 设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FoloVibe Key Settings"
+          }
+        }
+      }
+    },
+    "FoloVibe Key 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FoloVibe Key hasn't quit yet (for example, live captions are still running). After handling it, click Continue Installation."
           }
         }
       }
@@ -657,7 +793,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If USB is plugged in but Passport shows OFFLINE, click Reconnect to reopen the serial port — no need to unplug. FoloVibe Key works fine without Passport."
+            "value": "If USB is plugged in but Passport shows OFFLINE, click Reconnect to reopen the serial port — no need to unplug. VibeKey works fine without Passport."
           }
         }
       }
@@ -668,62 +804,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "USB connection lost: %@"
-          }
-        }
-      }
-    },
-    "Vibe Coding": {
-      "shouldTranslate": false
-    },
-    "VibeKey": {
-      "shouldTranslate": false
-    },
-    "FoloVibe Key %@ 是目前的最新版本。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FoloVibe Key %@ is the latest version."
-          }
-        }
-      }
-    },
-    "FoloVibe Key 不保存字幕历史：记录只在内存中，下次开始字幕或退出后清除。结束字幕后会打开字幕记录窗口，可以在那里查看、翻译、总结和保存；字幕进行中可以点字幕条上的 %@ 打开。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FoloVibe Key doesn't keep caption history: the transcript lives only in memory and is cleared when you start new captions or quit. After you end captions, the Transcript window opens so you can review, translate, summarize and save it; while captions are running, click %@ on the caption bar to open it."
-          }
-        }
-      }
-    },
-    "FoloVibe Key 有新版本": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A new version of FoloVibe Key is available"
-          }
-        }
-      }
-    },
-    "FoloVibe Key 设置": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FoloVibe Key Settings"
-          }
-        }
-      }
-    },
-    "FoloVibe Key 还没有退出（例如实时字幕还在进行）。处理好后点「继续安装」。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FoloVibe Key is still running, perhaps because live captions are active. Finish what you are doing, then click Continue Installation."
           }
         }
       }
@@ -814,6 +894,16 @@
         }
       }
     },
+    "Wi-Fi 网络名无效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid Wi-Fi network name"
+          }
+        }
+      }
+    },
     "Wi-Fi 配置失败，请重新连接": {
       "localizations": {
         "en": {
@@ -829,7 +919,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app is missing the esptool flashing tool. Reinstall FoloVibe Key, or install the firmware in your browser on the website."
+            "value": "The app is missing the esptool flashing utility. Reinstall FoloVibe Key, or flash from the website in a browser."
           }
         }
       }
@@ -1132,7 +1222,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After downloading, the installer verifies the signature, replaces and reopens FoloVibe Key, and keeps your settings and models."
+            "value": "After downloading, the installer verifies the signature, replaces the app, and reopens FoloVibe Key. Settings and models are kept."
           }
         }
       }
@@ -1142,7 +1232,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After downloading, open the disk image and drag FoloVibe Key to Applications to replace the old version. Your settings and models are kept."
+            "value": "After downloading, open the installer and drag FoloVibe Key to Applications to replace the old version. Settings and models are kept."
           }
         }
       }
@@ -1252,7 +1342,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not FoloVibe Key firmware (%@)"
+            "value": "Not a FoloVibe Key firmware (%@)"
           }
         }
       }
@@ -1407,6 +1497,16 @@
         }
       }
     },
+    "今日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        }
+      }
+    },
     "从 %@ 更新到 %@": {
       "localizations": {
         "en": {
@@ -1443,6 +1543,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Never connected"
+          }
+        }
+      }
+    },
+    "企业版": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enterprise"
           }
         }
       }
@@ -1527,16 +1637,6 @@
         }
       }
     },
-    "保存并连接": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save and connect"
-          }
-        }
-      }
-    },
     "保持 USB 连接，重新输入 Wi-Fi 密码并点「保存并连接」；或点「清除 Wi-Fi 配对」让设备回到蓝牙。": {
       "localizations": {
         "en": {
@@ -1583,6 +1683,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Download"
+          }
+        }
+      }
+    },
+    "免费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free"
           }
         }
       }
@@ -1727,6 +1837,16 @@
         }
       }
     },
+    "切换网络时请先通过 USB 连接设备": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect the device over USB before switching networks"
+          }
+        }
+      }
+    },
     "切换设备模式": {
       "localizations": {
         "en": {
@@ -1827,6 +1947,16 @@
         }
       }
     },
+    "刷新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
+    },
     "刷新模型列表": {
       "localizations": {
         "en": {
@@ -1847,6 +1977,16 @@
         }
       }
     },
+    "剩余 %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remaining %lld%%"
+          }
+        }
+      }
+    },
     "加载模型": {
       "localizations": {
         "en": {
@@ -1863,6 +2003,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Region"
+          }
+        }
+      }
+    },
+    "即将重置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets soon"
           }
         }
       }
@@ -2157,6 +2307,16 @@
         }
       }
     },
+    "商业版": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Business"
+          }
+        }
+      }
+    },
     "回到最新": {
       "localizations": {
         "en": {
@@ -2183,6 +2343,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Return (Send)"
+          }
+        }
+      }
+    },
+    "团队": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Team"
           }
         }
       }
@@ -2407,6 +2577,16 @@
         }
       }
     },
+    "套餐": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        }
+      }
+    },
     "好": {
       "localizations": {
         "en": {
@@ -2602,7 +2782,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer FoloVibe Key"
+            "value": "Website firmware %@ requires a newer FoloVibe Key"
           }
         }
       }
@@ -2612,7 +2792,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer version of FoloVibe Key. Update the app first."
+            "value": "Website firmware %@ requires a newer FoloVibe Key. Update the app first."
           }
         }
       }
@@ -2622,7 +2802,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmware %@ on the website needs a newer version of FoloVibe Key. Update the app first."
+            "value": "Website firmware %@ requires a newer FoloVibe Key. Update the app first."
           }
         }
       }
@@ -2782,7 +2962,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The small pill at the bottom of the screen is FoloVibe Key. Hover over it to start dictation or Live Captions."
+            "value": "The small pill at the bottom of the screen is the FoloVibe Key status bar. Hover over it to start dictation or open live captions."
           }
         }
       }
@@ -2842,7 +3022,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Downloading in your browser. When it finishes, open the disk image, drag FoloVibe Key to Applications to replace the old version, then open it again."
+            "value": "Downloaded in your browser. When it finishes, open the installer, drag FoloVibe Key to Applications to replace the old version, and reopen it."
           }
         }
       }
@@ -3007,6 +3187,16 @@
         }
       }
     },
+    "当前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
     "当前固件 %@ 不支持自定义背景，请先更新到 0.1.4 或更高版本。": {
       "localizations": {
         "en": {
@@ -3032,7 +3222,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This version is no longer supported. Update to keep using FoloVibe Key."
+            "value": "This version is no longer supported. Update to keep using VibeKey."
           }
         }
       }
@@ -3042,7 +3232,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It's running “%@”. Install the FoloVibe Key firmware so it can drive dictation, show status and notify you about your agent."
+            "value": "Currently running “%@”. Flash the FoloVibe Key firmware to enable dictation, status display, and agent progress notifications."
           }
         }
       }
@@ -3587,6 +3777,16 @@
         }
       }
     },
+    "教育版": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Education"
+          }
+        }
+      }
+    },
     "新版本已经发布，建议更新以获得最新功能和修复。": {
       "localizations": {
         "en": {
@@ -3777,6 +3977,26 @@
         }
       }
     },
+    "智能体": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent"
+          }
+        }
+      }
+    },
+    "暂无数据": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No data"
+          }
+        }
+      }
+    },
     "暂时无法连接官网检查新固件": {
       "localizations": {
         "en": {
@@ -3813,6 +4033,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "More translation actions"
+          }
+        }
+      }
+    },
+    "更新于 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated at %@"
           }
         }
       }
@@ -3863,6 +4093,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last seen"
+          }
+        }
+      }
+    },
+    "最多保存 4 个网络。首次添加请保留 USB；设备和 Mac 在同一局域网后，拔掉数据线即可使用。设备离线时长按 ▼ 也能切网；密码只经 USB 发给设备。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 4 networks can be saved. Keep USB connected for the first setup; once the device and Mac are on the same LAN, unplug the cable. When the device is offline, long-press ▼ to switch networks. Passwords are sent to the device over USB only."
           }
         }
       }
@@ -3967,6 +4207,16 @@
         }
       }
     },
+    "未检测到 Codex CLI。安装并登录 Codex 后，这里会显示真实用量。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex CLI not found. Install and sign in to Codex to see real usage here."
+          }
+        }
+      }
+    },
     "未检测到聊天输入框 + 侧栏；可当普通应用切换": {
       "localizations": {
         "en": {
@@ -4012,7 +4262,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Bluetooth access. Allow FoloVibe Key in System Settings › Privacy & Security › Bluetooth."
+            "value": "Bluetooth permission isn't granted. Allow FoloVibe Key in System Settings > Privacy & Security > Bluetooth."
           }
         }
       }
@@ -4107,12 +4357,32 @@
         }
       }
     },
+    "本周": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week"
+          }
+        }
+      }
+    },
     "本机": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "On This Mac"
+          }
+        }
+      }
+    },
+    "本机会话估算": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated from local sessions"
           }
         }
       }
@@ -4352,7 +4622,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installing FoloVibe Key Firmware"
+            "value": "Flashing FoloVibe Key firmware"
           }
         }
       }
@@ -4392,7 +4662,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installing; FoloVibe Key will reopen automatically…"
+            "value": "Installing. FoloVibe Key will reopen automatically…"
           }
         }
       }
@@ -4517,6 +4787,16 @@
         }
       }
     },
+    "正在读取 Codex 用量…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading Codex usage…"
+          }
+        }
+      }
+    },
     "正在读取侧栏…": {
       "localizations": {
         "en": {
@@ -4613,6 +4893,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Every %lld min"
+          }
+        }
+      }
+    },
+    "每 60 秒刷新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refreshes every 60 seconds"
+          }
+        }
+      }
+    },
+    "每周额度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly quota"
           }
         }
       }
@@ -4847,12 +5147,22 @@
         }
       }
     },
-    "清除 Wi-Fi 配对": {
+    "添加并切换": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forget Wi-Fi pairing"
+            "value": "Add and switch"
+          }
+        }
+      }
+    },
+    "清除全部 Wi-Fi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all Wi-Fi"
           }
         }
       }
@@ -4987,6 +5297,16 @@
         }
       }
     },
+    "用量": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usage"
+          }
+        }
+      }
+    },
     "电量": {
       "localizations": {
         "en": {
@@ -5103,6 +5423,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Offline wallpaper"
+          }
+        }
+      }
+    },
+    "移除网络时请先通过 USB 连接设备": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect the device over USB before removing a network"
           }
         }
       }
@@ -5363,6 +5693,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "System Default (%@)"
+          }
+        }
+      }
+    },
+    "累计": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All time"
           }
         }
       }
@@ -5977,6 +6317,16 @@
         }
       }
     },
+    "设备已存 %lld/4": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/4 saved on device"
+          }
+        }
+      }
+    },
     "设备拒绝了这张图片，请重试。": {
       "localizations": {
         "en": {
@@ -6003,6 +6353,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The device didn't answer the handshake"
+          }
+        }
+      }
+    },
+    "设备端：离线时长按 ▼ 打开网络列表，短按上下选择，短按 OK 切换；长按 OK 返回。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the device: when offline, long-press ▼ to open the network list, use ▲/▼ to select, tap OK to switch, and long-press OK to go back."
           }
         }
       }
@@ -6332,7 +6692,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure it is playing, and allow FoloVibe Key to record system audio in System Settings"
+            "value": "Make sure it's playing, and allow FoloVibe Key to record system audio in System Settings."
+          }
+        }
+      }
+    },
+    "读取 Codex 账户的真实用量与会话元数据，不读取聊天正文。其他 Agent 暂无公开的用量接口时显示暂无数据。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads real Codex account usage and session metadata, never chat content. Other agents show No data when no public usage API is available."
           }
         }
       }
@@ -6343,6 +6713,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't read the audio tap format"
+          }
+        }
+      }
+    },
+    "读取失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read failed: %@"
+          }
+        }
+      }
+    },
+    "读取超时，请稍后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read timed out. Try again in a moment."
           }
         }
       }
@@ -6542,7 +6932,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This copy of the app is missing its flashing tool. Reinstall FoloVibe Key, or install the firmware in your browser at input.0os.io."
+            "value": "This app build is missing the flashing utility. Reinstall FoloVibe Key, or flash from input.0os.io in a browser."
           }
         }
       }
@@ -6847,6 +7237,16 @@
         }
       }
     },
+    "重新读取": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read again"
+          }
+        }
+      }
+    },
     "重新运行引导": {
       "localizations": {
         "en": {
@@ -6873,6 +7273,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "USB is required to change Wi-Fi settings"
+          }
+        }
+      }
+    },
+    "重置券": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset credits"
           }
         }
       }
@@ -7012,7 +7422,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FoloVibe Key Firmware Needed"
+            "value": "FoloVibe Key firmware required"
           }
         }
       }
@@ -7022,7 +7432,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FoloVibe Key Needs an Update"
+            "value": "FoloVibe Key update required"
           }
         }
       }
@@ -7087,16 +7497,6 @@
         }
       }
     },
-    "首次配网请保留 USB 连接。选择 2.4 GHz Wi-Fi；设备和 Mac 连接同一局域网后，拔掉数据线即可使用。密码只经 USB 发给设备。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep USB connected for initial setup. Use 2.4 GHz Wi-Fi on the same local network as your Mac, then unplug the data cable. The password is sent to the device only over USB."
-          }
-        }
-      }
-    },
     "麦克风": {
       "localizations": {
         "en": {
@@ -7122,7 +7522,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The microphone hears what you say. Accessibility lets FoloVibe Key type into the current window."
+            "value": "The microphone hears what you say. Accessibility lets VibeKey type into the current window."
           }
         }
       }

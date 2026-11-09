@@ -26,6 +26,8 @@ import AVFoundation
 /// - IB_TRANSLATE_CONFIG=provider(在 SettingsNavigation 里读取)直接弹出该在线翻译服务的配置表单,如 deepl,配合 IB_SETTINGS_PANE=translation。
 /// - IB_CODEX_PROBE=1          读取当前 Codex 输入框并输出脱敏后的目标状态，然后退出。
 ///   IB_CODEX_PROBE_STABLE_MS 可覆盖第二次读取的间隔（默认 300 ms），用于检查 AX 目标标识是否稳定。
+/// - IB_CODEX_USAGE=1          读取一次 Codex 账户用量并输出摘要，然后退出。
+/// - IB_AGENT_USAGE=codex|dsh  读取一次 Agent 用量首页数据并输出摘要，然后退出。
 @MainActor
 enum DebugHooks {
     static var env: [String: String] { ProcessInfo.processInfo.environment }
@@ -45,6 +47,42 @@ enum DebugHooks {
     }
 
     static func run(app: AppState) {
+        if let probe = env["IB_AGENT_USAGE"] {
+            Task {
+                let bundleID = probe == "dsh" ? "ai.deepseek.dsh.desktop.next" : AccessibilityCodexDesktopAdapter.bundleIdentifier
+                let target = AgentSessionApp(pid: 0, bundleID: bundleID, name: probe)
+                let snapshot = await AgentUsageService.load(for: target)
+                print("[IB_AGENT_USAGE] app=\(snapshot.app) ready=\(snapshot.ready) "
+                    + "today=\(snapshot.today.map(String.init) ?? "nil") "
+                    + "week=\(snapshot.week.map(String.init) ?? "nil") "
+                    + "total=\(snapshot.total.map(String.init) ?? "nil") "
+                    + "left=\(snapshot.weeklyLeftPercent.map(String.init) ?? "nil") "
+                    + "reset=\(snapshot.reset ?? "nil") plan=\(snapshot.plan ?? "nil")")
+                fflush(stdout)
+                exit(0)
+            }
+            return
+        }
+        if env["IB_CODEX_USAGE"] != nil {
+            Task {
+                do {
+                    let snapshot = try await CodexUsageService.load()
+                    print("[IB_CODEX_USAGE] today=\(snapshot.todayTokens.map(String.init) ?? "nil") "
+                        + "week=\(snapshot.weekTokens.map(String.init) ?? "nil") "
+                        + "lifetime=\(snapshot.lifetimeTokens.map(String.init) ?? "nil") "
+                        + "weeklyUsed=\(snapshot.weeklyUsedPercent.map { String($0) } ?? "nil") "
+                        + "remaining=\(snapshot.weeklyRemainingPercent.map(String.init) ?? "nil") "
+                        + "plan=\(snapshot.plan ?? "nil") credits=\(snapshot.resetCredits.map(String.init) ?? "nil")")
+                    fflush(stdout)
+                    exit(0)
+                } catch {
+                    print("[IB_CODEX_USAGE] error=\(error.localizedDescription)")
+                    fflush(stdout)
+                    exit(1)
+                }
+            }
+            return
+        }
         if let probe = env["IB_SESSION_PROBE"] {
             Task {
                 let bundleID = switch probe {

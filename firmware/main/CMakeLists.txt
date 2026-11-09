@@ -33,6 +33,7 @@ idf_component_register(
          "ib_ui_err.c"
          "ib_ui_sub.c"
          "ib_ui_list.c"
+         "ib_ui_usage.c"
          "fonts/ib_terminal_font_12.c"
          "fonts/ib_terminal_font_14.c"
          "fonts/ib_terminal_font_20.c"

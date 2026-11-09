@@ -21,6 +21,7 @@ typedef enum {
     IB_UI_ERR,              // 失败
     IB_UI_SUB,              // 字幕运行中
     IB_UI_LIST,             // 列表(Mac 驱动的应用切换器等)
+    IB_UI_USAGE,            // Agent 用量首页(进入 Agent 时先显示)
     IB_UI_SCREEN_COUNT,
 } ib_ui_screen_t;
 
@@ -57,6 +58,23 @@ typedef struct {
     uint16_t top;           // items[0] 在完整列表里的序号
     uint16_t sel;           // 选中项的绝对序号
 } ib_ui_list_t;
+
+// USAGE 页内容:都由 Mac 计算好并下发,设备只负责排版。
+// 数字是带千分位的 ASCII(today/week/total),没有数据时为空串。
+#define IB_UI_USAGE_TEXT_MAX 24
+typedef struct {
+    char app[IB_UI_USAGE_TEXT_MAX];      // CODEX / DSH / WORKBUDDY
+    char today[IB_UI_USAGE_TEXT_MAX];
+    char week[IB_UI_USAGE_TEXT_MAX];
+    char total[IB_UI_USAGE_TEXT_MAX];
+    char reset[IB_UI_USAGE_TEXT_MAX];    // 4D 2H / SOON
+    char plan[IB_UI_USAGE_TEXT_MAX];     // PLUS / DEEPSEEK
+    uint8_t tab;                          // 0=今日 1=本周 2=累计
+    uint8_t left_percent;                 // 0..100
+    bool has_quota;                       // false 时显示 NO DATA
+    int16_t credits;                      // -1 表示未知
+    bool ready;                           // false 时显示 READING USAGE...
+} ib_ui_usage_t;
 
 typedef enum {
     IB_UI_LINK_NONE = 0,
@@ -103,6 +121,9 @@ void ib_ui_set_key_icon(ib_ui_key_t key, ib_icon_t icon);
 
 // 更新列表页内容(列表页可见时选中高亮平滑滑动到新位置)。
 void ib_ui_set_list(const ib_ui_list_t *list);
+
+// USAGE 页数据;可在页面显示前调用,页面显示时会立即采用。
+void ib_ui_set_usage(const ib_ui_usage_t *usage);
 
 // Agent 通知层:当前是 REC 页时只显示顶部 28 px 横幅(录音继续),否则全屏;
 // 页面在 REC 与其它页之间切换时自动在横幅 / 全屏之间转换。source 为来源名(ASCII)。

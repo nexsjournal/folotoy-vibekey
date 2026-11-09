@@ -481,6 +481,7 @@ static ib_ui_screen_t screen_for(ib_state_t st)
     case IB_ST_DONE: return IB_UI_DONE;
     case IB_ST_ERR: return IB_UI_ERR;
     case IB_ST_SUB: return IB_UI_SUB;
+    case IB_ST_USAGE: return IB_UI_USAGE;
     // 列表内容还没到时保持当前页面(离线页除外,回到 IDLE),等 list 命令到达再切换。
     case IB_ST_LIST: return s_list_ready ? IB_UI_LIST : (s_screen == IB_UI_OFFLINE ? IB_UI_IDLE : s_screen);
     default: return IB_UI_IDLE;
@@ -758,6 +759,23 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
     case IB_CMD_LIST:
         apply_list(cmd);
         break;
+    case IB_CMD_USAGE: {
+        ib_ui_usage_t usage;
+        memset(&usage, 0, sizeof(usage));
+        usage.tab = cmd->has_usage_tab ? cmd->usage_tab : 0;
+        usage.left_percent = cmd->has_usage_left ? cmd->usage_left : 0;
+        usage.has_quota = cmd->has_usage_quota && cmd->usage_quota;
+        usage.credits = cmd->has_usage_credits ? (int16_t)cmd->usage_credits : -1;
+        usage.ready = cmd->has_usage_ready && cmd->usage_ready;
+        if (cmd->has_usage_app) memcpy(usage.app, cmd->usage_app, sizeof(usage.app));
+        if (cmd->has_usage_today) memcpy(usage.today, cmd->usage_today, sizeof(usage.today));
+        if (cmd->has_usage_week) memcpy(usage.week, cmd->usage_week, sizeof(usage.week));
+        if (cmd->has_usage_total) memcpy(usage.total, cmd->usage_total, sizeof(usage.total));
+        if (cmd->has_usage_reset) memcpy(usage.reset, cmd->usage_reset, sizeof(usage.reset));
+        if (cmd->has_usage_plan) memcpy(usage.plan, cmd->usage_plan, sizeof(usage.plan));
+        if (s_ui_ok) ib_ui_set_usage(&usage);
+        break;
+    }
     case IB_CMD_CAPTION:
         if (cmd->has_caption_src) memcpy(s_caption_src, cmd->caption_src, sizeof(s_caption_src));
         if (cmd->has_caption_dst) memcpy(s_caption_dst, cmd->caption_dst, sizeof(s_caption_dst));

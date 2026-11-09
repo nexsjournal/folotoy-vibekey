@@ -313,6 +313,41 @@ AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测�
 行宽时末尾加 `..`。Agent 全屏通知的项目名先试 20 px，再降到 14 px，仍放不下才两行 + `..`。
 ```
 
+## 4c. 智能体页的 Codex 用量
+
+```
+设置 › 智能体 → AgentUsageDashboard(每 60 秒 / 点刷新)
+ → CodexUsageService.load
+     → 找到 codex 可执行文件(~/.local/bin、Homebrew、ChatGPT.app 资源、PATH)
+     → codex app-server --stdio
+         initialize → account/usage/read → account/rateLimits/read
+     → CodexUsageParser
+         ├─ lifetimeTokens、dailyUsageBuckets → 今日 / 本周 / 累计
+         ├─ secondary.usedPercent / resetsAt → 每周额度剩余、重置时间
+         ├─ planType / rateLimitResetCredits → 套餐、重置券
+         └─ 今日桶缺失时只读当天的 *session*.jsonl 中 token_count 行补齐
+ → CodexUsageSnapshot → AgentUsageDashboard(今日 / 本周 / 累计切换)
+```
+
+隐私:只解析 token_count / rate_limits 元数据，不读取或持久化聊天正文；名称和用量不写日志。
+失败处理:未安装 / 未登录 / 超时 / 进程退出都显示明确状态，不用 0 或示例数据冒充真实额度。
+
+设备端同一条数据链:
+
+```
+切换应用 → DeviceBridge.beginUsageHome(app)
+ → AgentUsageService.load(for:)
+     ├─ Codex → CodexUsageService → CodexUsageSnapshot
+     └─ DSH NEXT → DSHUsageReader(只读 session_projcache 开头的 tokenUsage.val.totals)
+ → DeviceUsage(格式化后的 ASCII) → DeviceLink.sendUsage → 固件 ib_ui_usage
+ → 短按 OK: usageHome=nil → state idle(READY)
+ → 长按 OK: usageHome=nil → 正常录音链路
+ → 短按 ▲/▼: 切换 utab → 重发 usage
+```
+
+DSH 的 `tokenUsage` 只累计会话总量；今日 / 本周按会话缓存文件修改时间归档，属于设备侧的近似值；
+没有任何额度接口时明确显示 `NO DATA`。
+
 ## 5. 实时字幕
 
 ```

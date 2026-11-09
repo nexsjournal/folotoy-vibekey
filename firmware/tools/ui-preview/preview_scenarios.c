@@ -121,6 +121,44 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     shot("idle_sub_press_ok_200ms");
     preview_advance(400);
 
+    // ---- USAGE:进入 Agent 时先显示的用量首页 ----
+    ib_ui_usage_t usage;
+    memset(&usage, 0, sizeof(usage));
+    snprintf(usage.app, sizeof(usage.app), "CODEX");
+    snprintf(usage.today, sizeof(usage.today), "43,051,522");
+    snprintf(usage.week, sizeof(usage.week), "43,051,522");
+    snprintf(usage.total, sizeof(usage.total), "4,938,713,816");
+    snprintf(usage.reset, sizeof(usage.reset), "4D 2H");
+    snprintf(usage.plan, sizeof(usage.plan), "PLUS");
+    usage.tab = 0;
+    usage.left_percent = 7;
+    usage.has_quota = true;
+    usage.credits = 0;
+    usage.ready = true;
+    ib_ui_set_usage(&usage);
+    keys(IB_ICON_UP, IB_ICON_DOWN, IB_ICON_MIC);
+    ib_ui_show(IB_UI_USAGE, IB_UI_MODE_DICT, "");
+    preview_advance(300);
+    shot("usage_today");
+    usage.tab = 2;
+    ib_ui_set_usage(&usage);
+    preview_advance(100);
+    shot("usage_total");
+    snprintf(usage.app, sizeof(usage.app), "DSH");
+    snprintf(usage.today, sizeof(usage.today), "347,103,089");
+    snprintf(usage.week, sizeof(usage.week), "347,103,089");
+    snprintf(usage.total, sizeof(usage.total), "2,345,563,337");
+    usage.tab = 0;
+    usage.has_quota = false;
+    usage.credits = -1;
+    usage.reset[0] = '\0';
+    snprintf(usage.plan, sizeof(usage.plan), "DEEPSEEK");
+    ib_ui_set_usage(&usage);
+    preview_advance(100);
+    shot("usage_dsh_no_quota");
+    ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "");
+    preview_advance(300);
+
     // ---- REC:按住说话 → 免提 → 翻译模式 ----
     keys(IB_ICON_NONE, IB_ICON_CANCEL, IB_ICON_STOP);
     ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "");

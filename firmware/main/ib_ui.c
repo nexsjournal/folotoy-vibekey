@@ -39,6 +39,7 @@ static const ib_ui_page_t *const PAGES[IB_UI_SCREEN_COUNT] = {
     [IB_UI_ERR] = &ib_ui_page_err,
     [IB_UI_SUB] = &ib_ui_page_sub,
     [IB_UI_LIST] = &ib_ui_page_list,
+    [IB_UI_USAGE] = &ib_ui_page_usage,
 };
 
 static lv_obj_t *s_roots[IB_UI_SCREEN_COUNT];
@@ -379,6 +380,23 @@ void ib_ui_set_list(const ib_ui_list_t *list)
     if (!s_ready || !list || !bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
     s_ctx.list = *list;
     if (s_screen == IB_UI_LIST) PAGES[IB_UI_LIST]->update(&s_ctx);
+    bsp_lvgl_unlock();
+}
+
+void ib_ui_set_usage(const ib_ui_usage_t *usage)
+{
+    if (!s_ready || !usage || !bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
+    ib_ui_usage_t next = *usage;
+    copy_text(next.app, sizeof(next.app), usage->app);
+    copy_text(next.today, sizeof(next.today), usage->today);
+    copy_text(next.week, sizeof(next.week), usage->week);
+    copy_text(next.total, sizeof(next.total), usage->total);
+    copy_text(next.reset, sizeof(next.reset), usage->reset);
+    copy_text(next.plan, sizeof(next.plan), usage->plan);
+    if (next.tab > 2) next.tab = 0;
+    if (next.left_percent > 100) next.left_percent = 100;
+    s_ctx.usage = next;
+    if (s_screen == IB_UI_USAGE) PAGES[IB_UI_USAGE]->update(&s_ctx);
     bsp_lvgl_unlock();
 }
 

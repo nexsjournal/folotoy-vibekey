@@ -1,11 +1,17 @@
 import SwiftUI
 
-/// Vibe Coding:用 Passport / 快捷键和 Claude Code、Codex 对话;Agent 完成或请求确认时提醒你。
+/// 智能体:查看 Codex 账户用量,用 Passport / 快捷键和 Claude Code、Codex 对话;
+/// Agent 完成或请求确认时提醒你。
 struct VibePane: View {
     let app: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            SettingsSection(title: "用量",
+                            footer: "读取 Codex 账户的真实用量与会话元数据，不读取聊天正文。其他 Agent 暂无公开的用量接口时显示暂无数据。") {
+                AgentUsageDashboard()
+            }
+
             SettingsSection(title: "工作流") {
                 Card {
                     VStack(alignment: .leading, spacing: DS.Space.s) {

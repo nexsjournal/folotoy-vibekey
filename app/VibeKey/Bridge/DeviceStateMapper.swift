@@ -54,6 +54,8 @@ enum DeviceStateMapper {
             return Hints(ok: .mic, up: up.deviceIcon, down: down.deviceIcon)
         case .list:
             return Hints(ok: .check, up: .up, down: .down)
+        case .usage:
+            return Hints(ok: .mic, up: .up, down: .down)
         case .idle:
             if deviceMode == .sub { return Hints(ok: .play, up: .mode, down: nil) }
             return Hints(ok: .mic, up: up.deviceIcon, down: down.deviceIcon)

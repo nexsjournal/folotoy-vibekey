@@ -130,6 +130,8 @@ import Security
     /// 最近一次字幕(UTF-8),握手后补发;未变化时不重复发送。
     @ObservationIgnored private var lastCaption: HostCommand?
     @ObservationIgnored private var lastCaptionSentAt: TimeInterval = -.infinity
+    @ObservationIgnored private var lastUsage: DeviceUsage?
+    @ObservationIgnored private var lastUsageSent: DeviceUsage?
     @ObservationIgnored private var micWanted = false
     /// 最近一次握手时设备报告的 boot ID(每次上电随机生成)。跨链路会话保留、断开时不清空,
     /// 这样设备重启(崩溃 / 掉电)后重新握手时能察觉 boot 变了并记日志,便于排查"偶发断开"。
@@ -460,6 +462,14 @@ import Security
         send(.agent(ev, msg: msg))
     }
 
+    /// 下发 Agent 用量首页；未连接时只缓存，握手后补发。
+    func sendUsage(_ usage: DeviceUsage) {
+        lastUsage = usage
+        guard usage != lastUsageSent else { return }
+        lastUsageSent = usage
+        send(.usage(usage))
+    }
+
     /// 下发当前字幕。原文 / 译文保留 UTF-8,只取末尾;live 时最多 10 Hz,定稿立即发送。
     func sendCaption(app: String, src: String, dst: String, live: Bool) {
         let command = HostCommand.caption(app: app, src: src, dst: dst, live: live)
@@ -787,6 +797,7 @@ import Security
     private func resendCachedState(via link: DeviceLinkKind) {
         if let config = lastConfig { writeConfig(config, via: link) }
         if let state = lastState { write(.state(state.st, mode: state.mode, msg: state.msg), via: link) }
+        if let state = lastState, state.st == .usage, let usage = lastUsage { write(.usage(usage), via: link) }
         if let hints = lastKeyHints { write(hints.command, via: link) }
         if let caption = lastCaption { write(caption, via: link) }
         write(.mic(micWanted), via: link)

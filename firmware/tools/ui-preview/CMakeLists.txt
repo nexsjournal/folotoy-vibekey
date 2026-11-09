@@ -55,6 +55,7 @@ set(UI_SOURCES
     "${UI_DIR}/ib_ui_err.c"
     "${UI_DIR}/ib_ui_sub.c"
     "${UI_DIR}/ib_ui_list.c"
+    "${UI_DIR}/ib_ui_usage.c"
     "${UI_DIR}/ib_icons.c"
     "${UI_DIR}/fonts/ib_terminal_font_12.c"
     "${UI_DIR}/fonts/ib_terminal_font_14.c"

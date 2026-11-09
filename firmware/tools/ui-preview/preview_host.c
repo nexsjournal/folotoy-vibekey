@@ -104,3 +104,9 @@ uint32_t preview_mem_max_used(void)
     lv_mem_monitor(&mon);
     return (uint32_t)mon.max_used;
 }
+
+// 预览不读写真实 wallpaper 分区；OFFLINE 页会回退到内置猫咪图。
+const uint8_t *ib_wallpaper_pixels(void)
+{
+    return NULL;
+}

@@ -7,7 +7,7 @@
 
 static const char *const KEY_NAMES[IB_KEY_COUNT] = { "up", "down", "ok" };
 static const char *const KEY_EV_NAMES[IB_KEY_EV_COUNT] = { "down", "up", "long" };
-static const char *const STATE_NAMES[IB_ST_COUNT] = { "idle", "rec", "proc", "done", "err", "sub", "list" };
+static const char *const STATE_NAMES[IB_ST_COUNT] = { "idle", "rec", "proc", "done", "err", "sub", "list", "usage" };
 static const char *const MODE_NAMES[IB_MODE_COUNT] = { "dict", "tr", "sub" };
 static const char *const AGENT_EV_NAMES[IB_AGENT_COUNT] = { "done", "input", "clear" };
 
@@ -352,6 +352,8 @@ static const char *const KNOWN_KEYS[] = {
     "ok", "up", "down", "ev",
     "title", "n", "sel", "top", "i0", "i1", "i2", "i3", "i4", "i5",
     "src", "dst", "live", "app",
+    "uapp", "utoday", "uweek", "utotal", "utab", "uleft", "uquota",
+    "ureset", "uplan", "ucredit", "uready",
     "size", "crc", "off", "d", "fin", "clear",
 };
 
@@ -416,6 +418,21 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             } else if (strcmp(key, "d") == 0) {
                 if (!read_string(&c, out->wallpaper_data, sizeof(out->wallpaper_data))) return false;
                 out->has_wallpaper_data = true;
+            } else if (strcmp(key, "uapp") == 0 || strcmp(key, "utoday") == 0 ||
+                       strcmp(key, "uweek") == 0 || strcmp(key, "utotal") == 0 ||
+                       strcmp(key, "ureset") == 0 || strcmp(key, "uplan") == 0) {
+                char *dst = strcmp(key, "uapp") == 0 ? out->usage_app
+                          : strcmp(key, "utoday") == 0 ? out->usage_today
+                          : strcmp(key, "uweek") == 0 ? out->usage_week
+                          : strcmp(key, "utotal") == 0 ? out->usage_total
+                          : strcmp(key, "ureset") == 0 ? out->usage_reset : out->usage_plan;
+                if (!read_string(&c, dst, IB_TEXT_MAX)) return false;
+                if (strcmp(key, "uapp") == 0) out->has_usage_app = true;
+                else if (strcmp(key, "utoday") == 0) out->has_usage_today = true;
+                else if (strcmp(key, "uweek") == 0) out->has_usage_week = true;
+                else if (strcmp(key, "utotal") == 0) out->has_usage_total = true;
+                else if (strcmp(key, "ureset") == 0) out->has_usage_reset = true;
+                else out->has_usage_plan = true;
             } else if (!read_string(&c, text, sizeof(text))) {
                 return false;
             }
@@ -534,6 +551,26 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
         } else if (strcmp(key, "clear") == 0) {
             if (kind != VAL_UINT) return false;
             out->wallpaper_clear = num != 0;
+        } else if (strcmp(key, "utab") == 0) {
+            if (kind != VAL_UINT || num > 2) return false;
+            out->usage_tab = (uint8_t)num;
+            out->has_usage_tab = true;
+        } else if (strcmp(key, "uleft") == 0) {
+            if (kind != VAL_UINT || num > 100) return false;
+            out->usage_left = (uint8_t)num;
+            out->has_usage_left = true;
+        } else if (strcmp(key, "uquota") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->usage_quota = num != 0;
+            out->has_usage_quota = true;
+        } else if (strcmp(key, "ucredit") == 0) {
+            if (kind != VAL_UINT || num > 255) return false;
+            out->usage_credits = (uint8_t)num;
+            out->has_usage_credits = true;
+        } else if (strcmp(key, "uready") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->usage_ready = num != 0;
+            out->has_usage_ready = true;
         }
 
     next:
@@ -576,6 +613,10 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
         if (!out->has_list_n || !out->has_list_sel) return false;
         if (out->list_n > 0 && (out->list_sel >= out->list_n || out->list_top >= out->list_n)) return false;
         out->type = IB_CMD_LIST;
+    } else if (strcmp(cmd, "usage") == 0) {
+        if (!out->has_usage_app && !out->has_usage_ready && !out->has_usage_today &&
+            !out->has_usage_week && !out->has_usage_total) return false;
+        out->type = IB_CMD_USAGE;
     } else if (strcmp(cmd, "caption") == 0) {
         if (!out->has_caption_src && !out->has_caption_dst && !out->has_caption_app) return false;
         out->type = IB_CMD_CAPTION;

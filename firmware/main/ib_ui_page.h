@@ -41,6 +41,7 @@ typedef struct {
     char caption_dst[IB_UI_CAPTION_MAX];
     char caption_app[IB_UI_CAPTION_APP_MAX];
     bool caption_live;
+    ib_ui_usage_t usage;
     uint8_t level;          // Mac 下发的原始电平 0..100
     int32_t level_smooth;   // 平滑后的电平,0..1000(每帧向目标靠近 35%)
     bool ok_held;
@@ -65,4 +66,5 @@ extern const ib_ui_page_t ib_ui_page_done;
 extern const ib_ui_page_t ib_ui_page_err;
 extern const ib_ui_page_t ib_ui_page_sub;
 extern const ib_ui_page_t ib_ui_page_list;
+extern const ib_ui_page_t ib_ui_page_usage;
 

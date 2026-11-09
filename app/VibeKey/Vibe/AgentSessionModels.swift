@@ -50,6 +50,11 @@ nonisolated enum AgentAppDisplayName {
     static func targetName(bundleID: String, fallback: String) -> String {
         known[bundleID]?.target ?? fallback
     }
+
+    /// 用于“切到这个 App 时先显示用量首页”的判断；是否真的能读项目 / 会话仍由 AX 探测决定。
+    static func isKnownAgent(bundleID: String) -> Bool {
+        known[bundleID] != nil
+    }
 }
 
 /// 侧栏里的一个会话。`index` 是该会话在当前项目 / 最近列表中的顺序，用来在 AX 树刷新后重新定位。

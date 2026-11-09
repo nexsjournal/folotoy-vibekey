@@ -100,6 +100,15 @@ final class DeviceBridge {
     /// 正在打开选中的会话（AXPress + 等窗口切换 + 聚焦输入框）。
     private var openingSessionApp: AgentSessionApp?
     private var sessionOpenTask: Task<Void, Never>?
+    /// 进入 Agent 后先显示用量首页；短按 OK 进入 READY，长按 OK 直接说话。
+    private struct UsageHome {
+        let app: AgentSessionApp
+        var snapshot: AgentUsageSnapshot?
+        var tab = 0
+        let token = UUID()
+    }
+    private var usageHome: UsageHome?
+    private var usageTask: Task<Void, Never>?
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
          agent: AgentNotifier, codex: CodexActionCoordinator, settings: AppSettings,
@@ -147,6 +156,8 @@ final class DeviceBridge {
         sessionScanTask = nil
         sessionOpenTask?.cancel()
         sessionOpenTask = nil
+        usageTask?.cancel()
+        usageTask = nil
         scanningSessionApp = nil
         openingSessionApp = nil
         if okDrivesDictation {
@@ -165,6 +176,9 @@ final class DeviceBridge {
         sync()
         if connection != .disconnected, let notice = agent.current {
             agent.onNotice?(notice)
+        }
+        if connection != .disconnected, let home = usageHome {
+            beginUsageHome(for: home.app)
         }
     }
 
@@ -206,6 +220,7 @@ final class DeviceBridge {
         guard agent.current == notice else { return }
         guard let thread = notice.threadID else { agent.dismiss(fromDevice: fromDevice); return }
         guard !dictation.phase.isBusy, openingNotice == nil, !followupActionInFlight else { return }
+        clearUsageHome()
         agent.pauseCompletedNotices()
         agent.dismiss(fromDevice: fromDevice)
         followupChat = nil
@@ -230,6 +245,9 @@ final class DeviceBridge {
 
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
+        // 用量首页:OK 先不动作,等松开判定为“进入 READY”或长按判定为“直接说话”;
+        // 上下键等松开后切 Tab。
+        if usageHome != nil { return }
         guard key == .ok else { return }
         guard scanningSessionApp == nil, openingSessionApp == nil else { return }
         // 上一句还在处理(识别 / 润色 / 翻译):OK 不可用,不开始新的一句;设备上提示列是禁用色并给出"不可用"反馈。
@@ -285,6 +303,15 @@ final class DeviceBridge {
     }
 
     private func longPressed(_ key: DeviceKey) {
+        if usageHome != nil {
+            if key == .ok {
+                // 长按 OK:不先进 READY,直接从用量页开始录音。
+                clearUsageHome()
+                pressBegan(.ok)
+                return
+            }
+            clearUsageHome()
+        }
         switch key {
         case .up:
             guard !dictation.phase.isBusy else { return }
@@ -309,6 +336,17 @@ final class DeviceBridge {
 
     /// 松开:OK 结束按住说话(仅听写 / 翻译模式);上下键只有短按(没触发长按)才执行短按动作。
     private func pressEnded(_ key: DeviceKey, isTap: Bool) {
+        if usageHome != nil, isTap {
+            switch key {
+            case .ok:
+                clearUsageHome()
+            case .up:
+                moveUsageTab(-1)
+            case .down:
+                moveUsageTab(1)
+            }
+            return
+        }
         switch key {
         case .ok:
             if okDrivesDictation {
@@ -447,6 +485,7 @@ final class DeviceBridge {
     /// 这里不按 Bundle ID 白名单判断，WorkBuddy / ZCode / Claude / 豆包 / 千问等新 Agent 都能自动识别。
     private func openContextSwitcher() {
         guard sessionScanTask == nil, openingSessionApp == nil else { return }
+        clearUsageHome()
         guard let target = currentAgentApp() else {
             openAppSwitcher()
             return
@@ -567,6 +606,7 @@ final class DeviceBridge {
 
     private func openSession(_ session: AgentSession, project: AgentProject?, app: AgentSessionApp) {
         guard sessionOpenTask == nil, openingSessionApp == nil else { return }
+        clearUsageHome()
         openingSessionApp = app
         lastState = nil
         sync()
@@ -608,6 +648,48 @@ final class DeviceBridge {
         sync()
     }
 
+    // MARK: - Agent 用量首页
+
+    /// 切换到 Agent 应用后先显示用量首页；读完数据再刷新同一页。
+    private func beginUsageHome(for app: AgentSessionApp) {
+        usageTask?.cancel()
+        let home = UsageHome(app: app)
+        usageHome = home
+        lastState = nil
+        sync()
+        usageTask = Task { [weak self] in
+            let snapshot = await AgentUsageService.load(for: app)
+            guard !Task.isCancelled, let self, self.usageHome?.token == home.token else { return }
+            self.usageHome?.snapshot = snapshot
+            self.usageHome?.tab = 0
+            self.lastState = nil
+            self.sync()
+        }
+    }
+
+    private func clearUsageHome() {
+        guard usageHome != nil else { return }
+        usageHome = nil
+        usageTask?.cancel()
+        usageTask = nil
+        lastState = nil
+        sync()
+    }
+
+    private func moveUsageTab(_ delta: Int) {
+        guard var home = usageHome else { return }
+        home.tab = (home.tab + delta + 3) % 3
+        usageHome = home
+        lastState = nil
+        sync()
+    }
+
+    private func deviceUsage(_ home: UsageHome) -> DeviceUsage {
+        home.snapshot?.device(tab: home.tab) ?? DeviceUsage(
+            app: home.app.shortName, today: "", week: "", total: "", tab: home.tab,
+            leftPercent: nil, reset: "", plan: "", credits: nil, ready: false)
+    }
+
     /// 列表里按下:上键没有长按动作,按下即移动;OK 按下即确认;下键等松开(短按移动)或长按(关闭)。
     private func listPressBegan(_ key: DeviceKey) {
         guard let current = list else { return }
@@ -625,6 +707,13 @@ final class DeviceBridge {
                     settings.deviceTargetName = apps[current.selected].name
                 }
                 AppSwitcher.activate(apps[current.selected])
+                if let running = NSRunningApplication(processIdentifier: apps[current.selected].pid),
+                   let app = AgentSessionApp(running: running),
+                   AgentAppDisplayName.isKnownAgent(bundleID: app.bundleID) {
+                    beginUsageHome(for: app)
+                } else {
+                    clearUsageHome()
+                }
             case .pickCaptionApp(let apps):
                 guard apps.indices.contains(current.selected) else { closeList(); return }
                 closeList()
@@ -696,6 +785,12 @@ final class DeviceBridge {
             list = nil
             lastState = nil
         }
+        if usageHome != nil, dictation.phase.isBusy {
+            usageHome = nil
+            usageTask?.cancel()
+            usageTask = nil
+            lastState = nil
+        }
         if let current = list, Date().timeIntervalSince(current.touched) > listTimeout {
             closeList()
             return
@@ -714,6 +809,9 @@ final class DeviceBridge {
                              live: !captions.sourceLive.isEmpty || !captions.translationLive.isEmpty)
         } else {
             link.sendCaption(app: "", src: "", dst: "", live: false)
+        }
+        if state.ui == .usage, let home = usageHome {
+            link.sendUsage(deviceUsage(home))
         }
         let hints = DeviceStateMapper.keyHints(
             state: state.ui, deviceMode: mode, handsFree: dictation.isHandsFree,
@@ -744,6 +842,7 @@ final class DeviceBridge {
             codexStatus = nil
         }
         if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
+        if usageHome != nil, !dictation.phase.isBusy { return .init(ui: .usage, mode: mode, msg: "") }
         return DeviceStateMapper.state(
             phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,
             subtitlesRunning: subtitles.isRunning, subtitleApp: subtitles.appName)

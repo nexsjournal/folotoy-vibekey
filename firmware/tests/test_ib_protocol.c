@@ -356,6 +356,35 @@ static void test_line_framing(void)
     CHECK(out.count == 5 && strlen(out.last) == IB_LINE_MAX - 1);
 }
 
+static void test_usage(void)
+{
+    ib_cmd_t c;
+    CHECK(parse("{\"cmd\":\"usage\",\"uapp\":\"CODEX\",\"utoday\":\"43,051,522\","
+                "\"uweek\":\"43,051,522\",\"utotal\":\"4,938,713,816\",\"utab\":2,"
+                "\"uquota\":1,\"uleft\":7,\"ureset\":\"4D 2H\",\"uplan\":\"PLUS\","
+                "\"ucredit\":0,\"uready\":1}", &c));
+    CHECK(c.type == IB_CMD_USAGE);
+    CHECK(c.has_usage_app);
+    CHECK_STR(c.usage_app, "CODEX");
+    CHECK_STR(c.usage_today, "43,051,522");
+    CHECK_STR(c.usage_total, "4,938,713,816");
+    CHECK(c.has_usage_tab && c.usage_tab == 2);
+    CHECK(c.has_usage_quota && c.usage_quota);
+    CHECK(c.has_usage_left && c.usage_left == 7);
+    CHECK_STR(c.usage_reset, "4D 2H");
+    CHECK_STR(c.usage_plan, "PLUS");
+    CHECK(c.has_usage_credits && c.usage_credits == 0);
+    CHECK(c.has_usage_ready && c.usage_ready);
+
+    // DSH 没有额度数据:只带 token 和 app + ready。
+    CHECK(parse("{\"cmd\":\"usage\",\"uapp\":\"DSH\",\"utoday\":\"347,103,089\","
+                "\"uquota\":0,\"uready\":1}", &c));
+    CHECK(c.type == IB_CMD_USAGE && c.has_usage_quota && !c.usage_quota && c.has_usage_ready);
+    CHECK(!parse("{\"cmd\":\"usage\"}", &c));
+    CHECK(!parse("{\"cmd\":\"usage\",\"utab\":3}", &c));
+    CHECK(!parse("{\"cmd\":\"usage\",\"uleft\":101}", &c));
+}
+
 int main(void)
 {
     test_format();
@@ -367,6 +396,7 @@ int main(void)
     test_keys_agent();
     test_list();
     test_wallpaper();
+    test_usage();
     test_icons();
     test_line_framing();
     TEST_DONE("test_ib_protocol");

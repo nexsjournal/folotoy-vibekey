@@ -7,7 +7,7 @@
 
 ## Matrix 视觉开发中
 
-当前开发版在 IDLE、REC、PROC、DONE、ERR 页使用终端式标题和绿色点阵边框；OFFLINE 也使用终端标题和绿色时钟。前三页分别显示 `> READY_`、`> LISTENING`、`> DECODING_`；DICTATE 待机显示 `HOLD OK TO TALK`，录音页根据按键状态提示松开或再按一次 OK。SUB、LIST 和 Agent 通知沿用同一套点阵语言。除专用审批页外，核心状态页已实现并通过 43 个 LVGL 主机场景检查；实体屏幕的完整状态巡检仍待验收。
+当前开发版在 IDLE、REC、PROC、DONE、ERR 页使用终端式标题和绿色点阵边框；OFFLINE 也使用终端标题和绿色时钟。前三页分别显示 `> READY_`、`> LISTENING`、`> DECODING_`；DICTATE 待机显示 `HOLD OK TO TALK`，录音页根据按键状态提示松开或再按一次 OK。SUB、LIST、USAGE 和 Agent 通知沿用同一套点阵语言。除专用审批页外，核心状态页已实现并通过 46 个 LVGL 主机场景检查；实体屏幕的完整状态巡检仍待验收。
 
 屏幕 ST7789 240×320 竖屏,LVGL 9;状态文本主要为 ASCII,SUB 字幕与 LIST 项目 / 会话名保留 UTF-8(12 px 中文字库)。终端标题与主要操作提示使用 Roboto Mono,其余文字仍使用 Montserrat。交互页页脚显示同步时钟,未知时为 `--:--`。**不显示转录内容**,用动画表达状态。
 
@@ -65,6 +65,14 @@
 - 模式提示(`HOLD OK TO TALK` / `TRANSLATE` / `SUBTITLES`,14 px,y=220)。引擎名、分页点都去掉了,操作提示由右侧按键提示列显示。
 - 切换模式:点阵从旧字形重排成新字形;模式名纵向翻牌(旧名字 140 ms 内向上 / 下翻出淡出,之后新名字从另一侧翻入,两行字不叠在一起)。
 - 字幕在运行时(不论设备在哪个模式),Mac 发 `state sub`,设备显示 SUB 页;字幕应用选择器复用 LIST 页(标题 `CAPTIONS`)。
+
+### USAGE(Agent 用量首页)
+
+- 从「切换应用」选中 Codex、DSH NEXT、WorkBuddy、ZCode、Claude、千问办公、豆包工作等 Agent 后,先显示这一页,而不是直接进入 READY。
+- 顶部 `> CODEX` / `> DSH`;三行 Tab `TODAY / WEEK / ALL`,短按上下键切换;中间大号数字是选中周期的 Token 数。整页文字统一左对齐,长数字不居中偏移。
+- 下方是 `WEEK LEFT` 剩余额度进度、`RESET` 重置倒计时、`PLAN` 套餐和 `CREDITS` 重置券。额度区不使用灰色填充卡片,只保留 READY 页同款细绿色描边,内部信息全部左对齐,`CREDITS` 独立一行。没有额度接口的 Agent(如 DSH)显示 `NO DATA` / `RESET --`,不伪造额度。
+- 短按 OK 进入原 READY 页;长按 OK 直接从用量页开始录音;长按上键切模式;长按下键打开应用 / 项目 / 会话列表。
+- 数据由 Mac 的 `usage` 命令下发;设备只排版,不解析金额或聊天内容。读取中显示 `READING USAGE...`,失败显示 `NO USAGE DATA`。
 
 ### REC
 
