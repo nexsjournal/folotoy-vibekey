@@ -239,7 +239,7 @@ static void audio_tx(ib_link_t link, const uint8_t *frame, size_t len)
         ib_usb_send_bin(frame, len);
     } else {
         if (link == IB_LINK_BLE) ib_ble_send_audio(frame, len);
-        else ib_wifi_send(frame, len);
+        else ib_wifi_send_audio(frame, len);
     }
 }
 
@@ -386,13 +386,18 @@ static void mic_stop(void)
 {
     s_mic_local = false;
     if (!s_audio_ok || !ib_audio_mic_active()) return;
+    bool wifi = ib_audio_mic_link() == IB_LINK_WIFI;
     ib_audio_mic_stop();
+    if (wifi) ib_wifi_set_audio_mode(false);
     ib_ble_set_audio_mode(false);
 }
 
 static void mic_start(ib_link_t link, bool local, int64_t now)
 {
-    if (!s_audio_ok || ib_audio_mic_start(link) != ESP_OK) return;
+    if (!s_audio_ok) return;
+    if (ib_audio_mic_active() && ib_audio_mic_link() != link) mic_stop();
+    if (ib_audio_mic_start(link) != ESP_OK) return;
+    if (link == IB_LINK_WIFI) ib_wifi_set_audio_mode(true);
     s_mic_local = local;
     s_mic_local_ms = now;
     ib_ble_set_audio_mode(link == IB_LINK_BLE);

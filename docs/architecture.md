@@ -5,6 +5,7 @@
 ## Wi-Fi 与远离电脑的输入（本地分支）
 
 - 配网：`PassportWiFiSection → DeviceLink.configureWiFi → WiFiProvisioning.encoded → USB → ib_wifi_handle_usb_line → NVS → config_task → Wi-Fi STA / mDNS`。设备最多保存 4 组网络，每组独立 `SSID + password + host + PSK`；密码仅在表单内存和 USB 配网命令中使用，Mac 只持久保存 SSID、随机主机名与 PSK。`ib_wifi_store` 是纯 C 数据模型，负责增删、active 切换与旧单网络结构迁移。
+- Wi-Fi 录音：`ib_audio → ib_app.audio_tx → ib_wifi_send_audio → TLS → DeviceLink.receiveWiFi → MicStream`。录音和控制分别入队，TLS 任务轮询收发并保留未写完的帧。应用任务只在 Wi-Fi 麦克风打开时关闭无线省电；断线时记录 STA 原因或 TLS 错误，重新关联后建立新会话。
 - 无线连接：`WiFiClient(Network TLS-PSK) → DeviceLink.beginHandshake → ib_wifi(server_task/esp_tls) → ib_app`。Mac 同时尝试所有本机已保存的 `host.local`，第一个完成 TLS 握手的就是设备当前网络，因此设备端换网后无需 USB 先通知 Mac。TLS 任务独占 socket，音频任务经有界队列发送；同一份协议解析器与 MicStream 解码器服务 USB/Wi-Fi。
 - 无线模式互斥：NVS `ib_wifi/networks` 非空时，本轮启动不初始化 BLE，使用官方 `esp_bt_mem_release` 释放蓝牙内存；无网络时保持 BLE。新增、选择或移除网络后重启到新的 host / PSK；USB 清除全部配网后重启恢复 BLE。USB 始终可用；Wi-Fi 失联时通过 USB 或设备离线网络列表修复，不承诺同次启动自动降级 BLE。
 - C3 内存预算：Wi-Fi 静态 RX 4、动态 RX/TX 各 8；NimBLE MSYS 各 6；TLS 动态缓冲、输出 1024 字节；Wi-Fi 发送队列每项 512 字节。真机首次暴露默认 Wi-Fi 缓冲初始化不足，不能用“编译通过”替代入网测试。

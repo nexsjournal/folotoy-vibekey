@@ -7,6 +7,8 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_system.h"
+#include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_tls.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -17,6 +19,8 @@
 #include "mdns.h"
 #include "nvs.h"
 #include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,8 +32,10 @@
 #define NVS_LEGACY_KEY "config"
 // 最大上行音频帧 334 字节，JSON 回复也小于 512；无需为每个队列项预留 1 KB。
 #define PACKET_MAX 512
+#define WIFI_STALL_US (8 * INT64_C(1000000))
+static const char *TAG = "ib_wifi";
 typedef struct { size_t len; uint8_t bytes[PACKET_MAX]; } packet_t;
-static QueueHandle_t s_config_queue, s_tx;
+static QueueHandle_t s_config_queue, s_control_tx, s_audio_tx;
 static EventGroupHandle_t s_events;
 static ib_wifi_line_cb_t s_line;
 static ib_wifi_link_cb_t s_link;
@@ -200,7 +206,10 @@ static void network_event(void *arg, esp_event_base_t base, int32_t id, void *da
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) esp_wifi_connect();
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         xEventGroupClearBits(s_events, IP_READY);
+        // IP 可能很快恢复，仍须关闭上一轮关联留下的 TLS 会话。
+        portENTER_CRITICAL(&s_lock); s_generation++; portEXIT_CRITICAL(&s_lock);
         const wifi_event_sta_disconnected_t *event = data;
+        ESP_LOGW(TAG, "STA disconnected: reason=%u", (unsigned)event->reason);
         const char *stage = (event->reason == WIFI_REASON_AUTH_FAIL || event->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT)
             ? "auth_error" : event->reason == WIFI_REASON_NO_AP_FOUND ? "not_found" : "connecting";
         status(stage, NULL);
@@ -220,24 +229,99 @@ static void line_received(const char *line, size_t len, void *user)
     if (s_line) s_line(line, len);
 }
 
-// 任意任务可调用，队列满时丢弃当前音频帧；独立 ADPCM 块与序号允许接收端检测并恢复。
-void ib_wifi_send(const uint8_t *data, size_t len)
+// 按键、心跳和录音分开排队。录音来不及发时可丢帧，不能挤掉松键或心跳。
+static void enqueue(QueueHandle_t queue, const uint8_t *data, size_t len)
 {
-    if (!s_session || !s_tx || len == 0 || len > PACKET_MAX) return;
+    if (!s_session || !queue || len == 0 || len > PACKET_MAX) return;
     packet_t packet = { .len = len };
     memcpy(packet.bytes, data, len);
-    xQueueSend(s_tx, &packet, 0);
+    xQueueSend(queue, &packet, 0);
 }
 
-static bool tls_write_all(esp_tls_t *tls, const uint8_t *data, size_t len)
+void ib_wifi_send(const uint8_t *data, size_t len) { enqueue(s_control_tx, data, len); }
+void ib_wifi_send_audio(const uint8_t *data, size_t len) { enqueue(s_audio_tx, data, len); }
+
+void ib_wifi_set_audio_mode(bool recording)
 {
+    // 只在使用 Wi-Fi 麦克风期间关闭省电，避免路由器的 DTIM 周期拖延回包。
+    esp_err_t error = esp_wifi_set_ps(recording ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
+    if (error != ESP_OK) ESP_LOGW(TAG, "Wi-Fi power save: %s", esp_err_to_name(error));
+}
+
+// 单个任务拥有 TLS。暂时不可读写时保留待发帧及偏移，直到同一次 TLS 写入完成。
+static void run_session(esp_tls_t *tls, int fd, uint32_t generation)
+{
+    ib_line_t lines;
+    ib_line_init(&lines);
+    uint8_t input[512];
+    packet_t outgoing;
     size_t offset = 0;
-    while (offset < len) {
-        int n = esp_tls_conn_write(tls, data + offset, len - offset);
-        if (n <= 0) return false;
-        offset += (size_t)n;
+    bool pending = false;
+    int write_wait = 0;
+    bool read_wait_write = false;
+    int64_t write_since = 0, read_since = 0;
+
+    while (generation == s_generation && (xEventGroupGetBits(s_events) & IP_READY)) {
+        int64_t now = esp_timer_get_time();
+        bool write_stalled = write_since && now - write_since >= WIFI_STALL_US;
+        bool read_stalled = read_since && now - read_since >= WIFI_STALL_US;
+        if (write_stalled || read_stalled) {
+            ESP_LOGW(TAG, "TLS %s stalled, reconnecting (heap=%" PRIu32 ")",
+                     write_stalled ? "send" : "receive", esp_get_free_heap_size());
+            return;
+        }
+        if (!pending && !read_wait_write) {
+            pending = xQueueReceive(s_control_tx, &outgoing, 0) == pdTRUE
+                   || xQueueReceive(s_audio_tx, &outgoing, 0) == pdTRUE;
+            offset = 0;
+            if (pending) write_since = now;
+        }
+
+        fd_set reads, writes;
+        FD_ZERO(&reads); FD_ZERO(&writes);
+        if (!read_wait_write && write_wait != ESP_TLS_ERR_SSL_WANT_WRITE) FD_SET(fd, &reads);
+        if (read_wait_write || (pending && write_wait != ESP_TLS_ERR_SSL_WANT_READ)) FD_SET(fd, &writes);
+        bool buffered = !read_wait_write && !write_wait && esp_tls_get_bytes_avail(tls) > 0;
+        struct timeval wait = { .tv_usec = buffered ? 0 : 5000 };
+        int ready = select(fd + 1, &reads, &writes, NULL, &wait);
+        if (ready < 0) {
+            if (errno == EINTR) continue;
+            ESP_LOGW(TAG, "TLS select failed: errno=%d", errno);
+            return;
+        }
+        bool readable = FD_ISSET(fd, &reads);
+        bool writable = FD_ISSET(fd, &writes);
+
+        if (!write_wait && (read_wait_write ? writable : readable || buffered)) {
+            int n = esp_tls_conn_read(tls, input, sizeof(input));
+            read_wait_write = n == ESP_TLS_ERR_SSL_WANT_WRITE;
+            if (read_wait_write) {
+                if (!read_since) read_since = now;
+                continue;
+            }
+            read_since = 0;
+            if (n > 0) ib_line_feed(&lines, input, n, line_received, NULL);
+            else if (n != ESP_TLS_ERR_SSL_WANT_READ) {
+                if (n < 0) ESP_LOGW(TAG, "TLS receive failed: %d", n);
+                return;
+            }
+        }
+
+        if (pending && (write_wait == ESP_TLS_ERR_SSL_WANT_READ ? readable : writable)) {
+            int n = esp_tls_conn_write(tls, outgoing.bytes + offset, outgoing.len - offset);
+            if (n > 0) {
+                offset += (size_t)n;
+                pending = offset < outgoing.len;
+                write_wait = 0;
+                write_since = pending ? now : 0;
+            } else if (n == ESP_TLS_ERR_SSL_WANT_READ || n == ESP_TLS_ERR_SSL_WANT_WRITE) {
+                write_wait = n;
+            } else {
+                ESP_LOGW(TAG, "TLS send failed: %d (heap=%" PRIu32 ")", n, esp_get_free_heap_size());
+                return;
+            }
+        }
     }
-    return true;
 }
 
 static void server_task(void *arg)
@@ -266,26 +350,17 @@ static void server_task(void *arg)
             if (tls) esp_tls_server_session_delete(tls); else close(socket_fd);
             memset(&config, 0, sizeof(config)); continue;
         }
-        xQueueReset(s_tx);
+        int flags = fcntl(socket_fd, F_GETFL, 0);
+        if (flags < 0 || fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+            ESP_LOGW(TAG, "Cannot set TLS socket nonblocking: errno=%d", errno);
+            esp_tls_server_session_delete(tls);
+            memset(&config, 0, sizeof(config)); continue;
+        }
+        xQueueReset(s_control_tx);
+        xQueueReset(s_audio_tx);
         s_session = true;
         if (s_link) s_link(true);
-        ib_line_t lines; ib_line_init(&lines);
-        uint8_t input[512]; packet_t outgoing;
-        bool alive = true;
-        while (alive && generation == s_generation && (xEventGroupGetBits(s_events) & IP_READY)) {
-            while (xQueueReceive(s_tx, &outgoing, 0) == pdTRUE) {
-                if (!tls_write_all(tls, outgoing.bytes, outgoing.len)) { alive = false; break; }
-            }
-            fd_set reads; FD_ZERO(&reads); FD_SET(socket_fd, &reads);
-            struct timeval wait = { .tv_usec = 5000 };
-            int ready = select(socket_fd + 1, &reads, NULL, NULL, &wait);
-            if (ready < 0) break;
-            if (ready > 0 || esp_tls_get_bytes_avail(tls) > 0) {
-                int n = esp_tls_conn_read(tls, input, sizeof(input));
-                if (n <= 0) break;
-                ib_line_feed(&lines, input, n, line_received, NULL);
-            }
-        }
+        run_session(tls, socket_fd, generation);
         s_session = false;
         if (s_link) s_link(false);
         esp_tls_server_session_delete(tls);
@@ -452,8 +527,9 @@ esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
     if (!store.count) return ESP_OK;
     s_events = xEventGroupCreate();
     s_config_queue = xQueueCreate(1, sizeof(ib_wifi_network_t));
-    s_tx = xQueueCreate(8, sizeof(packet_t));
-    if (!s_events || !s_config_queue || !s_tx) return ESP_ERR_NO_MEM;
+    s_control_tx = xQueueCreate(4, sizeof(packet_t));
+    s_audio_tx = xQueueCreate(4, sizeof(packet_t));
+    if (!s_events || !s_config_queue || !s_control_tx || !s_audio_tx) return ESP_ERR_NO_MEM;
     esp_err_t error = esp_netif_init(); if (error != ESP_OK) return error;
     error = esp_event_loop_create_default(); if (error != ESP_OK && error != ESP_ERR_INVALID_STATE) return error;
     s_netif = esp_netif_create_default_wifi_sta(); if (!s_netif) return ESP_ERR_NO_MEM;
