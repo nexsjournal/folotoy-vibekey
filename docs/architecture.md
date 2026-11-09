@@ -339,6 +339,7 @@ AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测�
  → AgentUsageService.load(for:)
      ├─ Codex → CodexUsageService → CodexUsageSnapshot
      └─ DSH NEXT → DSHUsageReader(只读 session_projcache 开头的 tokenUsage.val.totals)
+ → Codex 的 primary / secondary 分别映射为 5 小时 / 每周额度
  → DeviceUsage(格式化后的 ASCII) → DeviceLink.sendUsage → 固件 ib_ui_usage
  → 短按 OK: 隐藏用量页 → state idle(READY)，READY 底部提示 TAP OK: USAGE
  → READY 短按 OK(<500 ms): 重新显示 usageHome，不录入这次按压

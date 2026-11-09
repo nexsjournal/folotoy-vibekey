@@ -72,6 +72,9 @@ typedef struct {
     uint8_t tab;                          // 0=今日 1=本周 2=累计
     uint8_t left_percent;                 // 0..100
     bool has_quota;                       // false 时显示 NO DATA
+    uint8_t five_hour_left_percent;       // 0..100
+    bool has_five_hour_quota;             // false 时显示 NO DATA
+    char five_hour_reset[IB_UI_USAGE_TEXT_MAX];
     int16_t credits;                      // -1 表示未知
     bool ready;                           // false 时显示 READING USAGE...
 } ib_ui_usage_t;

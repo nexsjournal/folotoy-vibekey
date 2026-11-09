@@ -25,7 +25,8 @@ struct CodexUsageTests {
         ]}
         """.utf8)
         let limits = Data("""
-        {"rateLimits":{"secondary":{"usedPercent":93,"resetsAt":1794578790},
+        {"rateLimits":{"primary":{"usedPercent":37,"resetsAt":1794500000},
+          "secondary":{"usedPercent":93,"resetsAt":1794578790},
           "planType":"plus"},"rateLimitResetCredits":{"availableCount":2}}
         """.utf8)
         let snapshot = try CodexUsageParser.snapshot(
@@ -37,6 +38,7 @@ struct CodexUsageTests {
         #expect(snapshot.weekTokens == 200)
         #expect(snapshot.lifetimeTokens == 1000)
         #expect(snapshot.weeklyRemainingPercent == 7)
+        #expect(snapshot.fiveHourRemainingPercent == 63)
         #expect(snapshot.planName == "Plus")
         #expect(snapshot.resetCredits == 2)
         #expect(!snapshot.todayIsLocalEstimate)

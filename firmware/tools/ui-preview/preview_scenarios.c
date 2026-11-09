@@ -67,6 +67,24 @@ static void set_list(uint16_t sel, uint16_t top)
     ib_ui_set_list(&l);
 }
 
+static void set_chinese_list(void)
+{
+    static const char *const ITEMS[] = {
+        "像素黑客风", "语音输入体验", "Passport 固件", "FoloVibe Key", "会话切换",
+    };
+    ib_ui_list_t l;
+    memset(&l, 0, sizeof(l));
+    snprintf(l.title, sizeof(l.title), "CODEX PROJECT");
+    for (uint16_t i = 0; i < sizeof(ITEMS) / sizeof(ITEMS[0]); i++) {
+        snprintf(l.items[i], sizeof(l.items[i]), "%s", ITEMS[i]);
+    }
+    l.rows = (uint8_t)(sizeof(ITEMS) / sizeof(ITEMS[0]));
+    l.n = l.rows;
+    l.sel = 0;
+    l.top = 0;
+    ib_ui_set_list(&l);
+}
+
 int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
 {
     s_out_dir = out_dir;
@@ -133,6 +151,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     usage.tab = 0;
     usage.left_percent = 7;
     usage.has_quota = true;
+    usage.five_hour_left_percent = 63;
+    usage.has_five_hour_quota = true;
+    snprintf(usage.five_hour_reset, sizeof(usage.five_hour_reset), "2H 10M");
     usage.credits = 0;
     usage.ready = true;
     ib_ui_set_usage(&usage);
@@ -150,6 +171,7 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     snprintf(usage.total, sizeof(usage.total), "2,345,563,337");
     usage.tab = 0;
     usage.has_quota = false;
+    usage.has_five_hour_quota = false;
     usage.credits = -1;
     usage.reset[0] = '\0';
     snprintf(usage.plan, sizeof(usage.plan), "DEEPSEEK");
@@ -247,6 +269,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     set_list(6, 1);
     preview_advance(400);
     shot("list_sel6_scrolled");
+    set_chinese_list();
+    preview_advance(300);
+    shot("list_chinese_project");
 
     // ---- AGENT 通知 ----
     keys(IB_ICON_ENTER, IB_ICON_ESC, IB_ICON_MIC);

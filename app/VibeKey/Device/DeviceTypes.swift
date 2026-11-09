@@ -42,6 +42,8 @@ nonisolated struct DeviceUsage: Equatable, Sendable {
     var plan: String
     var credits: Int?
     var ready: Bool
+    var fiveHourLeftPercent: Int? = nil
+    var fiveHourReset: String = ""
 }
 
 /// 模块内部用的链路类型。`DeviceLink.Connection` 是主 actor 上的公开状态,

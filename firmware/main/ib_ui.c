@@ -395,6 +395,7 @@ void ib_ui_set_usage(const ib_ui_usage_t *usage)
     copy_text(next.plan, sizeof(next.plan), usage->plan);
     if (next.tab > 2) next.tab = 0;
     if (next.left_percent > 100) next.left_percent = 100;
+    if (next.five_hour_left_percent > 100) next.five_hour_left_percent = 100;
     s_ctx.usage = next;
     if (s_screen == IB_UI_USAGE) PAGES[IB_UI_USAGE]->update(&s_ctx);
     bsp_lvgl_unlock();

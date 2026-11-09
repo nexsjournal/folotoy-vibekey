@@ -362,7 +362,8 @@ static void test_usage(void)
     CHECK(parse("{\"cmd\":\"usage\",\"uapp\":\"CODEX\",\"utoday\":\"43,051,522\","
                 "\"uweek\":\"43,051,522\",\"utotal\":\"4,938,713,816\",\"utab\":2,"
                 "\"uquota\":1,\"uleft\":7,\"ureset\":\"4D 2H\",\"uplan\":\"PLUS\","
-                "\"ucredit\":0,\"uready\":1}", &c));
+                "\"ucredit\":0,\"u5quota\":1,\"u5left\":63,\"u5reset\":\"2H 10M\","
+                "\"uready\":1}", &c));
     CHECK(c.type == IB_CMD_USAGE);
     CHECK(c.has_usage_app);
     CHECK_STR(c.usage_app, "CODEX");
@@ -374,6 +375,9 @@ static void test_usage(void)
     CHECK_STR(c.usage_reset, "4D 2H");
     CHECK_STR(c.usage_plan, "PLUS");
     CHECK(c.has_usage_credits && c.usage_credits == 0);
+    CHECK(c.has_usage_5quota && c.usage_5quota);
+    CHECK(c.has_usage_5left && c.usage_5left == 63);
+    CHECK_STR(c.usage_5reset, "2H 10M");
     CHECK(c.has_usage_ready && c.usage_ready);
 
     // DSH 没有额度数据:只带 token 和 app + ready。
@@ -383,6 +387,7 @@ static void test_usage(void)
     CHECK(!parse("{\"cmd\":\"usage\"}", &c));
     CHECK(!parse("{\"cmd\":\"usage\",\"utab\":3}", &c));
     CHECK(!parse("{\"cmd\":\"usage\",\"uleft\":101}", &c));
+    CHECK(!parse("{\"cmd\":\"usage\",\"u5left\":101}", &c));
 }
 
 int main(void)

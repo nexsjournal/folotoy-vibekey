@@ -765,6 +765,8 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
         usage.tab = cmd->has_usage_tab ? cmd->usage_tab : 0;
         usage.left_percent = cmd->has_usage_left ? cmd->usage_left : 0;
         usage.has_quota = cmd->has_usage_quota && cmd->usage_quota;
+        usage.five_hour_left_percent = cmd->has_usage_5left ? cmd->usage_5left : 0;
+        usage.has_five_hour_quota = cmd->has_usage_5quota && cmd->usage_5quota;
         usage.credits = cmd->has_usage_credits ? (int16_t)cmd->usage_credits : -1;
         usage.ready = cmd->has_usage_ready && cmd->usage_ready;
         if (cmd->has_usage_app) memcpy(usage.app, cmd->usage_app, sizeof(usage.app));
@@ -772,6 +774,7 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
         if (cmd->has_usage_week) memcpy(usage.week, cmd->usage_week, sizeof(usage.week));
         if (cmd->has_usage_total) memcpy(usage.total, cmd->usage_total, sizeof(usage.total));
         if (cmd->has_usage_reset) memcpy(usage.reset, cmd->usage_reset, sizeof(usage.reset));
+        if (cmd->has_usage_5reset) memcpy(usage.five_hour_reset, cmd->usage_5reset, sizeof(usage.five_hour_reset));
         if (cmd->has_usage_plan) memcpy(usage.plan, cmd->usage_plan, sizeof(usage.plan));
         if (s_ui_ok) ib_ui_set_usage(&usage);
         break;

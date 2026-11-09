@@ -16,6 +16,9 @@ nonisolated struct CodexUsageSnapshot: Equatable, Sendable {
     /// 0...100。nil 表示服务端没有返回周额度。
     var weeklyUsedPercent: Double?
     var weeklyResetsAt: Date?
+    /// 0...100。nil 表示服务端没有返回 5 小时窗口。
+    var fiveHourUsedPercent: Double? = nil
+    var fiveHourResetsAt: Date? = nil
     var plan: String?
     var resetCredits: Int?
     var updatedAt: Date
@@ -33,6 +36,11 @@ nonisolated struct CodexUsageSnapshot: Equatable, Sendable {
     var weeklyRemainingPercent: Int? {
         guard let weeklyUsedPercent else { return nil }
         return min(100, max(0, Int((100 - weeklyUsedPercent).rounded())))
+    }
+
+    var fiveHourRemainingPercent: Int? {
+        guard let fiveHourUsedPercent else { return nil }
+        return min(100, max(0, Int((100 - fiveHourUsedPercent).rounded())))
     }
 
     var planName: String? {
@@ -252,14 +260,20 @@ nonisolated enum CodexUsageParser {
             .reduce(Int64(0)) { $0 + $1.tokens }
         let week = buckets.isEmpty ? nil : weekFromBuckets + (bucketToday == nil ? (localToday ?? 0) : 0)
 
-        let window = limitsWire.rateLimits.secondary ?? limitsWire.rateLimits.primary
+        let primary = limitsWire.rateLimits.primary
+        let secondary = limitsWire.rateLimits.secondary
+        let window = secondary ?? primary
+        let fiveHour = secondary == nil ? nil : primary
         let resetsAt = window?.resetsAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+        let fiveHourResetsAt = fiveHour?.resetsAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
         return CodexUsageSnapshot(
             todayTokens: today,
             weekTokens: week,
             lifetimeTokens: usageWire.summary.lifetimeTokens,
             weeklyUsedPercent: window.map { Double($0.usedPercent) },
             weeklyResetsAt: resetsAt,
+            fiveHourUsedPercent: fiveHour.map { Double($0.usedPercent) },
+            fiveHourResetsAt: fiveHourResetsAt,
             plan: limitsWire.rateLimits.planType,
             resetCredits: limitsWire.rateLimitResetCredits?.availableCount,
             updatedAt: now,

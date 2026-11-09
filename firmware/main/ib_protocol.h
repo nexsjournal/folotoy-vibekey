@@ -160,6 +160,12 @@ typedef struct {
     char usage_plan[IB_TEXT_MAX];
     bool has_usage_credits;
     uint8_t usage_credits;
+    bool has_usage_5quota;
+    bool usage_5quota;
+    bool has_usage_5left;
+    uint8_t usage_5left;
+    bool has_usage_5reset;
+    char usage_5reset[IB_TEXT_MAX];
     bool has_usage_ready;
     bool usage_ready;
     // caption(UTF-8):当前字幕原文 / 译文 / 应用名;live 表示末行还在变化。

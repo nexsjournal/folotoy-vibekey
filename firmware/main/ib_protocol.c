@@ -353,7 +353,8 @@ static const char *const KNOWN_KEYS[] = {
     "title", "n", "sel", "top", "i0", "i1", "i2", "i3", "i4", "i5",
     "src", "dst", "live", "app",
     "uapp", "utoday", "uweek", "utotal", "utab", "uleft", "uquota",
-    "ureset", "uplan", "ucredit", "uready",
+    "ureset", "uplan", "ucredit",
+    "u5quota", "u5left", "u5reset", "uready",
     "size", "crc", "off", "d", "fin", "clear",
 };
 
@@ -420,18 +421,21 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
                 out->has_wallpaper_data = true;
             } else if (strcmp(key, "uapp") == 0 || strcmp(key, "utoday") == 0 ||
                        strcmp(key, "uweek") == 0 || strcmp(key, "utotal") == 0 ||
-                       strcmp(key, "ureset") == 0 || strcmp(key, "uplan") == 0) {
+                       strcmp(key, "ureset") == 0 || strcmp(key, "uplan") == 0 ||
+                       strcmp(key, "u5reset") == 0) {
                 char *dst = strcmp(key, "uapp") == 0 ? out->usage_app
                           : strcmp(key, "utoday") == 0 ? out->usage_today
                           : strcmp(key, "uweek") == 0 ? out->usage_week
                           : strcmp(key, "utotal") == 0 ? out->usage_total
-                          : strcmp(key, "ureset") == 0 ? out->usage_reset : out->usage_plan;
+                          : strcmp(key, "ureset") == 0 ? out->usage_reset
+                          : strcmp(key, "u5reset") == 0 ? out->usage_5reset : out->usage_plan;
                 if (!read_string(&c, dst, IB_TEXT_MAX)) return false;
                 if (strcmp(key, "uapp") == 0) out->has_usage_app = true;
                 else if (strcmp(key, "utoday") == 0) out->has_usage_today = true;
                 else if (strcmp(key, "uweek") == 0) out->has_usage_week = true;
                 else if (strcmp(key, "utotal") == 0) out->has_usage_total = true;
                 else if (strcmp(key, "ureset") == 0) out->has_usage_reset = true;
+                else if (strcmp(key, "u5reset") == 0) out->has_usage_5reset = true;
                 else out->has_usage_plan = true;
             } else if (!read_string(&c, text, sizeof(text))) {
                 return false;
@@ -567,6 +571,14 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             if (kind != VAL_UINT || num > 255) return false;
             out->usage_credits = (uint8_t)num;
             out->has_usage_credits = true;
+        } else if (strcmp(key, "u5left") == 0) {
+            if (kind != VAL_UINT || num > 100) return false;
+            out->usage_5left = (uint8_t)num;
+            out->has_usage_5left = true;
+        } else if (strcmp(key, "u5quota") == 0) {
+            if (kind != VAL_UINT) return false;
+            out->usage_5quota = num != 0;
+            out->has_usage_5quota = true;
         } else if (strcmp(key, "uready") == 0) {
             if (kind != VAL_UINT) return false;
             out->usage_ready = num != 0;

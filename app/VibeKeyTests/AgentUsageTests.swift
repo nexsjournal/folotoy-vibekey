@@ -7,7 +7,8 @@ struct AgentUsageTests {
         let usage = DeviceUsage(
             app: "CODEX", today: "43,051,522", week: "43,051,522",
             total: "4,938,713,816", tab: 2, leftPercent: 7, reset: "4D 1H",
-            plan: "plus", credits: 0, ready: true)
+            plan: "plus", credits: 0, ready: true,
+            fiveHourLeftPercent: 63, fiveHourReset: "2H 10M")
         let line = HostCommand.usage(usage).line
         #expect(line.contains("\"cmd\":\"usage\""))
         #expect(line.contains("\"uapp\":\"CODEX\""))
@@ -15,6 +16,9 @@ struct AgentUsageTests {
         #expect(line.contains("\"uquota\":1"))
         #expect(line.contains("\"uleft\":7"))
         #expect(line.contains("\"uplan\":\"plus\""))
+        #expect(line.contains("\"u5quota\":1"))
+        #expect(line.contains("\"u5left\":63"))
+        #expect(line.contains("\"u5reset\":\"2H 10M\""))
         #expect(line.contains("\"uready\":1"))
     }
 
@@ -33,11 +37,14 @@ struct AgentUsageTests {
     @Test func snapshotFormatsDeviceNumbers() {
         let snapshot = AgentUsageSnapshot(
             app: "CODEX", today: 43_051_522, week: 43_051_522, total: 4_938_713_816,
-            weeklyLeftPercent: 7, reset: "4D 1H", plan: "plus", credits: 0, ready: true)
+            weeklyLeftPercent: 7, reset: "4D 1H", plan: "plus", credits: 0, ready: true,
+            fiveHourLeftPercent: 63, fiveHourReset: "2H 10M")
         let device = snapshot.device(tab: 2)
         #expect(device.today == "43,051,522")
         #expect(device.total == "4,938,713,816")
         #expect(device.plan == "PLUS")
         #expect(device.leftPercent == 7)
+        #expect(device.fiveHourLeftPercent == 63)
+        #expect(device.fiveHourReset == "2H 10M")
     }
 }

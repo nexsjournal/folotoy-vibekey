@@ -267,6 +267,13 @@ nonisolated enum HostCommand: Equatable, Sendable {
             if let credits = usage.credits {
                 fields.append(("ucredit", .int(min(max(credits, 0), 255))))
             }
+            if let fiveHour = usage.fiveHourLeftPercent {
+                fields.append(("u5quota", .int(1)))
+                fields.append(("u5left", .int(min(max(fiveHour, 0), 100))))
+            }
+            if !usage.fiveHourReset.isEmpty {
+                fields.append(("u5reset", .string(DeviceText.ascii(usage.fiveHourReset, maxBytes: Self.keyHintMaxBytes))))
+            }
             fields.append(("uready", .int(usage.ready ? 1 : 0)))
         case .caption(let app, let src, let dst, let live):
             fields.append(("app", .string(DeviceText.utf8(app, maxBytes: Self.captionAppMaxBytes))))

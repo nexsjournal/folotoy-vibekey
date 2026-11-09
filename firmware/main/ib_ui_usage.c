@@ -3,13 +3,15 @@
 // 进入 Agent 应用时先显示这一页,再按 OK 进入原来的 READY 页。布局按 240×320 压缩:
 //   标题 > CODEX            应用名
 //   TODAY  WEEK  ALL        当前 Tab
-//   TODAY TOKENS
-//   43,051,522              选中周期的 Token 数(24 px)
+//   43,051,522              选中周期的 Token 数(26 px)
+//   TOKENS
 //   ┌────────────────────┐
+//   │ 5H LEFT        63% │
+//   │ ██████████░░░░░░░  │
 //   │ WEEK LEFT      7%  │
 //   │ ███████████░░░░░░  │
 //   │ RESET 4D 2H        │
-//   │ PLAN PLUS  CREDITS │
+//   │ PLAN PLUS   CREDITS 0 │
 //   └────────────────────┘
 //   TAP OK: READY  HOLD: TALK
 //
@@ -21,26 +23,31 @@
 #include <string.h>
 
 #define PANEL_X     6
-#define PANEL_Y     118
+#define PANEL_Y     112
 #define PANEL_W     206
-#define PANEL_H     148
+#define PANEL_H     154
 #define INNER_X     (PANEL_X + 8)
 #define INNER_W     (PANEL_W - 16)
 #define TAB_W       60
 #define TAB_X0      12
 #define TAB_PITCH   66
-#define BAR_Y       (PANEL_Y + 36)
-#define RESET_Y     (PANEL_Y + 50)
-#define PLAN_Y      (PANEL_Y + 76)
-#define CREDIT_Y    (PANEL_Y + 102)
-#define FOOTER_Y    276
+#define FIVE_LEFT_Y (PANEL_Y + 10)
+#define FIVE_BAR_Y  (PANEL_Y + 30)
+#define WEEK_LEFT_Y (PANEL_Y + 38)
+#define WEEK_BAR_Y  (PANEL_Y + 58)
+#define RESET_Y     (PANEL_Y + 66)
+#define DIVIDER_Y   (PANEL_Y + 92)
+#define BOTTOM_Y    (PANEL_Y + 102)
+#define CREDIT_X    (INNER_X + 102)
+#define FOOTER_Y    274
 
 static lv_obj_t *s_fx;
 static lv_obj_t *s_header;
 static lv_obj_t *s_tabs[3];
-static lv_obj_t *s_caption;
 static lv_obj_t *s_total;
 static lv_obj_t *s_detail;
+static lv_obj_t *s_five;
+static lv_obj_t *s_five_pct;
 static lv_obj_t *s_week;
 static lv_obj_t *s_pct;
 static lv_obj_t *s_reset;
@@ -50,12 +57,12 @@ static lv_obj_t *s_footer;
 
 static ib_ui_usage_t s_view;
 static char s_header_text[IB_UI_USAGE_TEXT_MAX];
+static char s_five_pct_text[12];
 static char s_pct_text[12];
 static char s_reset_text[32];
 static char s_plan_text[32];
 static char s_credit_text[20];
 static const char *const TAB_NAMES[3] = { "TODAY", "WEEK", "ALL" };
-static const char *const CAPTION_NAMES[3] = { "TODAY TOKENS", "WEEK TOKENS", "TOTAL TOKENS" };
 
 static const char *selected_tokens(void)
 {
@@ -80,13 +87,20 @@ static void fx_draw(lv_event_t *e)
     int tab = s_view.tab > 2 ? 0 : s_view.tab;
     ib_fx_rect(&fx, TAB_X0 + tab * TAB_PITCH, 49, 44, 2, 1, soft, LV_OPA_COVER);
 
-    // 周额度进度:只有 Mac 明确给出额度时才画填充。
+    // 5 小时窗口和每周额度:只有 Mac 明确给出额度时才画填充。
+    if (s_view.has_five_hour_quota) {
+        int32_t left = s_view.five_hour_left_percent > 100 ? 100 : s_view.five_hour_left_percent;
+        ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
+        int32_t fill = INNER_W * left / 100;
+        if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
+    }
     if (s_view.has_quota) {
         int32_t left = s_view.left_percent > 100 ? 100 : s_view.left_percent;
-        ib_fx_rect(&fx, INNER_X, BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
+        ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
         int32_t fill = INNER_W * left / 100;
-        if (fill > 0) ib_fx_rect(&fx, INNER_X, BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+        if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
     }
+    ib_fx_rect(&fx, INNER_X, DIVIDER_Y, INNER_W, 1, 0, frame, LV_OPA_COVER);
 }
 
 static lv_obj_t *label(lv_obj_t *parent, const lv_font_t *font, uint32_t color,
@@ -112,20 +126,25 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
                           TAB_X0 + i * TAB_PITCH, 33, TAB_W, 15);
         lv_obj_set_style_text_align(s_tabs[i], LV_TEXT_ALIGN_LEFT, 0);
     }
-    s_caption = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 56, 198, 15);
-    lv_obj_set_style_text_align(s_caption, LV_TEXT_ALIGN_LEFT, 0);
-    s_total = label(root, &ib_terminal_font_24, IB_COLOR_TEXT, TAB_X0, 70, 198, 34);
+    s_total = label(root, &ib_terminal_font_26, IB_COLOR_TEXT, TAB_X0, 54, 204, 36);
     lv_obj_set_style_text_align(s_total, LV_TEXT_ALIGN_LEFT, 0);
-    s_detail = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 104, 198, 15);
+    lv_obj_set_style_text_letter_space(s_total, -1, 0);
+    s_detail = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 89, 198, 15);
     lv_obj_set_style_text_align(s_detail, LV_TEXT_ALIGN_LEFT, 0);
 
-    s_week = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, PANEL_Y + 12, 90, 18);
-    s_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT, INNER_X + 92, PANEL_Y + 12, INNER_W - 92, 18);
+    s_five = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, FIVE_LEFT_Y, 90, 18);
+    s_five_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT,
+                       INNER_X + 92, FIVE_LEFT_Y, INNER_W - 92, 18);
+    s_week = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, WEEK_LEFT_Y, 90, 18);
+    s_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT,
+                  INNER_X + 92, WEEK_LEFT_Y, INNER_W - 92, 18);
+    lv_obj_set_style_text_align(s_five, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_text_align(s_five_pct, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_week, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_pct, LV_TEXT_ALIGN_LEFT, 0);
     s_reset = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, RESET_Y, INNER_W, 18);
-    s_plan = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, PLAN_Y, INNER_W, 18);
-    s_credit = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, CREDIT_Y, INNER_W, 18);
+    s_plan = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, BOTTOM_Y, 100, 15);
+    s_credit = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, CREDIT_X, BOTTOM_Y, INNER_W - 102, 15);
     lv_obj_set_style_text_align(s_reset, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_plan, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_credit, LV_TEXT_ALIGN_LEFT, 0);
@@ -146,12 +165,20 @@ static void update(const ib_ui_ctx_t *ctx)
         lv_label_set_text_static(s_tabs[i], TAB_NAMES[i]);
         lv_obj_set_style_text_color(s_tabs[i], lv_color_hex(i == s_view.tab ? IB_COLOR_MATRIX_BRIGHT : IB_COLOR_TEXT_DIM), 0);
     }
-    lv_label_set_text_static(s_caption, CAPTION_NAMES[s_view.tab]);
-
     const char *tokens = selected_tokens();
     lv_label_set_text_static(s_total, !s_view.ready ? "..." : (tokens[0] ? tokens : "--"));
     lv_label_set_text_static(s_detail, !s_view.ready ? "READING USAGE..." :
                              (tokens[0] ? "TOKENS" : "NO USAGE DATA"));
+
+    if (s_view.has_five_hour_quota && s_view.ready) {
+        snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%u%%", (unsigned)s_view.five_hour_left_percent);
+    } else {
+        snprintf(s_five_pct_text, sizeof(s_five_pct_text), "%s", s_view.ready ? "NO DATA" : "...");
+    }
+    lv_label_set_text_static(s_five, "5H LEFT");
+    lv_label_set_text_static(s_five_pct, s_five_pct_text);
+    lv_obj_set_style_text_color(s_five_pct, lv_color_hex(s_view.has_five_hour_quota && s_view.ready
+                                                             ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
 
     if (s_view.has_quota && s_view.ready) {
         snprintf(s_pct_text, sizeof(s_pct_text), "%u%%", (unsigned)s_view.left_percent);

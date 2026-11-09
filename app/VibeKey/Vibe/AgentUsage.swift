@@ -11,6 +11,8 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
     var plan: String?
     var credits: Int?
     var ready: Bool
+    var fiveHourLeftPercent: Int? = nil
+    var fiveHourReset: String? = nil
 
     static func unavailable(app: String) -> AgentUsageSnapshot {
         AgentUsageSnapshot(app: app, today: nil, week: nil, total: nil,
@@ -28,7 +30,9 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
             reset: reset ?? "",
             plan: plan?.uppercased() ?? "",
             credits: credits,
-            ready: ready
+            ready: ready,
+            fiveHourLeftPercent: fiveHourLeftPercent,
+            fiveHourReset: fiveHourReset ?? ""
         )
     }
 }
@@ -60,7 +64,9 @@ nonisolated enum AgentUsageService {
             reset: snapshot.weeklyResetsAt.map { CodexUsageFormat.deviceReset($0) },
             plan: snapshot.plan,
             credits: snapshot.resetCredits,
-            ready: true
+            ready: true,
+            fiveHourLeftPercent: snapshot.fiveHourRemainingPercent,
+            fiveHourReset: snapshot.fiveHourResetsAt.map { CodexUsageFormat.deviceReset($0) }
         )
     }
 }
