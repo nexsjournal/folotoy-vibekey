@@ -15,7 +15,7 @@ curl -fsSL "${base}/OFL.txt" -o OFL.txt
 printf '%s  %s\n' \
     66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b RobotoMono.ttf \
     50ab8dd54680d3473f649c9db86fece88434d097c7834475c1c72d2f8c429215 OFL.txt | shasum -a 256 -c -
-for size in 12 14 20; do
+for size in 12 14 20 24; do
     npx --yes lv_font_conv@1.5.3 --font RobotoMono.ttf --range 0x20-0x7e --size "${size}" --bpp 4 \
         --format lvgl --no-compress --no-kerning --lv-include lvgl.h --lv-font-name "ib_terminal_font_${size}" \
         --output "ib_terminal_font_${size}.c"

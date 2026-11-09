@@ -60,6 +60,7 @@ set(UI_SOURCES
     "${UI_DIR}/fonts/ib_terminal_font_12.c"
     "${UI_DIR}/fonts/ib_terminal_font_14.c"
     "${UI_DIR}/fonts/ib_terminal_font_20.c"
+    "${UI_DIR}/fonts/ib_terminal_font_24.c"
     "${UI_DIR}/fonts/ib_cjk_font_12.c"
     "${UI_DIR}/icons/ib_icon_font_12.c"
     "${UI_DIR}/icons/ib_icon_font_56.c")

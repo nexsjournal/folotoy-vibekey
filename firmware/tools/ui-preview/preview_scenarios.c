@@ -156,6 +156,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     ib_ui_set_usage(&usage);
     preview_advance(100);
     shot("usage_dsh_no_quota");
+    ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "TAP OK: USAGE");
+    preview_advance(300);
+    shot("idle_usage_hint");
     ib_ui_show(IB_UI_IDLE, IB_UI_MODE_DICT, "");
     preview_advance(300);
 

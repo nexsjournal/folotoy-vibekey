@@ -108,7 +108,10 @@ final class DeviceBridge {
         let token = UUID()
     }
     private var usageHome: UsageHome?
+    private var usageHomeVisible = false
     private var usageTask: Task<Void, Never>?
+    /// 这次 OK 按下的时刻；READY 页短按(<250 ms)回到用量首页，长按仍是说话。
+    private var okPressStartedAt: TimeInterval?
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
          agent: AgentNotifier, codex: CodexActionCoordinator, settings: AppSettings,
@@ -177,7 +180,7 @@ final class DeviceBridge {
         if connection != .disconnected, let notice = agent.current {
             agent.onNotice?(notice)
         }
-        if connection != .disconnected, let home = usageHome {
+        if connection != .disconnected, let home = usageHome, usageHomeVisible {
             beginUsageHome(for: home.app)
         }
     }
@@ -245,9 +248,10 @@ final class DeviceBridge {
 
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
+        if key == .ok { okPressStartedAt = ProcessInfo.processInfo.systemUptime }
         // 用量首页:OK 先不动作,等松开判定为“进入 READY”或长按判定为“直接说话”;
         // 上下键等松开后切 Tab。
-        if usageHome != nil { return }
+        if usageHome != nil, usageHomeVisible { return }
         guard key == .ok else { return }
         guard scanningSessionApp == nil, openingSessionApp == nil else { return }
         // 上一句还在处理(识别 / 润色 / 翻译):OK 不可用,不开始新的一句;设备上提示列是禁用色并给出"不可用"反馈。
@@ -303,10 +307,10 @@ final class DeviceBridge {
     }
 
     private func longPressed(_ key: DeviceKey) {
-        if usageHome != nil {
+        if usageHome != nil, usageHomeVisible {
             if key == .ok {
                 // 长按 OK:不先进 READY,直接从用量页开始录音。
-                clearUsageHome()
+                hideUsageHome()
                 pressBegan(.ok)
                 return
             }
@@ -336,10 +340,10 @@ final class DeviceBridge {
 
     /// 松开:OK 结束按住说话(仅听写 / 翻译模式);上下键只有短按(没触发长按)才执行短按动作。
     private func pressEnded(_ key: DeviceKey, isTap: Bool) {
-        if usageHome != nil, isTap {
+        if usageHome != nil, usageHomeVisible, isTap {
             switch key {
             case .ok:
-                clearUsageHome()
+                hideUsageHome()
             case .up:
                 moveUsageTab(-1)
             case .down:
@@ -349,9 +353,15 @@ final class DeviceBridge {
         }
         switch key {
         case .ok:
+            let held = okPressStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 }
+            okPressStartedAt = nil
             if okDrivesDictation {
                 okDrivesDictation = false
                 dictation.pressUp()
+            }
+            if let held, held < 0.25, usageHome != nil, !usageHomeVisible,
+               !dictation.phase.isBusy, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
+                showUsageHome()
             }
         case .up:
             guard isTap, !dictation.phase.isBusy else { return }
@@ -620,6 +630,8 @@ final class DeviceBridge {
                 self.settings.deviceTargetBundleID = app.bundleID
                 self.settings.deviceTargetName = app.targetName
                 self.followupChat = nil
+                self.usageHome = UsageHome(app: app)
+                self.usageHomeVisible = false
                 self.codexStatus = (.done, "READY TO TALK", Date().addingTimeInterval(2))
             } else {
                 self.codexStatus = (.err, "OPEN SESSION", Date().addingTimeInterval(2))
@@ -652,16 +664,35 @@ final class DeviceBridge {
 
     /// 切换到 Agent 应用后先显示用量首页；读完数据再刷新同一页。
     private func beginUsageHome(for app: AgentSessionApp) {
-        usageTask?.cancel()
         let home = UsageHome(app: app)
         usageHome = home
+        usageHomeVisible = true
         lastState = nil
         sync()
+        loadUsageHome(home)
+    }
+
+    private func showUsageHome() {
+        guard let home = usageHome else { return }
+        usageHomeVisible = true
+        lastState = nil
+        sync()
+        loadUsageHome(home)
+    }
+
+    private func hideUsageHome() {
+        guard usageHome != nil, usageHomeVisible else { return }
+        usageHomeVisible = false
+        lastState = nil
+        sync()
+    }
+
+    private func loadUsageHome(_ home: UsageHome) {
+        usageTask?.cancel()
         usageTask = Task { [weak self] in
-            let snapshot = await AgentUsageService.load(for: app)
+            let snapshot = await AgentUsageService.load(for: home.app)
             guard !Task.isCancelled, let self, self.usageHome?.token == home.token else { return }
             self.usageHome?.snapshot = snapshot
-            self.usageHome?.tab = 0
             self.lastState = nil
             self.sync()
         }
@@ -670,6 +701,7 @@ final class DeviceBridge {
     private func clearUsageHome() {
         guard usageHome != nil else { return }
         usageHome = nil
+        usageHomeVisible = false
         usageTask?.cancel()
         usageTask = nil
         lastState = nil
@@ -842,9 +874,14 @@ final class DeviceBridge {
             codexStatus = nil
         }
         if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
-        if usageHome != nil, !dictation.phase.isBusy { return .init(ui: .usage, mode: mode, msg: "") }
-        return DeviceStateMapper.state(
+        if usageHome != nil, usageHomeVisible, !dictation.phase.isBusy { return .init(ui: .usage, mode: mode, msg: "") }
+        let state = DeviceStateMapper.state(
             phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,
             subtitlesRunning: subtitles.isRunning, subtitleApp: subtitles.appName)
+        if state.ui == .idle, let home = usageHome, !usageHomeVisible,
+           NSWorkspace.shared.frontmostApplication?.bundleIdentifier == home.app.bundleID {
+            return .init(ui: .idle, mode: state.mode, msg: "TAP OK: USAGE")
+        }
+        return state
     }
 }

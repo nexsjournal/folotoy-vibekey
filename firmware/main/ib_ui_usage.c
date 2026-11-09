@@ -4,7 +4,7 @@
 //   标题 > CODEX            应用名
 //   TODAY  WEEK  ALL        当前 Tab
 //   TODAY TOKENS
-//   43,051,522              选中周期的 Token 数
+//   43,051,522              选中周期的 Token 数(24 px)
 //   ┌────────────────────┐
 //   │ WEEK LEFT      7%  │
 //   │ ███████████░░░░░░  │
@@ -21,19 +21,19 @@
 #include <string.h>
 
 #define PANEL_X     6
-#define PANEL_Y     116
+#define PANEL_Y     118
 #define PANEL_W     206
-#define PANEL_H     112
+#define PANEL_H     148
 #define INNER_X     (PANEL_X + 8)
 #define INNER_W     (PANEL_W - 16)
 #define TAB_W       60
 #define TAB_X0      12
 #define TAB_PITCH   66
-#define BAR_Y       (PANEL_Y + 26)
-#define RESET_Y     (PANEL_Y + 36)
-#define PLAN_Y      (PANEL_Y + 54)
-#define CREDIT_Y    (PANEL_Y + 70)
-#define FOOTER_Y    270
+#define BAR_Y       (PANEL_Y + 36)
+#define RESET_Y     (PANEL_Y + 50)
+#define PLAN_Y      (PANEL_Y + 76)
+#define CREDIT_Y    (PANEL_Y + 102)
+#define FOOTER_Y    276
 
 static lv_obj_t *s_fx;
 static lv_obj_t *s_header;
@@ -112,20 +112,20 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
                           TAB_X0 + i * TAB_PITCH, 33, TAB_W, 15);
         lv_obj_set_style_text_align(s_tabs[i], LV_TEXT_ALIGN_LEFT, 0);
     }
-    s_caption = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 57, 198, 15);
+    s_caption = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 56, 198, 15);
     lv_obj_set_style_text_align(s_caption, LV_TEXT_ALIGN_LEFT, 0);
-    s_total = label(root, &ib_terminal_font_20, IB_COLOR_TEXT, TAB_X0, 72, 198, 28);
+    s_total = label(root, &ib_terminal_font_24, IB_COLOR_TEXT, TAB_X0, 70, 198, 34);
     lv_obj_set_style_text_align(s_total, LV_TEXT_ALIGN_LEFT, 0);
-    s_detail = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 98, 198, 15);
+    s_detail = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 104, 198, 15);
     lv_obj_set_style_text_align(s_detail, LV_TEXT_ALIGN_LEFT, 0);
 
-    s_week = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, PANEL_Y + 8, 90, 15);
-    s_pct = label(root, &ib_terminal_font_12, IB_COLOR_MATRIX_SOFT, INNER_X + 90, PANEL_Y + 8, INNER_W - 90, 15);
+    s_week = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, PANEL_Y + 12, 90, 18);
+    s_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT, INNER_X + 92, PANEL_Y + 12, INNER_W - 92, 18);
     lv_obj_set_style_text_align(s_week, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_pct, LV_TEXT_ALIGN_LEFT, 0);
-    s_reset = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, RESET_Y, INNER_W, 15);
-    s_plan = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, PLAN_Y, INNER_W, 15);
-    s_credit = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, CREDIT_Y, INNER_W, 15);
+    s_reset = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, RESET_Y, INNER_W, 18);
+    s_plan = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, PLAN_Y, INNER_W, 18);
+    s_credit = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, CREDIT_Y, INNER_W, 18);
     lv_obj_set_style_text_align(s_reset, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_plan, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_credit, LV_TEXT_ALIGN_LEFT, 0);

@@ -23,6 +23,7 @@
 
 static lv_obj_t *s_fx;
 static lv_obj_t *s_names[2];
+static lv_obj_t *s_footer;
 static int s_front;
 static int s_dir;                           // +1:下一个模式(旧名字向上翻出);-1:上一个
 static ib_ui_mode_t s_mode;
@@ -112,7 +113,21 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
         s_names[i] = ib_label_create(root, &ib_terminal_font_14, IB_COLOR_TEXT,
                                      ib_font_top(&ib_terminal_font_14, NAME_CY), IB_UI_CONTENT_W);
     }
+    s_footer = ib_label_create(root, &ib_terminal_font_12, IB_COLOR_TEXT_MID, 252, IB_UI_CONTENT_W - 20);
+    lv_obj_set_style_text_align(s_footer, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_align(s_footer, LV_ALIGN_TOP_LEFT, 10, 252);
+    lv_obj_add_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
     return root;
+}
+
+static void update_footer(const ib_ui_ctx_t *ctx)
+{
+    if (ctx->msg[0]) {
+        lv_label_set_text_static(s_footer, ctx->msg);
+        lv_obj_remove_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_footer, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 static void enter(const ib_ui_ctx_t *ctx)
@@ -122,10 +137,12 @@ static void enter(const ib_ui_ctx_t *ctx)
     target_for(s_mode, &g);
     ib_dots_enter(ctx, &g);
     snap_name(s_mode);
+    update_footer(ctx);
 }
 
 static void update(const ib_ui_ctx_t *ctx)
 {
+    update_footer(ctx);
     if (ctx->mode == s_mode) return;
     // 循环顺序 dict → tr → sub:前进时旧名字向上翻出,后退时向下。
     s_dir = ctx->mode == (ib_ui_mode_t)((s_mode + 1) % IB_UI_MODE_COUNT) ? 1 : -1;

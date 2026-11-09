@@ -340,8 +340,9 @@ AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测�
      ├─ Codex → CodexUsageService → CodexUsageSnapshot
      └─ DSH NEXT → DSHUsageReader(只读 session_projcache 开头的 tokenUsage.val.totals)
  → DeviceUsage(格式化后的 ASCII) → DeviceLink.sendUsage → 固件 ib_ui_usage
- → 短按 OK: usageHome=nil → state idle(READY)
- → 长按 OK: usageHome=nil → 正常录音链路
+ → 短按 OK: 隐藏用量页 → state idle(READY)，READY 底部提示 TAP OK: USAGE
+ → READY 短按 OK(<250 ms): 重新显示 usageHome，不录入这次按压
+ → 长按 OK: 隐藏用量页 → 正常录音链路
  → 短按 ▲/▼: 切换 utab → 重发 usage
 ```
 

@@ -50,6 +50,7 @@ LV_FONT_DECLARE(ib_icon_font_56);      // 页面主图标
 LV_FONT_DECLARE(ib_terminal_font_12);  // Roboto Mono ASCII 终端标题
 LV_FONT_DECLARE(ib_terminal_font_14);  // Roboto Mono ASCII 操作提示
 LV_FONT_DECLARE(ib_terminal_font_20);  // Roboto Mono ASCII 页面状态
+LV_FONT_DECLARE(ib_terminal_font_24);  // Roboto Mono ASCII 大号 Token 数字
 LV_FONT_DECLARE(ib_cjk_font_12);       // 简体中文 + ASCII(SUB 页字幕)
 typedef enum {
 #define IB_ICON_LARGE_DEF(name, glyph, codepoint) IB_GLYPH_##name,
