@@ -110,7 +110,7 @@ final class DeviceBridge {
     private var usageHome: UsageHome?
     private var usageHomeVisible = false
     private var usageTask: Task<Void, Never>?
-    /// 这次 OK 按下的时刻；READY 页短按(<250 ms)回到用量首页，长按仍是说话。
+    /// 这次 OK 按下的时刻；READY 页短按(<500 ms)回到用量首页，长按仍是说话。
     private var okPressStartedAt: TimeInterval?
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
@@ -355,13 +355,16 @@ final class DeviceBridge {
         case .ok:
             let held = okPressStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 }
             okPressStartedAt = nil
+            if let held, held < 0.5, usageHome != nil, !usageHomeVisible,
+               NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
+                okDrivesDictation = false
+                dictation.cancel()
+                showUsageHome()
+                return
+            }
             if okDrivesDictation {
                 okDrivesDictation = false
                 dictation.pressUp()
-            }
-            if let held, held < 0.25, usageHome != nil, !usageHomeVisible,
-               !dictation.phase.isBusy, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
-                showUsageHome()
             }
         case .up:
             guard isTap, !dictation.phase.isBusy else { return }
@@ -817,7 +820,7 @@ final class DeviceBridge {
             list = nil
             lastState = nil
         }
-        if usageHome != nil, dictation.phase.isBusy {
+        if usageHome != nil, usageHomeVisible, dictation.phase.isBusy {
             usageHome = nil
             usageTask?.cancel()
             usageTask = nil
@@ -875,6 +878,12 @@ final class DeviceBridge {
         }
         if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
         if usageHome != nil, usageHomeVisible, !dictation.phase.isBusy { return .init(ui: .usage, mode: mode, msg: "") }
+        if let started = okPressStartedAt, usageHome != nil, !usageHomeVisible,
+           ProcessInfo.processInfo.systemUptime - started < 0.5,
+           dictation.phase == .starting || dictation.phase == .recording,
+           NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
+            return .init(ui: .idle, mode: mode, msg: "TAP OK: USAGE")
+        }
         let state = DeviceStateMapper.state(
             phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,
             subtitlesRunning: subtitles.isRunning, subtitleApp: subtitles.appName)
