@@ -47,9 +47,11 @@ nonisolated struct DeviceUsage: Equatable, Sendable {
     var panel1Label: String = ""
     var panel1Value: String = ""
     var panel1Percent: Int? = nil
+    var panel1Detail: String = ""
     var panel2Label: String = ""
     var panel2Value: String = ""
     var panel2Percent: Int? = nil
+    var panel2Detail: String = ""
     var panelDetail: String = ""
     var panelFooterLeft: String = ""
     var panelFooterRight: String = ""

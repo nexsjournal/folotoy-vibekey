@@ -56,6 +56,18 @@ struct AgentUsageTests {
         #expect(device.panelFooterLeft == "DEEPSEEK-V4.1")
     }
 
+    @Test func codexPanelShowsBothResetTimes() {
+        let snapshot = AgentUsageSnapshot(
+            app: "CODEX", today: 43_051_522, week: 43_051_522, total: 4_938_713_816,
+            weeklyLeftPercent: 7, reset: "4D 1H", plan: "plus", credits: 0, ready: true,
+            fiveHourLeftPercent: 63, fiveHourReset: "2H 10M")
+        let device = snapshot.device(tab: 0)
+        #expect(device.panel1Label == "5H LEFT")
+        #expect(device.panel1Detail == "5H RESET 2H 10M")
+        #expect(device.panel2Label == "WEEK LEFT")
+        #expect(device.panel2Detail == "WEEK RESET 4D 1H")
+    }
+
     @Test func encodesGenericPanel() {
         let usage = DeviceUsage(
             app: "DSH", today: "1,000", week: "2,000", total: "3,000", tab: 0,
@@ -71,5 +83,19 @@ struct AgentUsageTests {
         #expect(line.contains("\"udetail\":\"LAST 2H\""))
         #expect(line.contains("\"ufl\":\"DEEPSEEK-V4.1\""))
         #expect(line.contains("\"ufr\":\"TURNS 228\""))
+    }
+
+    @Test func encodesPanelRowDetails() {
+        let usage = DeviceUsage(
+            app: "CODEX", today: "1,000", week: "2,000", total: "3,000", tab: 0,
+            leftPercent: 7, reset: "4D 1H", plan: "plus", credits: 0, ready: true,
+            panel1Label: "5H LEFT", panel1Value: "63%", panel1Percent: 63,
+            panel1Detail: "5H RESET 2H 10M",
+            panel2Label: "WEEK LEFT", panel2Value: "7%", panel2Percent: 7,
+            panel2Detail: "WEEK RESET 4D 1H",
+            panelFooterLeft: "PLAN PLUS", panelFooterRight: "CREDITS 0")
+        let line = HostCommand.usage(usage).line
+        #expect(line.contains("\"u1d\":\"5H RESET 2H 10M\""))
+        #expect(line.contains("\"u2d\":\"WEEK RESET 4D 1H\""))
     }
 }

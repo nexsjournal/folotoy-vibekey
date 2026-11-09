@@ -790,6 +790,11 @@ static void handle_command(ib_link_t link, const ib_cmd_t *cmd, int64_t now)
             }
         }
         if (cmd->has_usage_panel_detail) memcpy(usage.panel_detail, cmd->usage_panel_detail, sizeof(usage.panel_detail));
+        for (int i = 0; i < 2; i++) {
+            if (cmd->has_usage_panel_row_detail[i]) {
+                memcpy(usage.panel_row_detail[i], cmd->usage_panel_row_detail[i], sizeof(usage.panel_row_detail[i]));
+            }
+        }
         if (cmd->has_usage_panel_footer_left) memcpy(usage.panel_footer_left, cmd->usage_panel_footer_left, sizeof(usage.panel_footer_left));
         if (cmd->has_usage_panel_footer_right) memcpy(usage.panel_footer_right, cmd->usage_panel_footer_right, sizeof(usage.panel_footer_right));
         if (s_ui_ok) ib_ui_set_usage(&usage);

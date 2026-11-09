@@ -10,6 +10,8 @@ nonisolated struct AgentUsagePanel: Equatable, Sendable {
     var value2: String
     var percent2: Int?
     var detail: String
+    var detail1: String = ""
+    var detail2: String = ""
     var footerLeft: String
     var footerRight: String
 }
@@ -43,6 +45,8 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
             value2: weeklyLeftPercent.map { "\($0)%" } ?? "NO DATA",
             percent2: weeklyLeftPercent,
             detail: reset.map { "RESET \($0)" } ?? "RESET --",
+            detail1: fiveHourReset.map { "5H RESET \($0)" } ?? "5H RESET --",
+            detail2: reset.map { "WEEK RESET \($0)" } ?? "WEEK RESET --",
             footerLeft: "PLAN \(plan?.uppercased() ?? "--")",
             footerRight: credits.map { "CREDITS \($0)" } ?? "CREDITS --"
         )
@@ -62,9 +66,11 @@ nonisolated struct AgentUsageSnapshot: Equatable, Sendable {
             panel1Label: panel.label1,
             panel1Value: panel.value1,
             panel1Percent: panel.percent1,
+            panel1Detail: panel.detail1,
             panel2Label: panel.label2,
             panel2Value: panel.value2,
             panel2Percent: panel.percent2,
+            panel2Detail: panel.detail2,
             panelDetail: panel.detail,
             panelFooterLeft: panel.footerLeft,
             panelFooterRight: panel.footerRight

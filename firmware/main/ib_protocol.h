@@ -174,6 +174,8 @@ typedef struct {
     uint8_t usage_panel_percent[2];
     bool has_usage_panel_detail;
     char usage_panel_detail[IB_TEXT_MAX];
+    bool has_usage_panel_row_detail[2];
+    char usage_panel_row_detail[2][IB_TEXT_MAX];
     bool has_usage_panel_footer_left;
     char usage_panel_footer_left[IB_TEXT_MAX];
     bool has_usage_panel_footer_right;

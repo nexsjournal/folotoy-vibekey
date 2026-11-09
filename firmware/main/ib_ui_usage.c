@@ -8,10 +8,13 @@
 //   ┌────────────────────┐
 //   │ 5H LEFT        63% │
 //   │ ██████████░░░░░░░  │
+//   │ 5H RESET 2H 10M    │
+//   │                    │
 //   │ WEEK LEFT      7%  │
 //   │ ███████████░░░░░░  │
-//   │ RESET 4D 2H        │
-//   │ PLAN PLUS   CREDITS 0 │
+//   │ WEEK RESET 4D 2H   │
+//   │ ─────────────────  │
+//   │ PLAN PLUS CREDITS 0│
 //   └────────────────────┘
 //   TAP OK: READY  HOLD: TALK
 //
@@ -31,13 +34,14 @@
 #define TAB_W       60
 #define TAB_X0      12
 #define TAB_PITCH   66
-#define FIVE_LEFT_Y (PANEL_Y + 10)
-#define FIVE_BAR_Y  (PANEL_Y + 30)
-#define WEEK_LEFT_Y (PANEL_Y + 38)
-#define WEEK_BAR_Y  (PANEL_Y + 58)
-#define RESET_Y     (PANEL_Y + 66)
-#define DIVIDER_Y   (PANEL_Y + 92)
-#define BOTTOM_Y    (PANEL_Y + 102)
+#define ROW1_LABEL_Y  (PANEL_Y + 9)
+#define ROW1_BAR_Y    (PANEL_Y + 29)
+#define ROW1_DETAIL_Y (PANEL_Y + 38)
+#define ROW2_LABEL_Y  (PANEL_Y + 63)
+#define ROW2_BAR_Y    (PANEL_Y + 83)
+#define ROW2_DETAIL_Y (PANEL_Y + 92)
+#define DIVIDER_Y     (PANEL_Y + 112)
+#define BOTTOM_Y      (PANEL_Y + 121)
 #define CREDIT_X    (INNER_X + 102)
 #define FOOTER_Y    274
 
@@ -50,6 +54,8 @@ static lv_obj_t *s_five;
 static lv_obj_t *s_five_pct;
 static lv_obj_t *s_week;
 static lv_obj_t *s_pct;
+static lv_obj_t *s_detail1;
+static lv_obj_t *s_detail2;
 static lv_obj_t *s_reset;
 static lv_obj_t *s_plan;
 static lv_obj_t *s_credit;
@@ -91,28 +97,28 @@ static void fx_draw(lv_event_t *e)
     if (s_view.has_panel) {
         if (s_view.panel_has_percent[0]) {
             int32_t left = s_view.panel_percent[0] > 100 ? 100 : s_view.panel_percent[0];
-            ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
+            ib_fx_rect(&fx, INNER_X, ROW1_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
             int32_t fill = INNER_W * left / 100;
-            if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, ROW1_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
         }
         if (s_view.panel_has_percent[1]) {
             int32_t left = s_view.panel_percent[1] > 100 ? 100 : s_view.panel_percent[1];
-            ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
+            ib_fx_rect(&fx, INNER_X, ROW2_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
             int32_t fill = INNER_W * left / 100;
-            if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, ROW2_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
         }
     } else {
         if (s_view.has_five_hour_quota) {
             int32_t left = s_view.five_hour_left_percent > 100 ? 100 : s_view.five_hour_left_percent;
-            ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
+            ib_fx_rect(&fx, INNER_X, ROW1_BAR_Y, INNER_W, 4, 2, frame, LV_OPA_COVER);
             int32_t fill = INNER_W * left / 100;
-            if (fill > 0) ib_fx_rect(&fx, INNER_X, FIVE_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, ROW1_BAR_Y, fill, 4, 2, soft, LV_OPA_COVER);
         }
         if (s_view.has_quota) {
             int32_t left = s_view.left_percent > 100 ? 100 : s_view.left_percent;
-            ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
+            ib_fx_rect(&fx, INNER_X, ROW2_BAR_Y, INNER_W, 5, 2, frame, LV_OPA_COVER);
             int32_t fill = INNER_W * left / 100;
-            if (fill > 0) ib_fx_rect(&fx, INNER_X, WEEK_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
+            if (fill > 0) ib_fx_rect(&fx, INNER_X, ROW2_BAR_Y, fill, 5, 2, soft, LV_OPA_COVER);
         }
     }
     ib_fx_rect(&fx, INNER_X, DIVIDER_Y, INNER_W, 1, 0, frame, LV_OPA_COVER);
@@ -147,20 +153,24 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
     s_detail = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, 89, 198, 15);
     lv_obj_set_style_text_align(s_detail, LV_TEXT_ALIGN_LEFT, 0);
 
-    s_five = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, FIVE_LEFT_Y, 90, 18);
+    s_five = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, ROW1_LABEL_Y, 90, 18);
     s_five_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT,
-                       INNER_X + 92, FIVE_LEFT_Y, INNER_W - 92, 18);
-    s_week = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, WEEK_LEFT_Y, 90, 18);
+                       INNER_X + 92, ROW1_LABEL_Y, INNER_W - 92, 18);
+    s_week = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, ROW2_LABEL_Y, 90, 18);
     s_pct = label(root, &ib_terminal_font_14, IB_COLOR_MATRIX_SOFT,
-                  INNER_X + 92, WEEK_LEFT_Y, INNER_W - 92, 18);
+                  INNER_X + 92, ROW2_LABEL_Y, INNER_W - 92, 18);
     lv_obj_set_style_text_align(s_five, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_five_pct, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_week, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_pct, LV_TEXT_ALIGN_LEFT, 0);
-    s_reset = label(root, &ib_terminal_font_14, IB_COLOR_TEXT_DIM, INNER_X, RESET_Y, INNER_W, 18);
+    s_detail1 = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, ROW1_DETAIL_Y, INNER_W, 15);
+    s_detail2 = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, ROW2_DETAIL_Y, INNER_W, 15);
+    s_reset = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, ROW2_DETAIL_Y, INNER_W, 15);
     s_plan = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, INNER_X, BOTTOM_Y, 100, 15);
     s_credit = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, CREDIT_X, BOTTOM_Y, INNER_W - 102, 15);
     lv_obj_set_style_text_align(s_reset, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_text_align(s_detail1, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_text_align(s_detail2, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_plan, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_set_style_text_align(s_credit, LV_TEXT_ALIGN_LEFT, 0);
     s_footer = label(root, &ib_terminal_font_12, IB_COLOR_TEXT_DIM, TAB_X0, FOOTER_Y, IB_UI_CONTENT_W - TAB_X0, 15);
@@ -198,6 +208,8 @@ static void update(const ib_ui_ctx_t *ctx)
                                                             ? IB_COLOR_MATRIX_SOFT : IB_COLOR_TEXT_DIM), 0);
         lv_label_set_text_static(s_reset, s_view.panel_detail[0] ? s_view.panel_detail :
                                  (!s_view.ready ? "READING USAGE..." : ""));
+        lv_label_set_text_static(s_detail1, s_view.panel_row_detail[0]);
+        lv_label_set_text_static(s_detail2, s_view.panel_row_detail[1]);
         lv_label_set_text_static(s_plan, s_view.panel_footer_left);
         lv_label_set_text_static(s_credit, s_view.panel_footer_right);
     } else {
@@ -227,6 +239,8 @@ static void update(const ib_ui_ctx_t *ctx)
             snprintf(s_reset_text, sizeof(s_reset_text), "RESET --");
         }
         lv_label_set_text_static(s_reset, s_reset_text);
+        lv_label_set_text_static(s_detail1, "");
+        lv_label_set_text_static(s_detail2, "");
         snprintf(s_plan_text, sizeof(s_plan_text), "PLAN %s", s_view.ready && s_view.plan[0] ? s_view.plan : "--");
         lv_label_set_text_static(s_plan, s_plan_text);
         if (s_view.ready && s_view.credits >= 0) {
@@ -236,6 +250,15 @@ static void update(const ib_ui_ctx_t *ctx)
         }
         lv_label_set_text_static(s_credit, s_credit_text);
     }
+
+    if (s_view.has_panel && s_view.panel_row_detail[0][0]) lv_obj_remove_flag(s_detail1, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_detail1, LV_OBJ_FLAG_HIDDEN);
+    if (s_view.has_panel && s_view.panel_row_detail[1][0]) lv_obj_remove_flag(s_detail2, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_detail2, LV_OBJ_FLAG_HIDDEN);
+    bool show_common_detail = !s_view.has_panel
+        || (!s_view.panel_row_detail[1][0] && (s_view.panel_detail[0] || !s_view.ready));
+    if (show_common_detail) lv_obj_remove_flag(s_reset, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_reset, LV_OBJ_FLAG_HIDDEN);
 
     lv_label_set_text_static(s_footer, s_view.ready ? "TAP OK: READY  HOLD: TALK" : "READING USAGE...");
     lv_obj_invalidate(s_fx);

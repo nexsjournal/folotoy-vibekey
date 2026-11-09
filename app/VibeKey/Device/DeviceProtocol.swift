@@ -291,6 +291,12 @@ nonisolated enum HostCommand: Equatable, Sendable {
             if !usage.panelDetail.isEmpty {
                 fields.append(("udetail", .string(DeviceText.ascii(usage.panelDetail, maxBytes: Self.textMaxBytes))))
             }
+            if !usage.panel1Detail.isEmpty {
+                fields.append(("u1d", .string(DeviceText.ascii(usage.panel1Detail, maxBytes: Self.textMaxBytes))))
+            }
+            if !usage.panel2Detail.isEmpty {
+                fields.append(("u2d", .string(DeviceText.ascii(usage.panel2Detail, maxBytes: Self.textMaxBytes))))
+            }
             if !usage.panelFooterLeft.isEmpty {
                 fields.append(("ufl", .string(DeviceText.ascii(usage.panelFooterLeft, maxBytes: Self.textMaxBytes))))
             }

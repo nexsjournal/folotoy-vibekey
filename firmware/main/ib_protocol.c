@@ -355,7 +355,7 @@ static const char *const KNOWN_KEYS[] = {
     "uapp", "utoday", "uweek", "utotal", "utab", "uleft", "uquota",
     "ureset", "uplan", "ucredit",
     "u5quota", "u5left", "u5reset",
-    "u1l", "u1v", "u1p", "u2l", "u2v", "u2p", "udetail", "ufl", "ufr", "uready",
+    "u1l", "u1v", "u1p", "u1d", "u2l", "u2v", "u2p", "u2d", "udetail", "ufl", "ufr", "uready",
     "size", "crc", "off", "d", "fin", "clear",
 };
 
@@ -448,6 +448,10 @@ bool ib_parse_command(const char *line, size_t len, ib_cmd_t *out)
             } else if (strcmp(key, "udetail") == 0) {
                 if (!read_string(&c, out->usage_panel_detail, IB_TEXT_MAX)) return false;
                 out->has_usage_panel_detail = true;
+            } else if (strcmp(key, "u1d") == 0 || strcmp(key, "u2d") == 0) {
+                int row = key[1] == '1' ? 0 : 1;
+                if (!read_string(&c, out->usage_panel_row_detail[row], IB_TEXT_MAX)) return false;
+                out->has_usage_panel_row_detail[row] = true;
             } else if (strcmp(key, "ufl") == 0) {
                 if (!read_string(&c, out->usage_panel_footer_left, IB_TEXT_MAX)) return false;
                 out->has_usage_panel_footer_left = true;

@@ -165,6 +165,25 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     ib_ui_set_usage(&usage);
     preview_advance(100);
     shot("usage_total");
+
+    usage.tab = 0;
+    usage.has_panel = true;
+    snprintf(usage.panel_label[0], sizeof(usage.panel_label[0]), "5H LEFT");
+    snprintf(usage.panel_value[0], sizeof(usage.panel_value[0]), "63%%");
+    usage.panel_percent[0] = 63;
+    usage.panel_has_percent[0] = true;
+    snprintf(usage.panel_row_detail[0], sizeof(usage.panel_row_detail[0]), "5H RESET 2H 10M");
+    snprintf(usage.panel_label[1], sizeof(usage.panel_label[1]), "WEEK LEFT");
+    snprintf(usage.panel_value[1], sizeof(usage.panel_value[1]), "7%%");
+    usage.panel_percent[1] = 7;
+    usage.panel_has_percent[1] = true;
+    snprintf(usage.panel_row_detail[1], sizeof(usage.panel_row_detail[1]), "WEEK RESET 4D 2H");
+    snprintf(usage.panel_footer_left, sizeof(usage.panel_footer_left), "PLAN PLUS");
+    snprintf(usage.panel_footer_right, sizeof(usage.panel_footer_right), "CREDITS 0");
+    ib_ui_set_usage(&usage);
+    preview_advance(100);
+    shot("usage_codex_panel");
+
     snprintf(usage.app, sizeof(usage.app), "DSH");
     snprintf(usage.today, sizeof(usage.today), "347,103,089");
     snprintf(usage.week, sizeof(usage.week), "347,103,089");
@@ -180,8 +199,11 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     snprintf(usage.panel_value[0], sizeof(usage.panel_value[0]), "19%%");
     usage.panel_percent[0] = 19;
     usage.panel_has_percent[0] = true;
+    usage.panel_row_detail[0][0] = '\0';
+    usage.panel_row_detail[1][0] = '\0';
     snprintf(usage.panel_label[1], sizeof(usage.panel_label[1]), "SESSIONS");
     snprintf(usage.panel_value[1], sizeof(usage.panel_value[1]), "136");
+    usage.panel_has_percent[1] = false;
     snprintf(usage.panel_detail, sizeof(usage.panel_detail), "LAST 2H");
     snprintf(usage.panel_footer_left, sizeof(usage.panel_footer_left), "DEEPSEEK-V4.1");
     snprintf(usage.panel_footer_right, sizeof(usage.panel_footer_right), "TURNS 228");
@@ -197,6 +219,8 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     usage.panel_has_percent[0] = false;
     snprintf(usage.panel_label[1], sizeof(usage.panel_label[1]), "TURNS");
     snprintf(usage.panel_value[1], sizeof(usage.panel_value[1]), "48");
+    usage.panel_row_detail[0][0] = '\0';
+    usage.panel_row_detail[1][0] = '\0';
     snprintf(usage.panel_detail, sizeof(usage.panel_detail), "LAST 2H");
     snprintf(usage.panel_footer_left, sizeof(usage.panel_footer_left), "CLAUDE-OPUS-5");
     snprintf(usage.panel_footer_right, sizeof(usage.panel_footer_right), "PROJECTS 4");

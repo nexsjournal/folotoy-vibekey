@@ -81,6 +81,7 @@ typedef struct {
     uint8_t panel_percent[2];             // 0..100
     bool panel_has_percent[2];
     char panel_detail[IB_UI_USAGE_TEXT_MAX];
+    char panel_row_detail[2][IB_UI_USAGE_TEXT_MAX];
     char panel_footer_left[IB_UI_USAGE_TEXT_MAX];
     char panel_footer_right[IB_UI_USAGE_TEXT_MAX];
     int16_t credits;                      // -1 表示未知
