@@ -348,7 +348,8 @@ static void wifi_menu_close(void)
 
 static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
 {
-    if (!s_wifi_menu && key == IB_KEY_DOWN && ev == IB_KEY_EV_LONG &&
+    if (!s_wifi_menu && ev == IB_KEY_EV_LONG &&
+        (key == IB_KEY_UP || (!s_online && key == IB_KEY_DOWN)) &&
         (s_screen == IB_UI_IDLE || s_screen == IB_UI_USAGE || s_screen == IB_UI_OFFLINE)) {
         if (ib_wifi_network_count() == 0) {
             if (s_ui_ok) ib_ui_set_offline_hint("USB TO ADD WIFI");
