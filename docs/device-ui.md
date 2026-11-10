@@ -1,6 +1,6 @@
 # Passport 设备界面设计
 
-本地分支无线交互：首次在 Mac 设置 › Passport 配置 2.4 GHz Wi-Fi；设备和 Mac 处于同一局域网后，状态栏显示 `WIFI`，USB 在位时仍优先显示 `USB`。Mac 显示“Wi-Fi 已就绪，拔线后自动切换”才表示完成无线应用层握手。设备最多保存 4 个网络，换网不需要 Mac。离线继续显示原 OFFLINE/WAITING FOR MAC 页面。配网后本轮启动使用 Wi-Fi，未配网使用 BLE；USB 下“清除全部 Wi-Fi”并重启可恢复 BLE。
+本地分支无线交互：首次在 Mac 设置 › Passport 配置 2.4 GHz Wi-Fi；设备和 Mac 处于同一局域网后，状态栏显示 `WIFI`，USB 在位时仍优先显示 `USB`。Mac 显示“Wi-Fi 已就绪，拔线后自动切换”才表示完成无线应用层握手。设备最多保存 4 个网络，换网不需要 Mac。离线继续显示原 OFFLINE/WAITING FOR MAC 页面。配网后本轮启动使用 Wi-Fi，未配网使用 BLE；Wi-Fi 已配置但 25 秒拿不到 IP 时自动重启到 BLE 单栈并显示 `BLUETOOTH MODE / HOLD DOWN`，插回 USB 或离线时在下键网络菜单选中 Wi-Fi 可切回。
 
 长按下键打开「应用 / 项目 / 会话」导航：普通应用直接显示应用列表；当前是 Codex 或 DeepSeek Honeycomb 时，先显示项目和最近会话，选中项目后再选会话。选中会话会打开它并把光标放回输入框。目标应用由这个列表记住（默认 Codex）。按住 OK 立即采音，同时前置并聚焦所选应用；松开后识别/翻译并输入。Mac 正常采音为绿色，启动为黄色，错误为红色；硬件原有 Matrix 视觉不变。
 

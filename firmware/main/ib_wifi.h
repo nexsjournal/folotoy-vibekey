@@ -9,6 +9,12 @@ typedef void (*ib_wifi_link_cb_t)(bool);
 esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link);
 // 本轮启动是否使用 Wi-Fi；有配网记录时不启动 BLE，给音频和 TLS 保留内存。
 bool ib_wifi_is_configured(void);
+// 已入网并取得 IP；BLE 回退只等待此前阶段，不在 TLS 会话失败时反复重启。
+bool ib_wifi_is_ready(void);
+// Wi-Fi 连续失败时重启到 BLE 单栈模式；标记保存在 RTC，断电后回到自动 Wi-Fi。
+bool ib_wifi_ble_fallback_requested(void);
+void ib_wifi_request_ble_fallback(void);
+void ib_wifi_clear_ble_fallback(void);
 // 仅由 USB 收包入口调用。识别 wifi 命令后返回 true；凭据从不输出日志。
 bool ib_wifi_handle_usb_line(const char *line, size_t len);
 void ib_wifi_send(const uint8_t *data, size_t len);

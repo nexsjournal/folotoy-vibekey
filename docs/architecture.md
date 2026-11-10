@@ -10,10 +10,11 @@
 - READY / USAGE 页的 OK 按下后先采音；Mac 在前 500 毫秒保留原页面，短按松开切页并取消采音，按住超过阈值才同步录音页。熄屏唤醒时设备已在本地开麦并显示录音页。
 - USB 断开时优先启用已握手 Wi-Fi；若 Wi-Fi 尚未握手，恢复已有握手或立即重试已保存的网络。Wi-Fi 正在尝试或等待重试时不重复启动连接。
 - 无线连接：`WiFiClient(Network TLS-PSK) → DeviceLink.beginHandshake → ib_wifi(server_task/esp_tls) → ib_app`。Mac 同时尝试所有本机已保存的 `host.local`，第一个完成 TLS 握手的就是设备当前网络，因此设备端换网后无需 USB 先通知 Mac。TLS 任务独占 socket，音频任务经有界队列发送；同一份协议解析器与 MicStream 解码器服务 USB/Wi-Fi。
-- 无线模式互斥：NVS `ib_wifi/networks` 非空时，本轮启动不初始化 BLE，使用官方 `esp_bt_mem_release` 释放蓝牙内存；无网络时保持 BLE。新增、选择或移除网络后重启到新的 host / PSK；USB 清除全部配网后重启恢复 BLE。USB 始终可用；Wi-Fi 失联时通过 USB 或设备离线网络列表修复，不承诺同次启动自动降级 BLE。
+- 无线模式互斥：NVS `ib_wifi/networks` 非空时，本轮启动不初始化 BLE，使用官方 `esp_bt_mem_release` 释放蓝牙内存；无网络时保持 BLE。新增、选择或移除网络后重启到新的 host / PSK；USB 清除全部配网后重启恢复 BLE。Wi-Fi 已配置但无 USB、25 秒拿不到 IP 时，设备把 BLE 单栈标记写入 RTC 后重启，保留 NVS 配网并改用 BLE 广播；插回 USB 或离线网络菜单选中 Wi-Fi 会清标记并重启回 Wi-Fi。C3 无法让 Wi-Fi + BLE + TLS 同时常驻。
 - C3 内存预算：Wi-Fi 静态 RX 4、动态 RX/TX 各 8；NimBLE MSYS 各 6；TLS 动态缓冲、输入 4096 / 输出 1024 字节；Wi-Fi 发送队列每项 512 字节；LVGL 双缓冲每块 240×10。真机首次暴露默认 Wi-Fi 缓冲初始化不足，不能用“编译通过”替代入网测试。
 - 拔线：`DeviceLink.linkLost → 选择 USB > Wi-Fi > BLE → resendCachedState → setActive → MicStream.setActive`。Wi-Fi 在 USB 期间保持待机，重连沿用已有配对资料。
 - 独立输入：`设备 OK down → DeviceBridge → DictationController.pressDown → 立即启动 PassportMicSource + 并行 DeviceInputTarget.prepare（最多 5 s；通用 AX 遍历失败时用 Codex 适配器复核）→ AppSwitcher.activate/focusTextInput → ASR → 后处理 → 等待目标准备完成 → TextInserter`。目标失败或取消会关闭音源，迟到结果不能插入。
+- 用量首页恢复：`DeviceBridge.start / 连接恢复 / 目标 App 激活 → restoreUsageHomeIfNeeded`。已记住的已知 Agent 即使尚未读取用量，也先建立 `usageHome` 占位，READY 页才会持续显示 `TAP OK: USAGE`，短按 OK 不会误走听写。
 - 应用选择：`设备应用列表确认 → AppSettings.deviceTargetBundleID/deviceTargetName`，下次录音或上/下键先恢复该目标；默认 Codex。Codex 发送/停止沿用校验后的专用适配器；用户明确选择的其他应用使用 Enter/Esc 映射。
 - Mac 录音胶囊：starting 使用 warning，recording 使用 success，danger 留给失败，不再用红点表达正常采音。
 - 设备字幕：`SubtitleController.feed.captions → DeviceBridge.sync（16 Hz）→ DeviceLink.sendCaption（live 最多 10 Hz，定稿立即）→ caption（UTF-8）→ ib_app → ib_ui_set_caption → SUB 页`。应用名、原文、译文分别显示；断线重连后随 state 一起补发。

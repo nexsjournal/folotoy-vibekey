@@ -71,6 +71,7 @@ _Static_assert((int)IB_UI_KEY_UP == (int)IB_KEY_UP && (int)IB_UI_KEY_DOWN == (in
 #define MIC_TAIL_MS          500    // 离开 rec 进入 proc 后继续推流的最长时间(Mac 要录完尾音,等它发 mic off)
 #define AGENT_DONE_MS        15000
 #define AGENT_CHIME_MS       20000
+#define BLE_FALLBACK_MS      25000  // Wi-Fi 配置存在但 25 秒拿不到 IP 时切 BLE 单栈
 
 typedef enum {
     EV_KEY,
@@ -132,6 +133,8 @@ static bool s_wifi_menu_ok;
 static uint8_t s_wifi_menu_sel;
 static int64_t s_wifi_menu_touched;
 static int64_t s_wifi_restart_at;
+static bool s_ble_only;
+static int64_t s_wifi_missing_since;
 static const char *offline_hint(void);
 _Static_assert(IB_CAPTION_MAX == IB_UI_CAPTION_MAX, "caption buffer size mismatch");
 _Static_assert(IB_CAPTION_APP_MAX == IB_UI_CAPTION_APP_MAX, "caption app buffer size mismatch");
@@ -363,6 +366,7 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
             if (selected == ib_wifi_active_network()) {
                 wifi_menu_close();
             } else if (ib_wifi_select_network(selected)) {
+                ib_wifi_clear_ble_fallback();
                 s_wifi_menu = false;
                 if (s_ui_ok) ib_ui_set_offline_hint("SWITCHING WI-FI...");
                 show_screen(IB_UI_OFFLINE);
@@ -475,6 +479,28 @@ static void refresh_battery(int64_t now, bool force)
     }
 }
 
+// Wi-Fi 已配置但始终拿不到 IP 时，重启到 BLE 单栈；C3 内存不足以让两套无线协议栈常驻。
+static void refresh_ble_fallback(int64_t now)
+{
+    if (s_ble_only) {
+        // 插回 USB 说明用户回到电脑旁；重启回 Wi-Fi 模式，USB 期间不会再自动切 BLE。
+        if (s_usb_present && !s_restart_at) {
+            ib_wifi_clear_ble_fallback();
+            s_restart_at = now + 500;
+        }
+        return;
+    }
+    if (!ib_wifi_is_configured() || s_usb_present || ib_wifi_is_ready()) {
+        s_wifi_missing_since = 0;
+        return;
+    }
+    if (!s_wifi_missing_since) s_wifi_missing_since = now;
+    if (now - s_wifi_missing_since < BLE_FALLBACK_MS || s_restart_at) return;
+    if (s_ui_ok) ib_ui_set_offline_hint("BLUETOOTH MODE...");
+    ib_wifi_request_ble_fallback();
+    s_restart_at = now + 500;
+}
+
 // ---- 状态 ----
 
 static ib_ui_screen_t screen_for(ib_state_t st)
@@ -581,6 +607,7 @@ static const char *offline_hint(void)
 {
     if (s_usb_present) return "USB LINKED / OPEN VIBEKEY";
     if (s_ble_subscribed) return "BLE LINKED / OPEN VIBEKEY";
+    if (s_ble_only) return "BLUETOOTH MODE / HOLD DOWN";
     if (ib_wifi_is_configured()) return "WIFI READY / OPEN VIBEKEY";
     return "PLUG USB OR SET UP WIFI";
 }
@@ -937,6 +964,7 @@ static void app_task(void *arg)
         }
         int64_t now = now_ms();
         refresh_links(now);
+        refresh_ble_fallback(now);
         refresh_timers(now);
         refresh_battery(now, false);
         refresh_clock(now, false);
@@ -970,11 +998,26 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
     // PHY 退回每次上电完整校准,BLE 照常启动。
     esp_err_t err = nvs_flash_init();
     if (err != ESP_OK) ESP_LOGW(TAG, "nvs init failed: %s", esp_err_to_name(err));
-    if (ib_wifi_is_configured()) {
+    bool wifi_configured = ib_wifi_is_configured();
+    s_ble_only = wifi_configured && ib_wifi_ble_fallback_requested();
+    if (!wifi_configured) ib_wifi_clear_ble_fallback();
+    if (s_ble_only) {
+        // Wi-Fi 连续拿不到 IP 后切到 BLE 单栈；Wi-Fi 配网记录仍保留在 NVS。
+        if (ib_ble_start(on_ble_line, on_ble_link) != ESP_OK) {
+            ESP_LOGE(TAG, "BLE fallback unavailable, retrying Wi-Fi");
+            ib_wifi_clear_ble_fallback();
+            s_ble_only = false;
+        }
+    }
+    if (!s_ble_only && wifi_configured) {
         // 官方 API 释放本轮不使用的 BLE 控制器内存；清除 Wi-Fi 后重启即可恢复 BLE。
         esp_bt_mem_release(ESP_BT_MODE_BLE);
-    } else if (ib_ble_start(on_ble_line, on_ble_link) != ESP_OK) ESP_LOGE(TAG, "BLE link unavailable");
-    if (ib_wifi_start(on_wifi_line, on_wifi_link) != ESP_OK) ESP_LOGE(TAG, "Wi-Fi link unavailable");
+    } else if (!s_ble_only && ib_ble_start(on_ble_line, on_ble_link) != ESP_OK) {
+        ESP_LOGE(TAG, "BLE link unavailable");
+    }
+    if (!s_ble_only && ib_wifi_start(on_wifi_line, on_wifi_link) != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi link unavailable");
+    }
 
     // boot id 在 RF 启用之后生成:此时 esp_random() 由射频噪声提供真随机数。
     s_boot_id = esp_random();

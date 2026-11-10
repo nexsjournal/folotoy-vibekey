@@ -4,6 +4,7 @@
 #include "ib_usb.h"
 #include "ib_wifi_store.h"
 #include "cJSON.h"
+#include "esp_attr.h"
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_system.h"
@@ -34,6 +35,8 @@
 #define PACKET_MAX 512
 #define WIFI_STALL_US (8 * INT64_C(1000000))
 #define WIFI_HANDSHAKE_TIMEOUT_US (6 * INT64_C(1000000))
+#define BLE_FALLBACK_MAGIC 0x56425331u     // "VBS1"
+#define BLE_FALLBACK_MODE 1
 static const char *TAG = "ib_wifi";
 typedef struct { size_t len; uint8_t bytes[PACKET_MAX]; } packet_t;
 static QueueHandle_t s_config_queue, s_control_tx, s_audio_tx;
@@ -52,6 +55,8 @@ static esp_netif_t *s_netif;
 static volatile int s_handshake_fd = -1;
 static volatile int64_t s_handshake_started;
 static esp_timer_handle_t s_handshake_timer;
+RTC_DATA_ATTR static uint32_t s_boot_mode_magic;
+RTC_DATA_ATTR static uint8_t s_boot_mode;
 
 static bool save_store(const ib_wifi_store_t *store)
 {
@@ -137,6 +142,28 @@ static bool active_network(const ib_wifi_store_t *store, ib_wifi_network_t *netw
 bool ib_wifi_is_configured(void)
 {
     return store_snapshot().count > 0;
+}
+
+bool ib_wifi_is_ready(void)
+{
+    return s_available && s_events && (xEventGroupGetBits(s_events) & IP_READY);
+}
+
+bool ib_wifi_ble_fallback_requested(void)
+{
+    return s_boot_mode_magic == BLE_FALLBACK_MAGIC && s_boot_mode == BLE_FALLBACK_MODE;
+}
+
+void ib_wifi_request_ble_fallback(void)
+{
+    s_boot_mode = BLE_FALLBACK_MODE;
+    s_boot_mode_magic = BLE_FALLBACK_MAGIC;
+}
+
+void ib_wifi_clear_ble_fallback(void)
+{
+    s_boot_mode_magic = 0;
+    s_boot_mode = 0;
 }
 
 static void status(const char *stage, const char *ip)
@@ -492,6 +519,7 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
                 portEXIT_CRITICAL(&s_lock);
             }
             memset(&active, 0, sizeof(active));
+            ib_wifi_clear_ble_fallback();
             status(store.count ? "connecting" : "unconfigured", NULL);
             cJSON_Delete(root);
             vTaskDelay(pdMS_TO_TICKS(150));
@@ -545,12 +573,18 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     memset(&config, 0, sizeof(config));
     cJSON_Delete(root);
     // 新增或切换网络都重启到新的 host / PSK；C3 上同时保留两套无线协议栈会挤掉音频 DMA。
-    if (valid) { status("connecting", NULL); vTaskDelay(pdMS_TO_TICKS(150)); esp_restart(); }
+    if (valid) {
+        ib_wifi_clear_ble_fallback();
+        status("connecting", NULL);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        esp_restart();
+    }
     return true;
 }
 
 esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
 {
+    ib_wifi_clear_ble_fallback();
     s_line = line; s_link = link;
     ib_wifi_store_t store = store_snapshot();
     if (!store.count) return ESP_OK;

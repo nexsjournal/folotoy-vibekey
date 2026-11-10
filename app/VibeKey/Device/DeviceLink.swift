@@ -346,10 +346,17 @@ import Security
     }
 
     /// 暂停 USB 链路并释放串口(刷固件前调用)。
-    func suspendUSB() {
+    /// `allowBluetooth` 仅用于无线诊断:暂时隐藏串口节点，模拟真实拔线后 BLE 接管。
+    func suspendUSB(allowBluetooth: Bool = false) {
         usbSuspended = true
         openTask?.cancel()
         closeUSB(reopen: false)
+        guard allowBluetooth else { return }
+        monitor.stop()
+        ports = []
+        busyPorts.removeAll()
+        rejectedPorts.removeAll()
+        updateBluetooth()
     }
 
     /// 恢复 USB 链路:清空拒绝列表,重新尝试握手(刷完固件后调用)。
@@ -357,6 +364,8 @@ import Security
         usbSuspended = false
         rejectedPorts.removeAll()
         foreignDevice = nil
+        monitor.stop()
+        monitor.start()
         scheduleUSBOpen(after: Self.usbOpenDelay)
     }
 

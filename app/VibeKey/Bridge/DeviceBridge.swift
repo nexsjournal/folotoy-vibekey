@@ -73,6 +73,7 @@ final class DeviceBridge {
     private let threadNavigator: CodexThreadNavigator
     private let hooks: Hooks
     private var timer: Timer?
+    private var activationObserver: NSObjectProtocol?
     private var lastState: DeviceStateMapper.State?
     private var lastConfig: DeviceConfig?
     /// 正在显示的列表(nil 表示没打开)。
@@ -149,6 +150,19 @@ final class DeviceBridge {
         // 加到 common 模式:菜单打开、模态提示框(如"保存字幕吗?")显示时设备状态也继续同步。
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self,
+                      let app = NSWorkspace.shared.frontmostApplication else { return }
+                guard app.bundleIdentifier == self.settings.deviceTargetBundleID else { return }
+                self.restoreUsageHomeIfNeeded()
+                self.lastState = nil
+                self.sync()
+            }
+        }
+        restoreUsageHomeIfNeeded()
     }
 
     /// 连接变化(断开、重连、USB / 蓝牙切换):
@@ -184,6 +198,8 @@ final class DeviceBridge {
         }
         if connection != .disconnected, let home = usageHome, usageHomeVisible {
             beginUsageHome(for: home.app)
+        } else if connection != .disconnected {
+            restoreUsageHomeIfNeeded()
         }
     }
 
@@ -685,6 +701,21 @@ final class DeviceBridge {
         usageHomeVisible = true
         lastState = nil
         sync()
+        loadUsageHome(home)
+    }
+
+    /// App 重启或重新连接后，READY 页应继续认出上次选择的已知 Agent；
+    /// 否则 `usageHome` 为空，设备不会显示 `TAP OK: USAGE`，短按 OK 还会误走听写。
+    private func restoreUsageHomeIfNeeded() {
+        guard usageHome == nil,
+              AgentAppDisplayName.isKnownAgent(bundleID: settings.deviceTargetBundleID),
+              let running = NSWorkspace.shared.runningApplications.first(where: {
+                  $0.bundleIdentifier == settings.deviceTargetBundleID && !$0.isTerminated
+              }),
+              let app = AgentSessionApp(running: running) else { return }
+        let home = UsageHome(app: app)
+        usageHome = home
+        usageHomeVisible = false
         loadUsageHome(home)
     }
 

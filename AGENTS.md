@@ -47,7 +47,7 @@ website/deploy/deploy.sh <user@host> <key>   # 部署官网 input.0os.io(含最�
 
 正式安装版支持只读诊断：`open -n /Applications/VibeKey.app --args --diagnose-codex-access /tmp/vibekey-codex-access.json`。JSON 包含 App 自身的 AX 信任状态及脱敏目标状态；不启动串口或发送按键。附加 `--prepare-device-target` 可验证设备记住的应用能否自动前置并聚焦。附加 `--followup-thread <UUID>` 可验证打开 Codex 原对话、核对实际会话及聚焦输入框。两者均不输入或发送文字。
 
-实际采音／识别／翻译诊断：先退出常驻 App，再运行 `open -n /Applications/VibeKey.app --args --diagnose-voice-pipeline <测试音频绝对路径> /tmp/vibekey-voice-health.json`，结束后重新打开常驻 App。附加 `--require-wifi` 时等待已配对 Wi-Fi，暂停 USB 后通过无线真实采音（只记录统计量），未连上 Wi-Fi 则明确失败。硬件采样只记录数量与音量统计，不保存现场声音。
+实际采音／识别／翻译诊断：先退出常驻 App，再运行 `open -n /Applications/FoloVibe\ Key.app --args --diagnose-voice-pipeline <测试音频绝对路径> /tmp/vibekey-voice-health.json`，结束后重新打开常驻 App。附加 `--require-wifi` 时等待已配对 Wi-Fi，暂停 USB 后通过无线真实采音；附加 `--require-ble` 时隐藏串口节点并等待 BLE 接管。两者未连上目标链路都明确失败。硬件采样只记录数量与音量统计，不保存现场声音。
 
 ## 规则
 

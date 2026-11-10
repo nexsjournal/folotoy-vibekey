@@ -5,9 +5,33 @@ import Foundation
 /// 避免把“日活”强行改成 DAU 这类翻译行为。
 nonisolated enum VocabularyPresets {
     /// 以后更新推荐词时递增，AppSettings 会做一次合并迁移。
-    static let version = 2
+    static let version = 3
 
     static let text = """
+    # 高频设备 / Agent
+    VibeKey = vibe key, vibe k, 外比 key, 微比 key
+    FoloVibe Key = FoloVibe, Folo Vibe
+    FoloToy = folo toy
+    Passport
+    Codex = code x
+    DeepSeek Harness = DeepSeek harness, DSH NEXT, DSH
+    WorkBuddy = work buddy
+    ZCode = Z code
+    Usage
+    Token
+    熄屏 = 吸屏, 息屏
+    点亮屏幕
+    长按
+    短按
+    语音输入
+    实时字幕
+    字幕翻译
+    用量
+    配额
+    上下文
+    会话
+    工作流
+
     # AI 模型 / 产品
     DeepSeek = DIPSEEK, deep seek, 迪普希克, 深度求索
     ChatGPT = chat gpt, chatGPT
@@ -68,7 +92,6 @@ nonisolated enum VocabularyPresets {
     向量
     Vector Database = vector DB
     向量数据库
-    Token
     词元
     Context Window = context length
     上下文窗口
@@ -89,6 +112,12 @@ nonisolated enum VocabularyPresets {
     AIGC
     LLM
     大语言模型
+    ASR
+    TTS
+    OCR
+    IDE
+    CLI
+    GUI
     GPU
     CUDA
     TPU
@@ -100,6 +129,15 @@ nonisolated enum VocabularyPresets {
     Serverless
     Cloud Native
     云原生
+    Wi-Fi = wifi, WIFI, wifi 6
+    USB-C = USB C
+    OTA
+    BLE
+    mDNS
+    TLS
+    PSK
+    NVS
+    ADPCM
 
     # 互联网产品 / 产品经理
     PRD

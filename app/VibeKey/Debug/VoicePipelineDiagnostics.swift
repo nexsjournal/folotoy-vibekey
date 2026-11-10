@@ -22,8 +22,16 @@ enum VoicePipelineDiagnostics {
             save()
             app.deviceLink.start()
             let requireWiFi = arguments.contains("--require-wifi")
-            let deadline = ContinuousClock.now + .seconds(requireWiFi ? 25 : 8)
-            while (requireWiFi ? !app.deviceLink.wifiReady : app.deviceLink.connection == .disconnected), ContinuousClock.now < deadline {
+            let requireBLE = arguments.contains("--require-ble")
+            if requireBLE {
+                // BLE 与 USB 互斥：先释放串口，让 DeviceLink 扫描蓝牙。
+                app.deviceLink.suspendUSB(allowBluetooth: true)
+            }
+            let deadline = ContinuousClock.now + .seconds(requireWiFi || requireBLE ? 25 : 8)
+            while (requireWiFi ? !app.deviceLink.wifiReady
+                   : requireBLE ? app.deviceLink.connection != .ble
+                   : app.deviceLink.connection == .disconnected),
+                  ContinuousClock.now < deadline {
                 try? await Task.sleep(for: .milliseconds(100))
             }
             if requireWiFi {
@@ -32,14 +40,19 @@ enum VoicePipelineDiagnostics {
                 try? await Task.sleep(for: .milliseconds(1200))
                 result["wirelessPassed"] = app.deviceLink.connection == .wifi
             }
+            if requireBLE {
+                result["wirelessPassed"] = app.deviceLink.connection == .ble
+            }
             result["deviceConnected"] = app.deviceLink.connection != .disconnected
             result["transport"] = String(describing: app.deviceLink.connection)
             do {
                 let source = PassportMicSource(link: app.deviceLink)
                 let probe = SampleStatistics()
                 source.onSamples = { probe.append($0) }
-                if requireWiFi && app.deviceLink.connection != .wifi {
-                    throw NSError(domain: "VoiceDiagnostics", code: 3, userInfo: [NSLocalizedDescriptionKey: "Paired Wi-Fi link is unavailable"])
+                let requestedLinkUnavailable = (requireWiFi && app.deviceLink.connection != .wifi)
+                    || (requireBLE && app.deviceLink.connection != .ble)
+                if requestedLinkUnavailable {
+                    throw NSError(domain: "VoiceDiagnostics", code: 3, userInfo: [NSLocalizedDescriptionKey: "Requested wireless link is unavailable"])
                 }
                 try source.start()
                 try? await Task.sleep(for: .seconds(2))
