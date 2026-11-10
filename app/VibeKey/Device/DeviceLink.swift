@@ -582,6 +582,13 @@ import Security
             if let next { resendCachedState(via: next) }
             setActive(next)
         }
+        if link == .usb, running, wifiConfigured, !wifiHandshaken {
+            if wifi.ready, handshakeTasks[.wifi] == nil {
+                beginHandshake(.wifi)
+            } else {
+                wifi.reconnectIfNeeded()
+            }
+        }
     }
 
     /// 链路可用后开始握手:每 800 ms 发一次 hello,共 6 次;收到 hello 时由 handleHello 取消该任务。

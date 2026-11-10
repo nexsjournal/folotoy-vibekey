@@ -5,10 +5,13 @@
 ## Wi-Fi 与远离电脑的输入（本地分支）
 
 - 配网：`PassportWiFiSection → DeviceLink.configureWiFi → WiFiProvisioning.encoded → USB → ib_wifi_handle_usb_line → NVS → config_task → Wi-Fi STA / mDNS`。设备最多保存 4 组网络，每组独立 `SSID + password + host + PSK`；密码仅在表单内存和 USB 配网命令中使用，Mac 只持久保存 SSID、随机主机名与 PSK。`ib_wifi_store` 是纯 C 数据模型，负责增删、active 切换与旧单网络结构迁移。
-- Wi-Fi 录音：`ib_audio → ib_app.audio_tx → ib_wifi_send_audio → TLS → DeviceLink.receiveWiFi → MicStream`。录音和控制分别入队，TLS 任务轮询收发并保留未写完的帧。应用任务只在 Wi-Fi 麦克风打开时关闭无线省电；断线时记录 STA 原因或 TLS 错误，重新关联后建立新会话。
+- Wi-Fi 录音：`ib_audio → ib_app.audio_tx → ib_wifi_send_audio → TLS → DeviceLink.receiveWiFi → MicStream`。录音和控制分别入队，TLS 任务轮询收发并保留未写完的帧。Wi-Fi 初始化时关闭省电以减少空闲按键延迟；断线时记录 STA 原因或 TLS 错误，重新关联后建立新会话。TLS 服务端握手超时为 5 秒，并由看门狗清理 6 秒仍未完成的残留半连接，防止旧客户端阻塞后续连接。LVGL 每块 10 行双缓冲，为 TLS 握手保留足够连续堆，避免 `esp-aes` 上下文分配失败。
+- USAGE 页 OK：设备按下即预启动 Passport 麦克风并上报按键，Mac 同时启动听写；短按松开取消听写并进入 READY，按住则松开结束。熄屏按下且本机采音启动成功时先显示录音页，Mac 状态继续确认或纠正设备显示。
+- READY / USAGE 页的 OK 按下后先采音；Mac 在前 500 毫秒保留原页面，短按松开切页并取消采音，按住超过阈值才同步录音页。熄屏唤醒时设备已在本地开麦并显示录音页。
+- USB 断开时优先启用已握手 Wi-Fi；若 Wi-Fi 尚未握手，恢复已有握手或立即重试已保存的网络。Wi-Fi 正在尝试或等待重试时不重复启动连接。
 - 无线连接：`WiFiClient(Network TLS-PSK) → DeviceLink.beginHandshake → ib_wifi(server_task/esp_tls) → ib_app`。Mac 同时尝试所有本机已保存的 `host.local`，第一个完成 TLS 握手的就是设备当前网络，因此设备端换网后无需 USB 先通知 Mac。TLS 任务独占 socket，音频任务经有界队列发送；同一份协议解析器与 MicStream 解码器服务 USB/Wi-Fi。
 - 无线模式互斥：NVS `ib_wifi/networks` 非空时，本轮启动不初始化 BLE，使用官方 `esp_bt_mem_release` 释放蓝牙内存；无网络时保持 BLE。新增、选择或移除网络后重启到新的 host / PSK；USB 清除全部配网后重启恢复 BLE。USB 始终可用；Wi-Fi 失联时通过 USB 或设备离线网络列表修复，不承诺同次启动自动降级 BLE。
-- C3 内存预算：Wi-Fi 静态 RX 4、动态 RX/TX 各 8；NimBLE MSYS 各 6；TLS 动态缓冲、输出 1024 字节；Wi-Fi 发送队列每项 512 字节。真机首次暴露默认 Wi-Fi 缓冲初始化不足，不能用“编译通过”替代入网测试。
+- C3 内存预算：Wi-Fi 静态 RX 4、动态 RX/TX 各 8；NimBLE MSYS 各 6；TLS 动态缓冲、输入 4096 / 输出 1024 字节；Wi-Fi 发送队列每项 512 字节；LVGL 双缓冲每块 240×10。真机首次暴露默认 Wi-Fi 缓冲初始化不足，不能用“编译通过”替代入网测试。
 - 拔线：`DeviceLink.linkLost → 选择 USB > Wi-Fi > BLE → resendCachedState → setActive → MicStream.setActive`。Wi-Fi 在 USB 期间保持待机，重连沿用已有配对资料。
 - 独立输入：`设备 OK down → DeviceBridge → DictationController.pressDown → 立即启动 PassportMicSource + 并行 DeviceInputTarget.prepare（最多 5 s；通用 AX 遍历失败时用 Codex 适配器复核）→ AppSwitcher.activate/focusTextInput → ASR → 后处理 → 等待目标准备完成 → TextInserter`。目标失败或取消会关闭音源，迟到结果不能插入。
 - 应用选择：`设备应用列表确认 → AppSettings.deviceTargetBundleID/deviceTargetName`，下次录音或上/下键先恢复该目标；默认 Codex。Codex 发送/停止沿用校验后的专用适配器；用户明确选择的其他应用使用 Enter/Esc 映射。

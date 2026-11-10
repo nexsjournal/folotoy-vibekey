@@ -97,7 +97,18 @@ final class WiFiClient {
 
     func setEnabled(_ enabled: Bool) {
         self.enabled = enabled
-        if enabled { if connection == nil { connect() } } else { disconnect() }
+        if enabled {
+            if connection == nil, attempts.isEmpty, retry == nil { connect() }
+        } else {
+            disconnect()
+        }
+    }
+
+    func reconnectIfNeeded() {
+        guard enabled, connection == nil, attempts.isEmpty else { return }
+        retry?.cancel()
+        retry = nil
+        connect()
     }
 
     func forget() {

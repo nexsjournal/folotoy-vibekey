@@ -112,6 +112,7 @@ final class DeviceBridge {
     private var usageTask: Task<Void, Never>?
     /// 这次 OK 按下的时刻；READY 页短按(<500 ms)回到用量首页，长按仍是说话。
     private var okPressStartedAt: TimeInterval?
+    private var okStartedOnUsage = false
 
     init(link: DeviceLink, dictation: DictationController, subtitles: SubtitleController,
          agent: AgentNotifier, codex: CodexActionCoordinator, settings: AppSettings,
@@ -172,6 +173,7 @@ final class DeviceBridge {
             dictation.cancel()
         }
         presses.reset()
+        okStartedOnUsage = false
         noticePresses.removeAll()
         list = nil
         lastState = nil
@@ -249,9 +251,11 @@ final class DeviceBridge {
     /// 按下:OK 立即响应(按住说话需要马上开麦);上下键要等松开或长按才知道是哪种手势。
     private func pressBegan(_ key: DeviceKey) {
         if key == .ok { okPressStartedAt = ProcessInfo.processInfo.systemUptime }
-        // 用量首页:OK 先不动作,等松开判定为“进入 READY”或长按判定为“直接说话”;
-        // 上下键等松开后切 Tab。
-        if usageHome != nil, usageHomeVisible { return }
+        if usageHome != nil, usageHomeVisible {
+            guard key == .ok else { return }
+            okStartedOnUsage = true
+            usageHomeVisible = false
+        }
         guard key == .ok else { return }
         guard scanningSessionApp == nil, openingSessionApp == nil else { return }
         // 上一句还在处理(识别 / 润色 / 翻译):OK 不可用,不开始新的一句;设备上提示列是禁用色并给出"不可用"反馈。
@@ -355,6 +359,15 @@ final class DeviceBridge {
         case .ok:
             let held = okPressStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 }
             okPressStartedAt = nil
+            let startedOnUsage = okStartedOnUsage
+            okStartedOnUsage = false
+            if startedOnUsage, let held, held < 0.5 {
+                okDrivesDictation = false
+                dictation.cancel()
+                lastState = nil
+                sync()
+                return
+            }
             if let held, held < 0.5, usageHome != nil, !usageHomeVisible,
                NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
                 okDrivesDictation = false
@@ -878,11 +891,14 @@ final class DeviceBridge {
         }
         if list != nil, !dictation.phase.isBusy { return .init(ui: .list, mode: mode, msg: "") }
         if usageHome != nil, usageHomeVisible, !dictation.phase.isBusy { return .init(ui: .usage, mode: mode, msg: "") }
-        if let started = okPressStartedAt, usageHome != nil, !usageHomeVisible,
-           ProcessInfo.processInfo.systemUptime - started < 0.5,
-           dictation.phase == .starting || dictation.phase == .recording,
-           NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
-            return .init(ui: .idle, mode: mode, msg: "TAP OK: USAGE")
+        if let started = okPressStartedAt,
+           DeviceStateMapper.pendingUsageTap(elapsed: ProcessInfo.processInfo.systemUptime - started,
+                                            hasUsageHome: usageHome != nil,
+                                            recording: dictation.phase == .starting || dictation.phase == .recording) {
+            if okStartedOnUsage { return .init(ui: .usage, mode: mode, msg: "") }
+            if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == usageHome?.app.bundleID {
+                return .init(ui: .idle, mode: mode, msg: "TAP OK: USAGE")
+            }
         }
         let state = DeviceStateMapper.state(
             phase: dictation.phase, dictationMode: dictation.mode, deviceMode: mode,

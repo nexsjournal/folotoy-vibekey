@@ -146,6 +146,9 @@ static ib_keys_t s_keys;
 // 麦克风:本地(OK 键)开启时记下时刻,等待 Mac 切到 rec 确认
 static bool s_mic_local;
 static int64_t s_mic_local_ms;
+// 熄屏时 OK 直接开麦:在 Mac 确认 rec 前锁住 REC 页,别让迟到的 idle / usage 覆盖。
+static bool s_mic_prestart;
+static bool s_mic_prestart_long;
 
 // Agent 通知
 static bool s_agent_on;
@@ -385,10 +388,10 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
 static void mic_stop(void)
 {
     s_mic_local = false;
+    s_mic_prestart = false;
+    s_mic_prestart_long = false;
     if (!s_audio_ok || !ib_audio_mic_active()) return;
-    bool wifi = ib_audio_mic_link() == IB_LINK_WIFI;
     ib_audio_mic_stop();
-    if (wifi) ib_wifi_set_audio_mode(false);
     ib_ble_set_audio_mode(false);
 }
 
@@ -397,7 +400,8 @@ static void mic_start(ib_link_t link, bool local, int64_t now)
     if (!s_audio_ok) return;
     if (ib_audio_mic_active() && ib_audio_mic_link() != link) mic_stop();
     if (ib_audio_mic_start(link) != ESP_OK) return;
-    if (link == IB_LINK_WIFI) ib_wifi_set_audio_mode(true);
+    s_mic_prestart = false;
+    s_mic_prestart_long = false;
     s_mic_local = local;
     s_mic_local_ms = now;
     ib_ble_set_audio_mode(link == IB_LINK_BLE);
@@ -492,6 +496,10 @@ static void apply_state(const ib_cmd_t *cmd, int64_t now)
 {
     ib_state_t prev = s_st;
     s_st = cmd->state;
+    bool prestart_hold = s_mic_prestart && s_mic_local
+        && (s_st == IB_ST_IDLE || s_st == IB_ST_USAGE || s_st == IB_ST_SUB)
+        && now - s_mic_local_ms < MIC_LOCAL_WAIT_MS;
+    if (!prestart_hold) s_mic_prestart = false;
     if (prev == IB_ST_LIST && s_st != IB_ST_LIST) s_list_ready = false;
     if (cmd->has_mode) s_mode = cmd->mode;
     if (cmd->has_msg) {
@@ -520,7 +528,8 @@ static void apply_state(const ib_cmd_t *cmd, int64_t now)
         s_mic_local = false;
         s_mic_tail_until = 0;
     } else if (s_audio_ok && ib_audio_mic_active()) {
-        bool grace = (s_st == IB_ST_IDLE || s_st == IB_ST_SUB) && s_mic_local && now - s_mic_local_ms < MIC_LOCAL_GRACE_MS;
+        bool grace = (s_st == IB_ST_IDLE || s_st == IB_ST_SUB || s_st == IB_ST_USAGE) && s_mic_local
+            && now - s_mic_local_ms < (s_mic_prestart ? MIC_LOCAL_WAIT_MS : MIC_LOCAL_GRACE_MS);
         bool tail = s_st == IB_ST_PROC && prev == IB_ST_REC;
         if (tail) {
             s_mic_tail_until = now + MIC_TAIL_MS;
@@ -530,7 +539,7 @@ static void apply_state(const ib_cmd_t *cmd, int64_t now)
     }
 
     s_revert_at = s_st == IB_ST_DONE ? now + DONE_HOLD_MS : s_st == IB_ST_ERR ? now + ERR_HOLD_MS : 0;
-    show_screen(screen_for(s_st));
+    if (!prestart_hold) show_screen(screen_for(s_st));
     wake(now);
 }
 
@@ -657,8 +666,10 @@ static void refresh_links(int64_t now)
 static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
 {
     bool dark = !s_backlight_on;
+    bool defer_wake = dark && s_online && key == IB_KEY_OK && s_cfg_mic && s_audio_ok
+        && (s_screen == IB_UI_IDLE || s_screen == IB_UI_USAGE) && s_mode != IB_MODE_SUB && !agent_capturing();
     if (ev == IB_KEY_EV_DOWN) {
-        wake(now);
+        if (!defer_wake) wake(now);
         if (s_ui_ok && !dark) ib_ui_key_press((ib_ui_key_t)key);
     }
     if (wifi_menu_key(key, ev, now)) return;
@@ -677,7 +688,9 @@ static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
         ib_keys_reset(&s_keys);
         return;
     }
-    ib_key_action_t act = ib_keys_handle(&s_keys, key, ev, now, s_online, dark, agent_capturing());
+    bool voice_page = (s_screen == IB_UI_IDLE || s_screen == IB_UI_USAGE) && s_mode != IB_MODE_SUB;
+    bool wake_to_talk = ib_keys_wake_to_talk(key, voice_page, agent_capturing());
+    ib_key_action_t act = ib_keys_handle(&s_keys, key, ev, now, s_online, dark && !wake_to_talk, agent_capturing());
     if (act.dismiss_agent) agent_clear();
     if (act.send) {
         char msg[IB_MSG_MAX];
@@ -688,11 +701,22 @@ static void handle_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
     // 以屏幕为准判断"空闲":done/err 自行回到常驻页后 Mac 的状态可能还没到,此时按 OK 也应立即开麦。
     // 字幕在运行时(听写 / 翻译模式)显示的是字幕页,OK 同样是说话。
     if (ev == IB_KEY_EV_DOWN && act.send && !act.ack && s_cfg_mic &&
-        (s_screen == IB_UI_IDLE || s_screen == IB_UI_SUB) &&
+        (s_screen == IB_UI_IDLE || s_screen == IB_UI_SUB || s_screen == IB_UI_USAGE) &&
         s_mode != IB_MODE_SUB && s_audio_ok && !ib_audio_mic_active()) {
         // Passport 麦克风作为听写音源:按下瞬间就开始推流,不等 Mac 的 mic 命令,减少首字丢失。
         ib_link_t link = ib_links_preferred(&s_links, now);
         if (link != IB_LINK_COUNT) mic_start(link, true, now);
+        if (defer_wake && ib_audio_mic_active()) {
+            s_mic_prestart = true;
+            s_mic_prestart_long = false;
+            show_screen(IB_UI_REC);
+        }
+    }
+    if (ev == IB_KEY_EV_DOWN && defer_wake) wake(now);
+    if (ev == IB_KEY_EV_LONG && key == IB_KEY_OK && s_mic_prestart) s_mic_prestart_long = true;
+    if (ev == IB_KEY_EV_UP && key == IB_KEY_OK && s_mic_prestart && !s_mic_prestart_long) {
+        mic_stop();
+        if (s_screen == IB_UI_REC) show_screen(screen_for(s_st));
     }
     if (s_ui_ok && ev != IB_KEY_EV_LONG) ib_ui_set_ok_held(ev == IB_KEY_EV_DOWN && act.send);
 }
@@ -859,7 +883,10 @@ static void refresh_timers(int64_t now)
             show_screen(screen_for(s_st));
         }
     }
-    if (s_mic_local && s_st != IB_ST_REC && now - s_mic_local_ms > MIC_LOCAL_WAIT_MS) mic_stop();
+    if (s_mic_local && s_st != IB_ST_REC && now - s_mic_local_ms > MIC_LOCAL_WAIT_MS) {
+        mic_stop();
+        if (s_screen == IB_UI_REC) show_screen(screen_for(s_st));
+    }
     if (s_mic_tail_until && now >= s_mic_tail_until) {
         s_mic_tail_until = 0;
         if (s_st != IB_ST_REC && s_audio_ok && ib_audio_mic_active()) mic_stop();

@@ -13,8 +13,6 @@ bool ib_wifi_is_configured(void);
 bool ib_wifi_handle_usb_line(const char *line, size_t len);
 void ib_wifi_send(const uint8_t *data, size_t len);
 void ib_wifi_send_audio(const uint8_t *data, size_t len);
-// 仅由应用任务在 Wi-Fi 麦克风开始 / 停止时切换。
-void ib_wifi_set_audio_mode(bool recording);
 // USB 重连握手时补发真实状态，不能让 Mac 长期保留旧的 connecting。
 void ib_wifi_report_status(void);
 // 设备离线页使用：只读取 / 切换本机 NVS 中的网络名，不向屏幕暴露密码或 PSK。

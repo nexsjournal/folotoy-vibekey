@@ -103,6 +103,12 @@ nonisolated final class SegmentedSessionChainTests: XCTestCase {
 
 /// 链:DeviceBridge.sync → DeviceStateMapper → DeviceLink.send*。
 nonisolated final class DeviceStateMapperTests: XCTestCase {
+    func testUsageTapKeepsPageUntilGestureIsKnown() {
+        XCTAssertTrue(DeviceStateMapper.pendingUsageTap(elapsed: 0.2, hasUsageHome: true, recording: true))
+        XCTAssertFalse(DeviceStateMapper.pendingUsageTap(elapsed: 0.5, hasUsageHome: true, recording: true))
+        XCTAssertFalse(DeviceStateMapper.pendingUsageTap(elapsed: 0.2, hasUsageHome: false, recording: true))
+        XCTAssertFalse(DeviceStateMapper.pendingUsageTap(elapsed: 0.2, hasUsageHome: true, recording: false))
+    }
     @MainActor func testCaptionsPageWheneverCaptionsRun() {
         let sub = DeviceStateMapper.state(phase: .idle, dictationMode: .dictate, deviceMode: .sub, subtitlesRunning: true, subtitleApp: "Chrome")
         XCTAssertEqual(sub, .init(ui: .sub, mode: .sub, msg: "Chrome"))

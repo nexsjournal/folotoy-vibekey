@@ -33,6 +33,7 @@
 // 最大上行音频帧 334 字节，JSON 回复也小于 512；无需为每个队列项预留 1 KB。
 #define PACKET_MAX 512
 #define WIFI_STALL_US (8 * INT64_C(1000000))
+#define WIFI_HANDSHAKE_TIMEOUT_US (6 * INT64_C(1000000))
 static const char *TAG = "ib_wifi";
 typedef struct { size_t len; uint8_t bytes[PACKET_MAX]; } packet_t;
 static QueueHandle_t s_config_queue, s_control_tx, s_audio_tx;
@@ -48,6 +49,9 @@ static volatile bool s_configured, s_session;
 static volatile bool s_available;
 static char s_stage[24] = "unconfigured";
 static esp_netif_t *s_netif;
+static volatile int s_handshake_fd = -1;
+static volatile int64_t s_handshake_started;
+static esp_timer_handle_t s_handshake_timer;
 
 static bool save_store(const ib_wifi_store_t *store)
 {
@@ -241,13 +245,6 @@ static void enqueue(QueueHandle_t queue, const uint8_t *data, size_t len)
 void ib_wifi_send(const uint8_t *data, size_t len) { enqueue(s_control_tx, data, len); }
 void ib_wifi_send_audio(const uint8_t *data, size_t len) { enqueue(s_audio_tx, data, len); }
 
-void ib_wifi_set_audio_mode(bool recording)
-{
-    // 只在使用 Wi-Fi 麦克风期间关闭省电，避免路由器的 DTIM 周期拖延回包。
-    esp_err_t error = esp_wifi_set_ps(recording ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
-    if (error != ESP_OK) ESP_LOGW(TAG, "Wi-Fi power save: %s", esp_err_to_name(error));
-}
-
 // 单个任务拥有 TLS。暂时不可读写时保留待发帧及偏移，直到同一次 TLS 写入完成。
 static void run_session(esp_tls_t *tls, int fd, uint32_t generation)
 {
@@ -331,7 +328,7 @@ static void server_task(void *arg)
     if (listener < 0) { status("server_error", NULL); vTaskDelete(NULL); return; }
     int reuse = 1; setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     struct sockaddr_in address = { .sin_family = AF_INET, .sin_port = htons(WIFI_PORT), .sin_addr.s_addr = htonl(INADDR_ANY) };
-    if (bind(listener, (struct sockaddr *)&address, sizeof(address)) != 0 || listen(listener, 1) != 0) {
+    if (bind(listener, (struct sockaddr *)&address, sizeof(address)) != 0 || listen(listener, 2) != 0) {
         close(listener); status("server_error", NULL); vTaskDelete(NULL); return;
     }
     for (;;) {
@@ -341,12 +338,29 @@ static void server_task(void *arg)
         struct timeval timeout = { .tv_sec = 4, .tv_usec = 0 };
         setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
         setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+        int one = 1;
+        setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
         ib_wifi_network_t config;
         portENTER_CRITICAL(&s_lock); config = s_config; uint32_t generation = s_generation; portEXIT_CRITICAL(&s_lock);
         psk_hint_key_t psk = { .key = config.key, .key_size = sizeof(config.key), .hint = "folobutton" };
-        esp_tls_cfg_server_t tls_config = { .psk_hint_key = &psk };
+        esp_tls_cfg_server_t tls_config = {
+            .psk_hint_key = &psk,
+            .tls_handshake_timeout_ms = 5000,
+        };
         esp_tls_t *tls = esp_tls_init();
-        if (!tls || esp_tls_server_session_create(&tls_config, socket_fd, tls) != 0) {
+        portENTER_CRITICAL(&s_lock);
+        s_handshake_fd = socket_fd;
+        s_handshake_started = esp_timer_get_time();
+        portEXIT_CRITICAL(&s_lock);
+        if (s_handshake_timer) esp_timer_start_once(s_handshake_timer, WIFI_HANDSHAKE_TIMEOUT_US);
+        int handshake = tls ? esp_tls_server_session_create(&tls_config, socket_fd, tls) : -1;
+        if (s_handshake_timer) esp_timer_stop(s_handshake_timer);
+        portENTER_CRITICAL(&s_lock);
+        s_handshake_fd = -1;
+        s_handshake_started = 0;
+        portEXIT_CRITICAL(&s_lock);
+        if (handshake != 0) {
+            ESP_LOGW(TAG, "TLS handshake failed: %d", handshake);
             if (tls) esp_tls_server_session_delete(tls); else close(socket_fd);
             memset(&config, 0, sizeof(config)); continue;
         }
@@ -365,6 +379,21 @@ static void server_task(void *arg)
         if (s_link) s_link(false);
         esp_tls_server_session_delete(tls);
         memset(&config, 0, sizeof(config));
+    }
+}
+
+static void handshake_timeout(void *arg)
+{
+    (void)arg;
+    int fd;
+    int64_t started;
+    portENTER_CRITICAL(&s_lock);
+    fd = s_handshake_fd;
+    started = s_handshake_started;
+    portEXIT_CRITICAL(&s_lock);
+    if (fd >= 0 && started > 0) {
+        ESP_LOGW(TAG, "TLS handshake timeout, closing fd=%d", fd);
+        shutdown(fd, SHUT_RDWR);
     }
 }
 
@@ -537,6 +566,7 @@ esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
     if ((error = esp_wifi_init(&init)) != ESP_OK) return error;
     if ((error = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK) return error;
     if ((error = esp_wifi_set_mode(WIFI_MODE_STA)) != ESP_OK) return error;
+    if ((error = esp_wifi_set_ps(WIFI_PS_NONE)) != ESP_OK) return error;
     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, network_event, NULL);
     esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, network_event, NULL);
     if ((error = mdns_init()) != ESP_OK) return error;
@@ -545,6 +575,11 @@ esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
     mdns_service_add(NULL, "_folobutton", "_tcp", WIFI_PORT, NULL, 0);
     if (xTaskCreate(config_task, "ib_wifi_cfg", 4096, NULL, 4, NULL) != pdPASS) return ESP_ERR_NO_MEM;
     if (xTaskCreate(server_task, "ib_wifi_tls", 8192, NULL, 4, NULL) != pdPASS) return ESP_ERR_NO_MEM;
+    const esp_timer_create_args_t timer_args = {
+        .callback = handshake_timeout,
+        .name = "ib_wifi_hs",
+    };
+    if (esp_timer_create(&timer_args, &s_handshake_timer) != ESP_OK) return ESP_ERR_NO_MEM;
     s_available = true;
     ib_wifi_network_t config;
     if (active_network(&store, &config)) xQueueOverwrite(s_config_queue, &config);

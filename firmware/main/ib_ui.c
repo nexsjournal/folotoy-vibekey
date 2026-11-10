@@ -49,6 +49,7 @@ static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
 static ib_ui_ctx_t s_ctx;
 static lv_timer_t *s_frame_timer;
 static bool s_ready;
+static bool s_awake = true;
 
 static void copy_text(char *dst, size_t cap, const char *src)
 {
@@ -146,9 +147,10 @@ static void switch_to(ib_ui_screen_t screen)
     lv_obj_t *old = s_roots[s_screen];
     lv_obj_t *neu = s_roots[screen];
     // 旧页面还没完全显示出来(例如正在淡入)时不直切,免得新页面从一个没出现过的画面开始变形。
-    bool cut = cut_transition(s_screen, screen) && !lv_obj_has_flag(old, LV_OBJ_FLAG_HIDDEN) &&
-               lv_obj_get_style_opa(old, 0) == LV_OPA_COVER;
-    s_ctx.prev_screen = cut ? s_screen : IB_UI_SCREEN_NONE;
+    bool dot_cut = cut_transition(s_screen, screen) && !lv_obj_has_flag(old, LV_OBJ_FLAG_HIDDEN) &&
+                   lv_obj_get_style_opa(old, 0) == LV_OPA_COVER;
+    bool cut = !s_awake || dot_cut;
+    s_ctx.prev_screen = dot_cut && s_awake ? s_screen : IB_UI_SCREEN_NONE;
 
     if (cut) {
         lv_anim_delete(old, NULL);
@@ -421,6 +423,7 @@ void ib_ui_agent_hide(void)
 void ib_ui_set_awake(bool awake)
 {
     if (!s_ready || !bsp_lvgl_lock(LOCK_TIMEOUT_MS)) return;
+    s_awake = awake;
     if (awake) {
         lv_timer_resume(s_frame_timer);
     } else {

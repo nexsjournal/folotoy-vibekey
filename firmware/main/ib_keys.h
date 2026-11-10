@@ -33,8 +33,9 @@ typedef struct {
 } ib_key_action_t;
 
 void ib_keys_reset(ib_keys_t *k);
+bool ib_keys_wake_to_talk(ib_key_t key, bool voice_page, bool agent_capture);
 
-// now_ms:事件时刻(单调毫秒);online:Mac 在线;screen_dark:按下前屏幕是熄灭的;
+// now_ms:事件时刻(单调毫秒);online:Mac 在线;screen_dark:该次按压仅用于唤醒;
 // agent_capture:Agent 全屏通知正在显示。后两个参数只对 IB_KEY_EV_DOWN 有意义。
 ib_key_action_t ib_keys_handle(ib_keys_t *k, ib_key_t key, ib_key_ev_t ev, int64_t now_ms, bool online,
                                bool screen_dark, bool agent_capture);

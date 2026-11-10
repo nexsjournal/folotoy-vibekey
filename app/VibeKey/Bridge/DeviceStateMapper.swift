@@ -3,6 +3,10 @@ import Foundation
 /// 纯函数:把 app 状态翻译成设备界面要显示的内容(state / mode / msg / 按键提示)。
 /// 不持有任何对象,便于沿 `DeviceBridge.sync → DeviceStateMapper → DeviceLink.send*` 这条链单独测试。
 enum DeviceStateMapper {
+    nonisolated static func pendingUsageTap(elapsed: TimeInterval, hasUsageHome: Bool, recording: Bool) -> Bool {
+        hasUsageHome && recording && elapsed >= 0 && elapsed < 0.5
+    }
+
     struct State: Equatable {
         let ui: DeviceUIState
         let mode: DeviceMode

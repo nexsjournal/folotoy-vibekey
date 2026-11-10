@@ -8,6 +8,11 @@ void ib_keys_reset(ib_keys_t *k)
     memset(k, 0, sizeof(*k));
 }
 
+bool ib_keys_wake_to_talk(ib_key_t key, bool voice_page, bool agent_capture)
+{
+    return key == IB_KEY_OK && voice_page && !agent_capture;
+}
+
 ib_key_action_t ib_keys_handle(ib_keys_t *k, ib_key_t key, ib_key_ev_t ev, int64_t now_ms, bool online,
                                bool screen_dark, bool agent_capture)
 {

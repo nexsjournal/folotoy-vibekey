@@ -74,6 +74,19 @@ static void test_keys(void)
     ib_keys_reset(&k);
     ib_key_action_t a;
 
+    CHECK(ib_keys_wake_to_talk(IB_KEY_OK, true, false));
+    CHECK(!ib_keys_wake_to_talk(IB_KEY_UP, true, false));
+    CHECK(!ib_keys_wake_to_talk(IB_KEY_OK, false, false));
+    CHECK(!ib_keys_wake_to_talk(IB_KEY_OK, true, true));
+    bool dark = true;
+    bool wake_to_talk = ib_keys_wake_to_talk(IB_KEY_OK, true, false);
+    a = H(&k, IB_KEY_OK, IB_KEY_EV_DOWN, true, dark && !wake_to_talk, false);
+    CHECK(a.send);
+    a = H(&k, IB_KEY_OK, IB_KEY_EV_LONG, true, false, false);
+    CHECK(a.send);
+    a = H(&k, IB_KEY_OK, IB_KEY_EV_UP, true, false, false);
+    CHECK(a.send);
+
     // 正常按压:down / long / up 都上报,无 ack。
     a = H(&k, IB_KEY_OK, IB_KEY_EV_DOWN, true, false, false);
     CHECK(a.send && !a.ack && !a.dismiss_agent);
