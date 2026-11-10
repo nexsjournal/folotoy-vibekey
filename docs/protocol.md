@@ -18,21 +18,22 @@ Mac 设置 › Passport › Wi-Fi 无线连接中填写网络名与密码。仅�
 
 设备最多保存 4 个网络，每组的 host 与 PSK 独立；同一 SSID 再次 `add` 时覆盖原记录并设为当前网络。普通 NVS 的 `ib_wifi/networks` 保存 `version=2 + count + active + networks[]`，不改 cardid；旧 `ib_wifi/config`（version 1）在首次启动时迁移，成功后删除旧键。
 
-| USB 命令 | 行为 |
+| 网络控制命令 | 行为 |
 | --- | --- |
-| `{"cmd":"wifi","op":"add",...}` | 新增/覆盖网络并设为当前，重启 Wi-Fi 栈 |
-| `{"cmd":"wifi","op":"select","ssid":"Office"}` | 切换当前网络，重启 Wi-Fi 栈 |
-| `{"cmd":"wifi","op":"remove","ssid":"Office"}` | 删除网络；若删的是当前项则选择剩余第一项 |
-| `{"cmd":"wifi","op":"list"}` | 返回网络列表，不重启 |
-| `{"cmd":"wifi","op":"clear"}` 或 `{"clear":1}` | 清除全部网络，重启恢复 BLE |
+| `{"cmd":"wifi","op":"add",...}` | 仅 USB：新增/覆盖网络并设为当前，重启 Wi-Fi 栈 |
+| `{"cmd":"wifi","op":"select","ssid":"Office"}` | USB / Wi-Fi / BLE：切换当前网络，重启无线栈 |
+| `{"cmd":"wifi","op":"remove","ssid":"Office"}` | USB / Wi-Fi / BLE：删除网络；若删的是当前项则选择剩余第一项 |
+| `{"cmd":"wifi","op":"list"}` | 仅 USB：返回网络列表，不重启 |
+| `{"cmd":"wifi","op":"ble"}` | USB / Wi-Fi / BLE：保留配网记录，手动重启到 BLE 单栈；插回 USB 不自动回 Wi-Fi |
+| `{"cmd":"wifi","op":"clear"}` 或 `{"clear":1}` | 仅 USB：清除全部网络，重启恢复 BLE |
 
 Mac 生成 32 字节随机 PSK，仅通过 USB 交给设备。Mac 私有 CredentialStore 保存网络数组（SSID + host + PSK）；旧版单条 host/key 首次读取时自动迁移。设备只向 USB 上报 `{"t":"wifi","stage":"connecting|ready|auth_error|not_found|config_error|network_error|server_error","host":"fb-<随机值>","ip":"<局域网地址或空>","ssid":"<SSID>","active":0,"count":2}`，不返回密码或密钥。`stage:"list"` 另带 `networks:[{"ssid":"Home","host":"fb-home","active":0},...]`。USB hello 也会补发当前状态；可附加 `heap` 空闲堆字节数用于诊断，界面不展示该实现细节。初始化失败时返回 network_error，不保留虚假的 connecting。`ready` 表示设备获得 IP；Mac 的 Wi-Fi `hello` 握手完成才显示无线可用。
 
-设备离线时长按 ▼ 打开本地网络列表，短按 OK 写入 NVS active 后重启；这条路径不经过 Mac 协议。Mac 会同时尝试本机保存的所有 `host.local`，第一个 TLS 握手成功的即当前网络。
+设备在线或离线时长按 ▼ 都打开本地网络列表，最后一项 `USE BLUETOOTH` 可直接重启到 BLE 单栈；短按 OK 写入 NVS active 后重启。这条路径不经过 Mac 协议。Mac 会同时尝试本机保存的所有 `host.local` 以及最近学到的局域网地址，第一个 TLS 握手成功的即当前网络；手机热点屏蔽 mDNS 时仍可走地址回退。
 
 TLS 使用 USB 配对 PSK 验证双方并加密，无需云端。加密流内部沿用现有 JSON Lines 与 FF FE ADPCM 帧；2 个 ADPCM 块一帧，同 USB。断线自动重连并重发状态；心跳和超时策略与 USB 相同。局域网需允许设备间访问与 mDNS，访客隔离网络不适用；Mac 需运行且未锁屏，系统询问本地网络权限时允许 VibeKey。跨互联网连接不在本次范围内。
 
-Wi-Fi TLS 的按键、心跳等控制消息与 ADPCM 帧各有独立的有界队列；每帧发送前优先取控制消息，音频队列满时只丢音频。TLS 握手完成后使用非阻塞收发，暂时不可写时保留原帧和偏移，连续 8 秒无写入进度才主动重连。服务端握手有 5 秒超时，另有 6 秒看门狗强制关闭残留半连接，避免旧客户端占住唯一 TLS 服务；接受的连接启用 TCP_NODELAY。Wi-Fi 重新关联后会关闭旧 TLS 会话。Wi-Fi 启动时关闭无线省电以减少空闲后的按键延迟，代价是更高的耗电。
+Wi-Fi TLS 的按键、心跳等控制消息与 ADPCM 帧各有独立的有界队列；每帧发送前优先取控制消息，音频队列满时只丢音频。TLS 握手完成后使用非阻塞收发，暂时不可写时保留原帧和偏移，连续 8 秒无写入进度才主动重连。服务端握手有 5 秒超时，另有 6 秒看门狗强制关闭残留半连接，避免旧客户端占住唯一 TLS 服务；接受的连接启用 TCP_NODELAY。Wi-Fi 重新关联后会关闭旧 TLS 会话。Wi-Fi 启动时关闭无线省电以减少空闲后的按键延迟，代价是更高的耗电。断开后按 1→2→4→8 秒退避重连，取得 IP 后复位；状态额外上报 `rssi`，供 App 判断热点信号强度。
 
 BLE GATT:
 

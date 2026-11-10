@@ -208,27 +208,46 @@ import Security
         wifiStatus = .init(stage: "unconfigured", host: "", address: "")
     }
 
-    /// 在 USB 连接下切换设备当前网络。设备会重启 Wi-Fi 栈，USB 随后自动重连。
+    /// 在当前已握手的链路上切换设备网络（USB / Wi-Fi / BLE 均可）。设备会重启无线栈。
     func selectWiFi(ssid: String) throws {
-        guard let usb, usb.handshaken else {
-            throw NSError(domain: "WiFiSetup", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "切换网络时请先通过 USB 连接设备", bundle: .l10n)])
+        guard let link = active, isHandshaken(link) else {
+            throw NSError(domain: "WiFiSetup", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "切换网络前请先连接设备", bundle: .l10n)])
         }
         let data = try WiFiNetworkControl(operation: .select, ssid: ssid).encoded()
-        usb.port.write(data)
+        sendRaw(data, via: link)
         wifiStatus = .init(stage: "connecting", host: "", address: "", ssid: ssid)
-        if let network = wifi.networks.first(where: { $0.ssid == ssid }) {
+        // 走 Wi-Fi / BLE 时设备马上重启；此时立刻 disconnect 会把刚发出的命令取消。
+        if link == .usb, let network = wifi.networks.first(where: { $0.ssid == ssid }) {
             wifi.activate(ssid: ssid, host: network.host)
         }
     }
 
     /// 从设备与本机同时移除一组网络；不会影响其他已保存网络。
     func removeWiFi(ssid: String) throws {
-        guard let usb, usb.handshaken else {
-            throw NSError(domain: "WiFiSetup", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "移除网络时请先通过 USB 连接设备", bundle: .l10n)])
+        guard let link = active, isHandshaken(link) else {
+            throw NSError(domain: "WiFiSetup", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "移除网络前请先连接设备", bundle: .l10n)])
         }
         let data = try WiFiNetworkControl(operation: .remove, ssid: ssid).encoded()
-        usb.port.write(data)
-        wifi.remove(ssid: ssid)
+        sendRaw(data, via: link)
+        if link == .wifi {
+            // 等命令真正写出后再更新本机列表；否则可能取消正在发送的连接。
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(600))
+                self?.wifi.remove(ssid: ssid)
+            }
+        } else {
+            wifi.remove(ssid: ssid)
+        }
+    }
+
+    /// 保留已保存的 Wi-Fi，只把设备切到蓝牙单栈；之后可从设备菜单或本页切回。
+    func useBluetooth() throws {
+        guard let link = active, isHandshaken(link) else {
+            throw NSError(domain: "WiFiSetup", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "切换蓝牙前请先连接设备", bundle: .l10n)])
+        }
+        guard link != .ble else { return }
+        let data = try WiFiNetworkControl(operation: .bluetooth, ssid: "").encoded()
+        sendRaw(data, via: link)
     }
 
     /// 上传 240×320 RGB565 离线页背景。只走 USB / Wi-Fi：BLE 传 150 KB 太慢。
@@ -525,6 +544,10 @@ import Security
     /// 发到指定链路(握手阶段链路还不是 active,所以需要显式指定)。
     private func write(_ command: HostCommand, via link: DeviceLinkKind) {
         let data = command.data
+        sendRaw(data, via: link)
+    }
+
+    private func sendRaw(_ data: Data, via link: DeviceLinkKind) {
         switch link {
         case .usb: usb?.port.write(data)
         case .ble: ble.send(data)
@@ -718,6 +741,12 @@ import Security
     /// 旧实现先写本机再发 USB，设备一旦回 `config_error`，两边密钥就永久错位。
     private func handleWiFiStatus(_ status: DeviceWiFiStatus) {
         wifiStatus = status
+        if !status.address.isEmpty {
+            let active = status.networks.first(where: \.active)
+            wifi.rememberAddress(ssid: active?.ssid ?? status.ssid,
+                                 host: active?.host ?? status.host,
+                                 address: status.address)
+        }
         if pendingWiFiPair == nil {
             let active = status.networks.first(where: \.active)
             wifi.activate(ssid: active?.ssid ?? status.ssid, host: active?.host ?? status.host)

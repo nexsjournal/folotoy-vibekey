@@ -7,6 +7,7 @@ nonisolated struct DeviceWiFiStatus: Equatable, Sendable {
     var ssid: String = ""
     var active: Int?
     var count: Int?
+    var rssi: Int? = nil
     var networks: [DeviceWiFiNetwork] = []
 }
 
@@ -114,6 +115,7 @@ nonisolated enum DeviceMessage: Equatable, Sendable {
                 ssid: string("ssid") ?? "",
                 active: int("active"),
                 count: int("count"),
+                rssi: int("rssi"),
                 networks: networks
             ))
         case "hello":

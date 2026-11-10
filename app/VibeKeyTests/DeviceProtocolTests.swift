@@ -11,6 +11,8 @@ nonisolated final class DeviceProtocolTests: XCTestCase {
     func testWiFiStatusAndProvisioningUTF8Limits() throws {
         XCTAssertEqual(DeviceMessage.parse(#"{"t":"wifi","stage":"ready","host":"fb-test1234","ip":"192.0.2.1"}"#),
             .wifi(.init(stage: "ready", host: "fb-test1234", address: "192.0.2.1")))
+        XCTAssertEqual(DeviceMessage.parse(#"{"t":"wifi","stage":"ready","host":"fb-test1234","ip":"192.0.2.1","rssi":-67}"#),
+            .wifi(.init(stage: "ready", host: "fb-test1234", address: "192.0.2.1", rssi: -67)))
         XCTAssertNil(DeviceMessage.parse(#"{"t":"wifi"}"#))
         let list = DeviceMessage.parse(#"{"t":"wifi","stage":"list","count":2,"active":1,"networks":[{"ssid":"Home","host":"fb-home","active":0},{"ssid":"Office","host":"fb-office","active":1}]}"#)
         XCTAssertEqual(list, .wifi(.init(

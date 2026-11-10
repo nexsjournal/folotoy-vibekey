@@ -132,10 +132,13 @@ static bool s_wifi_menu;
 static bool s_wifi_menu_ok;
 static uint8_t s_wifi_menu_sel;
 static int64_t s_wifi_menu_touched;
+static ib_ui_screen_t s_wifi_menu_return;
 static int64_t s_wifi_restart_at;
 static bool s_ble_only;
+static bool s_ble_manual;
 static int64_t s_wifi_missing_since;
 static const char *offline_hint(void);
+static ib_ui_screen_t screen_for(ib_state_t st);
 _Static_assert(IB_CAPTION_MAX == IB_UI_CAPTION_MAX, "caption buffer size mismatch");
 _Static_assert(IB_CAPTION_APP_MAX == IB_UI_CAPTION_APP_MAX, "caption app buffer size mismatch");
 static ib_ui_screen_t s_screen = IB_UI_OFFLINE;
@@ -222,7 +225,7 @@ static void on_usb_line(const char *line, size_t len)
 
 static void on_ble_line(const char *line, size_t len)
 {
-    post_command(IB_LINK_BLE, line, len);
+    if (!ib_wifi_handle_control_line(line, len, false)) post_command(IB_LINK_BLE, line, len);
 }
 
 static void on_ble_link(bool subscribed)
@@ -231,7 +234,10 @@ static void on_ble_link(bool subscribed)
     xQueueSend(s_queue, &event, 0);
 }
 
-static void on_wifi_line(const char *line, size_t len) { post_command(IB_LINK_WIFI, line, len); }
+static void on_wifi_line(const char *line, size_t len)
+{
+    if (!ib_wifi_handle_control_line(line, len, false)) post_command(IB_LINK_WIFI, line, len);
+}
 static void on_wifi_link(bool connected)
 {
     app_event_t event = { .type = EV_LINK, .link = IB_LINK_WIFI, .subscribed = connected };
@@ -307,20 +313,23 @@ static void wifi_menu_update(int64_t now)
 {
     size_t count = ib_wifi_network_count();
     if (!count) { s_wifi_menu = false; return; }
-    if (s_wifi_menu_sel >= count) s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
+    size_t total = count + 1;       // 最后一个固定是蓝牙模式
+    if (s_wifi_menu_sel >= total) s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
     s_wifi_menu_touched = now;
     if (!s_ui_ok) return;
     ib_ui_list_t list = { 0 };
-    snprintf(list.title, sizeof(list.title), "WIFI NETWORK");
-    size_t rows = count > IB_UI_LIST_ROWS ? IB_UI_LIST_ROWS : count;
-    for (size_t i = 0; i < rows; i++) {
+    snprintf(list.title, sizeof(list.title), "WIFI / BLUETOOTH");
+    size_t rows = total > IB_UI_LIST_ROWS ? IB_UI_LIST_ROWS : total;
+    size_t network_rows = count < rows ? count : rows;
+    for (size_t i = 0; i < network_rows; i++) {
         char ssid[IB_UI_LIST_TEXT_MAX - 2];
         if (!ib_wifi_network_name(i, ssid, sizeof(ssid))) break;
         snprintf(list.items[i], sizeof(list.items[i]), "%s%s",
                  i == ib_wifi_active_network() ? "* " : "  ", ssid);
     }
+    if (rows > network_rows) snprintf(list.items[network_rows], sizeof(list.items[network_rows]), "  USE BLUETOOTH");
     list.rows = (uint8_t)rows;
-    list.n = (uint16_t)count;
+    list.n = (uint16_t)total;
     list.top = 0;
     list.sel = s_wifi_menu_sel;
     ib_ui_set_list(&list);
@@ -334,16 +343,18 @@ static void wifi_menu_close(void)
     if (!s_online) {
         if (s_ui_ok) ib_ui_set_offline_hint(offline_hint());
         show_screen(IB_UI_OFFLINE);
-    }
+    } else show_screen(s_wifi_menu_return == IB_UI_OFFLINE ? screen_for(s_st) : s_wifi_menu_return);
 }
 
 static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
 {
-    if (!s_online && !s_wifi_menu && key == IB_KEY_DOWN && ev == IB_KEY_EV_LONG) {
+    if (!s_wifi_menu && key == IB_KEY_DOWN && ev == IB_KEY_EV_LONG &&
+        (s_screen == IB_UI_IDLE || s_screen == IB_UI_USAGE || s_screen == IB_UI_OFFLINE)) {
         if (ib_wifi_network_count() == 0) {
             if (s_ui_ok) ib_ui_set_offline_hint("USB TO ADD WIFI");
             return true;
         }
+        s_wifi_menu_return = s_screen;
         s_wifi_menu = true;
         s_wifi_menu_ok = false;
         s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
@@ -355,6 +366,7 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
     s_wifi_menu_touched = now;
     size_t count = ib_wifi_network_count();
     if (!count) { wifi_menu_close(); return true; }
+    size_t total = count + 1;
     if (key == IB_KEY_OK) {
         if (ev == IB_KEY_EV_DOWN) {
             s_wifi_menu_ok = true;
@@ -363,7 +375,13 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
         } else if (ev == IB_KEY_EV_UP && s_wifi_menu_ok) {
             s_wifi_menu_ok = false;
             size_t selected = s_wifi_menu_sel;
-            if (selected == ib_wifi_active_network()) {
+            if (selected == count) {
+                s_wifi_menu = false;
+                ib_wifi_request_bluetooth();
+                if (s_ui_ok) ib_ui_set_offline_hint("SWITCHING TO BLUETOOTH...");
+                show_screen(IB_UI_OFFLINE);
+                s_wifi_restart_at = now + 700;
+            } else if (selected == ib_wifi_active_network()) {
                 wifi_menu_close();
             } else if (ib_wifi_select_network(selected)) {
                 ib_wifi_clear_ble_fallback();
@@ -378,10 +396,10 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
         return true;
     }
     if (ev == IB_KEY_EV_DOWN && key == IB_KEY_UP) {
-        s_wifi_menu_sel = s_wifi_menu_sel == 0 ? (uint8_t)(count - 1) : (uint8_t)(s_wifi_menu_sel - 1);
+        s_wifi_menu_sel = s_wifi_menu_sel == 0 ? (uint8_t)(total - 1) : (uint8_t)(s_wifi_menu_sel - 1);
         wifi_menu_update(now);
     } else if (ev == IB_KEY_EV_DOWN && key == IB_KEY_DOWN) {
-        s_wifi_menu_sel = (uint8_t)((s_wifi_menu_sel + 1) % count);
+        s_wifi_menu_sel = (uint8_t)((s_wifi_menu_sel + 1) % total);
         wifi_menu_update(now);
     }
     return true;
@@ -483,8 +501,8 @@ static void refresh_battery(int64_t now, bool force)
 static void refresh_ble_fallback(int64_t now)
 {
     if (s_ble_only) {
-        // 插回 USB 说明用户回到电脑旁；重启回 Wi-Fi 模式，USB 期间不会再自动切 BLE。
-        if (s_usb_present && !s_restart_at) {
+        // 自动回退时，插回 USB 说明用户回到电脑旁；手动选蓝牙则尊重用户选择。
+        if (!s_ble_manual && s_usb_present && !s_restart_at) {
             ib_wifi_clear_ble_fallback();
             s_restart_at = now + 500;
         }
@@ -623,14 +641,16 @@ static void go_offline(void)
     s_list_ready = false;
     s_wake_until = 0;
     s_wake_failed = false;
-    s_wifi_menu = false;
-    s_wifi_menu_ok = false;
     if (s_ui_ok) {
         ib_ui_set_ok_held(false);
         ib_ui_set_level(0);
         ib_ui_set_offline_hint(offline_hint());
     }
-    show_screen(IB_UI_OFFLINE);
+    // 用户可能正在网络菜单里切网；链路刚掉时保留菜单，关掉后再落到离线页。
+    if (!s_wifi_menu) {
+        s_wifi_menu_ok = false;
+        show_screen(IB_UI_OFFLINE);
+    }
     refresh_clock(now_ms(), true);
 }
 
@@ -657,9 +677,11 @@ static void refresh_links(int64_t now)
         if (online) {
             s_wake_until = 0;
             s_wake_failed = false;
-            s_wifi_menu = false;
-            s_wifi_menu_ok = false;
-            show_screen(screen_for(s_st));      // 回到离线前 Mac 下发的页面
+            // 菜单打开时不要被链路恢复事件顶掉；关闭菜单时再恢复原页面。
+            if (!s_wifi_menu) {
+                s_wifi_menu_ok = false;
+                show_screen(screen_for(s_st));      // 回到离线前 Mac 下发的页面
+            }
             wake(now);                          // 真正重连,用户需要看到
         } else {
             // 离线不点亮:Mac 睡眠时 SOF 停止,去抖后设备离线;此时亮屏会表现为"熄了又自己亮"。
@@ -1000,6 +1022,7 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
     if (err != ESP_OK) ESP_LOGW(TAG, "nvs init failed: %s", esp_err_to_name(err));
     bool wifi_configured = ib_wifi_is_configured();
     s_ble_only = wifi_configured && ib_wifi_ble_fallback_requested();
+    s_ble_manual = s_ble_only && ib_wifi_ble_manual_requested();
     if (!wifi_configured) ib_wifi_clear_ble_fallback();
     if (s_ble_only) {
         // Wi-Fi 连续拿不到 IP 后切到 BLE 单栈；Wi-Fi 配网记录仍保留在 NVS。
@@ -1007,6 +1030,7 @@ esp_err_t ib_app_start(bool ui_ok, bool battery_ok)
             ESP_LOGE(TAG, "BLE fallback unavailable, retrying Wi-Fi");
             ib_wifi_clear_ble_fallback();
             s_ble_only = false;
+            s_ble_manual = false;
         }
     }
     if (!s_ble_only && wifi_configured) {

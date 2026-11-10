@@ -13,9 +13,15 @@ bool ib_wifi_is_configured(void);
 bool ib_wifi_is_ready(void);
 // Wi-Fi 连续失败时重启到 BLE 单栈模式；标记保存在 RTC，断电后回到自动 Wi-Fi。
 bool ib_wifi_ble_fallback_requested(void);
+// 用户主动选择蓝牙；插回 USB 也不自动切回 Wi-Fi。
+bool ib_wifi_ble_manual_requested(void);
 void ib_wifi_request_ble_fallback(void);
+void ib_wifi_request_bluetooth(void);
 void ib_wifi_clear_ble_fallback(void);
-// 仅由 USB 收包入口调用。识别 wifi 命令后返回 true；凭据从不输出日志。
+// 识别 wifi 命令后返回 true；凭据从不输出日志。
+// allow_provisioning=false 时只接受 list/select/remove/ble，新增与清除仍必须走 USB。
+bool ib_wifi_handle_control_line(const char *line, size_t len, bool allow_provisioning);
+// USB 收包入口：允许新增与清除配网。
 bool ib_wifi_handle_usb_line(const char *line, size_t len);
 void ib_wifi_send(const uint8_t *data, size_t len);
 void ib_wifi_send_audio(const uint8_t *data, size_t len);

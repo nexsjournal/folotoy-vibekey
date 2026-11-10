@@ -35,6 +35,11 @@ nonisolated final class WiFiNetworkStoreTests: XCTestCase {
         XCTAssertNil(select?["password"])
         XCTAssertNil(select?["psk"])
 
+        let bluetooth = try JSONSerialization.jsonObject(
+            with: WiFiNetworkControl(operation: .bluetooth, ssid: "").encoded()) as? [String: Any]
+        XCTAssertEqual(bluetooth?["op"] as? String, "ble")
+        XCTAssertNil(bluetooth?["ssid"])
+
         let key = Data(repeating: 7, count: 32)
         let add = try JSONSerialization.jsonObject(
             with: WiFiProvisioning(ssid: "Home", password: "12345678", host: "fb-home", key: key).encoded()

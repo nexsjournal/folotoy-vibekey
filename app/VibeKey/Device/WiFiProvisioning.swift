@@ -31,12 +31,20 @@ nonisolated struct WiFiProvisioning {
 
 /// USB 侧选择 / 移除网络。只发送 SSID；密码和 PSK 始终留在设备与本机凭据文件中。
 nonisolated struct WiFiNetworkControl {
-    enum Operation: String { case select, remove }
+    enum Operation: String {
+        case select, remove
+        case bluetooth = "ble"
+    }
 
     let operation: Operation
     let ssid: String
 
     func encoded() throws -> Data {
+        if operation == .bluetooth {
+            var data = try JSONSerialization.data(withJSONObject: ["cmd": "wifi", "op": operation.rawValue])
+            data.append(10)
+            return data
+        }
         guard !ssid.isEmpty, ssid.utf8.count <= 32 else { throw Failure.invalid }
         let message: [String: Any] = ["cmd": "wifi", "op": operation.rawValue, "ssid": ssid]
         var data = try JSONSerialization.data(withJSONObject: message)

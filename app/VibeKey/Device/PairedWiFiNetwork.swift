@@ -6,6 +6,9 @@ nonisolated struct PairedWiFiNetwork: Codable, Equatable, Identifiable, Sendable
     var ssid: String
     var host: String
     var keyHex: String
+    /// 设备在 USB 状态里上报过、或上次连上时学到的局域网地址。手机热点常屏蔽 mDNS，
+    /// 连接时与 `host.local` 并行尝试，地址变了也不会影响 mDNS 路径。
+    var lastIP: String? = nil
 
     var id: String { host }
     var displayName: String { ssid.isEmpty ? host : ssid }

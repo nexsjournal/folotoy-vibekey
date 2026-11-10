@@ -31,12 +31,14 @@
 #define NVS_NAMESPACE "ib_wifi"
 #define NVS_STORE_KEY "networks"
 #define NVS_LEGACY_KEY "config"
+#define NVS_BLE_MODE_KEY "ble_mode"
 // 最大上行音频帧 334 字节，JSON 回复也小于 512；无需为每个队列项预留 1 KB。
 #define PACKET_MAX 512
 #define WIFI_STALL_US (8 * INT64_C(1000000))
 #define WIFI_HANDSHAKE_TIMEOUT_US (6 * INT64_C(1000000))
 #define BLE_FALLBACK_MAGIC 0x56425331u     // "VBS1"
 #define BLE_FALLBACK_MODE 1
+#define BLE_MANUAL_MODE 2
 static const char *TAG = "ib_wifi";
 typedef struct { size_t len; uint8_t bytes[PACKET_MAX]; } packet_t;
 static QueueHandle_t s_config_queue, s_control_tx, s_audio_tx;
@@ -55,8 +57,11 @@ static esp_netif_t *s_netif;
 static volatile int s_handshake_fd = -1;
 static volatile int64_t s_handshake_started;
 static esp_timer_handle_t s_handshake_timer;
-RTC_DATA_ATTR static uint32_t s_boot_mode_magic;
-RTC_DATA_ATTR static uint8_t s_boot_mode;
+static esp_timer_handle_t s_reconnect_timer;
+static uint32_t s_reconnect_delay_ms = 1000;
+// RTC_DATA_ATTR 在软件重启时会由启动代码清零；这里必须用 NOINIT，靠 magic 排除上电随机值。
+RTC_NOINIT_ATTR static uint32_t s_boot_mode_magic;
+RTC_NOINIT_ATTR static uint8_t s_boot_mode;
 
 static bool save_store(const ib_wifi_store_t *store)
 {
@@ -151,19 +156,54 @@ bool ib_wifi_is_ready(void)
 
 bool ib_wifi_ble_fallback_requested(void)
 {
-    return s_boot_mode_magic == BLE_FALLBACK_MAGIC && s_boot_mode == BLE_FALLBACK_MODE;
+    if (s_boot_mode_magic == BLE_FALLBACK_MAGIC) {
+        return s_boot_mode == BLE_FALLBACK_MODE || s_boot_mode == BLE_MANUAL_MODE;
+    }
+    nvs_handle_t nvs;
+    uint8_t mode = 0;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs) != ESP_OK) return false;
+    bool requested = nvs_get_u8(nvs, NVS_BLE_MODE_KEY, &mode) == ESP_OK
+        && (mode == BLE_FALLBACK_MODE || mode == BLE_MANUAL_MODE);
+    nvs_close(nvs);
+    return requested;
 }
 
-void ib_wifi_request_ble_fallback(void)
+bool ib_wifi_ble_manual_requested(void)
 {
-    s_boot_mode = BLE_FALLBACK_MODE;
-    s_boot_mode_magic = BLE_FALLBACK_MAGIC;
+    if (s_boot_mode_magic == BLE_FALLBACK_MAGIC) return s_boot_mode == BLE_MANUAL_MODE;
+    nvs_handle_t nvs;
+    uint8_t mode = 0;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs) != ESP_OK) return false;
+    bool requested = nvs_get_u8(nvs, NVS_BLE_MODE_KEY, &mode) == ESP_OK && mode == BLE_MANUAL_MODE;
+    nvs_close(nvs);
+    return requested;
 }
+
+static void request_boot_mode(uint8_t mode)
+{
+    s_boot_mode = mode;
+    s_boot_mode_magic = BLE_FALLBACK_MAGIC;
+    nvs_handle_t nvs;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) == ESP_OK) {
+        if (nvs_set_u8(nvs, NVS_BLE_MODE_KEY, mode) == ESP_OK) nvs_commit(nvs);
+        nvs_close(nvs);
+    }
+}
+
+void ib_wifi_request_ble_fallback(void) { request_boot_mode(BLE_FALLBACK_MODE); }
+
+void ib_wifi_request_bluetooth(void) { request_boot_mode(BLE_MANUAL_MODE); }
 
 void ib_wifi_clear_ble_fallback(void)
 {
     s_boot_mode_magic = 0;
     s_boot_mode = 0;
+    nvs_handle_t nvs;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) == ESP_OK) {
+        esp_err_t error = nvs_erase_key(nvs, NVS_BLE_MODE_KEY);
+        if (error == ESP_OK) nvs_commit(nvs);
+        nvs_close(nvs);
+    }
 }
 
 static void status(const char *stage, const char *ip)
@@ -184,6 +224,8 @@ static void status(const char *stage, const char *ip)
     cJSON_AddStringToObject(root, "ip", ip ? ip : "");
     cJSON_AddNumberToObject(root, "active", store.count ? store.active : 0);
     cJSON_AddNumberToObject(root, "count", store.count);
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) cJSON_AddNumberToObject(root, "rssi", ap.rssi);
     cJSON_AddNumberToObject(root, "heap", esp_get_free_heap_size());
     if (cJSON_PrintPreallocated(root, out, sizeof(out) - 1, false)) {
         size_t n = strlen(out); out[n++] = '\n'; ib_usb_send(out, n);
@@ -231,6 +273,12 @@ void ib_wifi_report_status(void)
     status(stage, ip);
 }
 
+static void reconnect_timer_cb(void *arg)
+{
+    (void)arg;
+    if (s_configured) esp_wifi_connect();
+}
+
 static void network_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg;
@@ -240,15 +288,25 @@ static void network_event(void *arg, esp_event_base_t base, int32_t id, void *da
         // IP 可能很快恢复，仍须关闭上一轮关联留下的 TLS 会话。
         portENTER_CRITICAL(&s_lock); s_generation++; portEXIT_CRITICAL(&s_lock);
         const wifi_event_sta_disconnected_t *event = data;
-        ESP_LOGW(TAG, "STA disconnected: reason=%u", (unsigned)event->reason);
+        wifi_ap_record_t ap;
+        int rssi = esp_wifi_sta_get_ap_info(&ap) == ESP_OK ? ap.rssi : 0;
+        ESP_LOGW(TAG, "STA disconnected: reason=%u rssi=%d", (unsigned)event->reason, rssi);
         const char *stage = (event->reason == WIFI_REASON_AUTH_FAIL || event->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT)
             ? "auth_error" : event->reason == WIFI_REASON_NO_AP_FOUND ? "not_found" : "connecting";
         status(stage, NULL);
-        if (s_configured) esp_wifi_connect();
+        // 热点或信号抖动时不要立刻重连打满驱动；1→2→4→8 秒退避，入网后复位。
+        if (s_configured && s_reconnect_timer) {
+            esp_timer_stop(s_reconnect_timer);
+            uint32_t delay_ms = s_reconnect_delay_ms;
+            s_reconnect_delay_ms = delay_ms < 8000 ? delay_ms * 2 : 8000;
+            esp_timer_start_once(s_reconnect_timer, (uint64_t)delay_ms * 1000);
+        }
     }
     if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         const ip_event_got_ip_t *event = data;
         char ip[16]; snprintf(ip, sizeof(ip), IPSTR, IP2STR(&event->ip_info.ip));
+        s_reconnect_delay_ms = 1000;
+        if (s_reconnect_timer) esp_timer_stop(s_reconnect_timer);
         xEventGroupSetBits(s_events, IP_READY);
         status("ready", ip);
     }
@@ -431,6 +489,8 @@ static void config_task(void *arg)
     for (;;) {
         if (xQueueReceive(s_config_queue, &next, portMAX_DELAY) != pdTRUE) continue;
         s_configured = false;
+        if (s_reconnect_timer) esp_timer_stop(s_reconnect_timer);
+        s_reconnect_delay_ms = 1000;
         xEventGroupClearBits(s_events, IP_READY);
         esp_wifi_disconnect();
         esp_wifi_stop();
@@ -459,7 +519,7 @@ static int hex_digit(char c)
     return -1;
 }
 
-bool ib_wifi_handle_usb_line(const char *line, size_t len)
+bool ib_wifi_handle_control_line(const char *line, size_t len, bool allow_provisioning)
 {
     // Wi-Fi 凭据保留 UTF-8，不经过屏幕协议的 ASCII 文本归一化。
     cJSON *root = cJSON_ParseWithLength(line, len);
@@ -470,6 +530,7 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     const cJSON *clear = cJSON_GetObjectItemCaseSensitive(root, "clear");
     const char *operation = cJSON_IsString(op) ? op->valuestring : "add";
     if ((cJSON_IsNumber(clear) && clear->valueint == 1) || strcmp(operation, "clear") == 0) {
+        if (!allow_provisioning) { cJSON_Delete(root); return false; }
         nvs_handle_t nvs;
         bool cleared = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) == ESP_OK;
         if (cleared) {
@@ -493,8 +554,19 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     }
 
     if (strcmp(operation, "list") == 0) {
+        if (!allow_provisioning) { cJSON_Delete(root); return false; }
         send_network_list();
         cJSON_Delete(root);
+        return true;
+    }
+
+    // 不删除配网记录，只让设备重启到 BLE 单栈；之后仍可从设备菜单或 App 切回 Wi-Fi。
+    if (strcmp(operation, "ble") == 0) {
+        ib_wifi_request_bluetooth();
+        status("ble", NULL);
+        cJSON_Delete(root);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        esp_restart();
         return true;
     }
 
@@ -531,6 +603,7 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
         return true;
     }
 
+    if (!allow_provisioning) { cJSON_Delete(root); return false; }
     if (strcmp(operation, "add") != 0) {
         status("config_error", NULL);
         cJSON_Delete(root);
@@ -582,6 +655,11 @@ bool ib_wifi_handle_usb_line(const char *line, size_t len)
     return true;
 }
 
+bool ib_wifi_handle_usb_line(const char *line, size_t len)
+{
+    return ib_wifi_handle_control_line(line, len, true);
+}
+
 esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
 {
     ib_wifi_clear_ble_fallback();
@@ -614,6 +692,12 @@ esp_err_t ib_wifi_start(ib_wifi_line_cb_t line, ib_wifi_link_cb_t link)
         .name = "ib_wifi_hs",
     };
     if (esp_timer_create(&timer_args, &s_handshake_timer) != ESP_OK) return ESP_ERR_NO_MEM;
+    const esp_timer_create_args_t reconnect_args = {
+        .callback = reconnect_timer_cb,
+        .name = "ib_wifi_retry",
+    };
+    if (esp_timer_create(&reconnect_args, &s_reconnect_timer) != ESP_OK) return ESP_ERR_NO_MEM;
+    s_reconnect_delay_ms = 1000;
     s_available = true;
     ib_wifi_network_t config;
     if (active_network(&store, &config)) xQueueOverwrite(s_config_queue, &config);

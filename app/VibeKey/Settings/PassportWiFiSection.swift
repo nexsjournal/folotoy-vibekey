@@ -8,23 +8,32 @@ struct PassportWiFiSection: View {
     @State private var error: String?
 
     var body: some View {
-        SettingsSection(title: "Wi-Fi 无线连接", footer: "最多保存 4 个网络。首次添加请保留 USB；设备和 Mac 在同一局域网后，拔掉数据线即可使用。设备离线时长按 ▼ 也能切网；密码只经 USB 发给设备。") {
+        SettingsSection(title: "Wi-Fi 无线连接", footer: "最多保存 4 个网络。首次添加请保留 USB；之后设备在线或离线都可长按 ▼ 切换网络或蓝牙。密码只经 USB 发给设备。") {
             Card {
                 VStack(alignment: .leading, spacing: DS.Space.m) {
                     HStack {
                         Image(systemName: "wifi").foregroundStyle(link.wifiReady ? DS.success : Color.secondary)
                         Text(status)
                         Spacer()
+                        if let rssi = link.wifiStatus?.rssi, rssi != 0 {
+                            Text("信号 \(rssi) dBm")
+                                .font(.caption)
+                                .foregroundStyle(rssi < -75 ? DS.danger : Color.secondary)
+                        }
                         if let count = link.wifiStatus?.count, count > 0 {
                             Text("设备已存 \(count)/4").font(.caption).foregroundStyle(.secondary)
                         }
+                    }
+                    if let rssi = link.wifiStatus?.rssi, rssi != 0, rssi < -75 {
+                        Text("热点信号较弱：靠近手机，iPhone 请打开「最大兼容性」以使用 2.4 GHz。")
+                            .font(.caption).foregroundStyle(DS.danger)
                     }
                     if !link.wifiNetworks.isEmpty {
                         Divider()
                         ForEach(link.wifiNetworks) { network in
                             networkRow(network)
                         }
-                        Text("设备端：离线时长按 ▼ 打开网络列表，短按上下选择，短按 OK 切换；长按 OK 返回。")
+                        Text("设备端：长按 ▼ 打开网络列表，短按上下选择，短按 OK 切换；最后一项 USE BLUETOOTH 可直接切蓝牙。长按 OK 返回。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Divider()
@@ -40,14 +49,23 @@ struct PassportWiFiSection: View {
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(link.usbPortPath == nil || ssid.isEmpty || (!password.isEmpty && !(8...63).contains(password.utf8.count)))
                         if link.wifiConfigured {
+                            Button("改用蓝牙") {
+                                do { try link.useBluetooth(); error = nil }
+                                catch { self.error = error.localizedDescription }
+                            }
+                            .disabled(!canManage || link.connection == .ble)
                             Button("清除全部 Wi-Fi") { link.forgetWiFi() }
                                 .disabled(link.usbPortPath == nil)
                         }
                         if link.usbPortPath == nil { Text("重新配网时需要 USB 连接").font(.caption).foregroundStyle(.secondary) }
                     }
+                    if link.wifiConfigured {
+                        Text("改用蓝牙不会删除已存网络；之后在设备上长按 ▼ 选择 Wi‑Fi 即可切回。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if let error { Text(error).font(.caption).foregroundStyle(DS.danger) }
                     if link.wifiHandshakeFailed {
-                        Text("保持 USB 连接，重新输入 Wi-Fi 密码并点「保存并连接」；或点「清除 Wi-Fi 配对」让设备回到蓝牙。")
+                        Text("保持 USB 连接，重新输入 Wi-Fi 密码并点「添加并切换」；或点「改用蓝牙」跳过 Wi-Fi。")
                             .font(.caption).foregroundStyle(DS.danger)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -73,7 +91,7 @@ struct PassportWiFiSection: View {
                     catch { self.error = error.localizedDescription }
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .disabled(link.usbPortPath == nil)
+                .disabled(!canManage)
                 Button {
                     do { try link.removeWiFi(ssid: network.ssid); error = nil }
                     catch { self.error = error.localizedDescription }
@@ -82,13 +100,14 @@ struct PassportWiFiSection: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(DS.danger)
-                .disabled(link.usbPortPath == nil)
+                .disabled(!canManage)
             }
         }
     }
 
     private var status: LocalizedStringKey {
         if link.connection == .wifi { return "Wi-Fi 已连接" }
+        if link.connection == .ble { return "蓝牙已连接（暂停 Wi-Fi）" }
         if link.wifiReady { return "Wi-Fi 已就绪，拔线后自动切换" }
         if link.wifiHandshakeFailed { return "设备已入网，但加密握手失败，请用 USB 重新配网" }
         switch link.wifiStatus?.stage {
@@ -100,4 +119,6 @@ struct PassportWiFiSection: View {
         default: return link.wifiConfigured ? "正在寻找已配对的设备" : "尚未配置 Wi-Fi"
         }
     }
+
+    private var canManage: Bool { link.connection != .disconnected }
 }

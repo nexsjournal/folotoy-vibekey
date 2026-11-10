@@ -76,6 +76,22 @@ final class WiFiClient {
         if changed { persist() }
     }
 
+    /// 记住设备当前局域网地址。手机热点可能屏蔽 mDNS，下一次连接会同时尝试这个地址。
+    func rememberAddress(ssid: String, host: String, address: String) {
+        guard !address.isEmpty else { return }
+        var changed = false
+        for index in networks.indices {
+            let matchesHost = !host.isEmpty && networks[index].host == host
+            let matchesSSID = !ssid.isEmpty && networks[index].ssid == ssid
+            guard matchesHost || matchesSSID else { continue }
+            if networks[index].lastIP != address {
+                networks[index].lastIP = address
+                changed = true
+            }
+        }
+        if changed { persist() }
+    }
+
     func remove(ssid: String) {
         guard networks.contains(where: { $0.ssid == ssid }) else { return }
         let wasActive = networks.first(where: { $0.host == preferredHost })?.ssid == ssid
@@ -153,35 +169,41 @@ final class WiFiClient {
         retry?.cancel(); retry = nil
         generation += 1
         let current = generation
+        let identity = Data("folobutton".utf8)
+        let identityData = identity.withUnsafeBytes { DispatchData(bytes: $0) }
         for network in networks {
             guard let key = network.key else { continue }
-            let tls = NWProtocolTLS.Options()
-            let identity = Data("folobutton".utf8)
             let keyData = key.withUnsafeBytes { DispatchData(bytes: $0) }
-            let identityData = identity.withUnsafeBytes { DispatchData(bytes: $0) }
-            sec_protocol_options_add_pre_shared_key(tls.securityProtocolOptions, keyData as __DispatchData, identityData as __DispatchData)
-            sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
-            sec_protocol_options_set_max_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
-            // PSK 套件尚未暴露到新的 tls_ciphersuite_t 枚举，使用仍受支持的 Security 兼容入口。
-            // ECDHE 提供前向保密，ChaCha20-Poly1305 提供加密与完整性保护。
-            sec_protocol_options_add_tls_ciphersuite(tls.securityProtocolOptions, SSLCipherSuite(TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256))
-            let candidate = NWConnection(host: .init(network.host + ".local"), port: 8765, using: NWParameters(tls: tls))
-            attempts.append(candidate)
-            candidate.stateUpdateHandler = { [weak self, weak candidate] state in
-                guard let candidate else { return }
-                Task { @MainActor in
-                    guard let self, current == self.generation else { return }
-                    switch state {
-                    case .ready:
-                        self.choose(candidate, network: network, generation: current)
-                    case .failed, .cancelled:
-                        self.fail(candidate, generation: current)
-                    default:
-                        break
+            var endpoints = [network.host + ".local"]
+            if let ip = network.lastIP, !ip.isEmpty, !endpoints.contains(ip) { endpoints.append(ip) }
+            for endpoint in endpoints {
+                let tls = NWProtocolTLS.Options()
+                sec_protocol_options_add_pre_shared_key(tls.securityProtocolOptions, keyData as __DispatchData, identityData as __DispatchData)
+                sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
+                sec_protocol_options_set_max_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
+                // PSK 套件尚未暴露到新的 tls_ciphersuite_t 枚举，使用仍受支持的 Security 兼容入口。
+                // ECDHE 提供前向保密，ChaCha20-Poly1305 提供加密与完整性保护。
+                sec_protocol_options_add_tls_ciphersuite(tls.securityProtocolOptions, SSLCipherSuite(TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256))
+                let candidate = NWConnection(host: .init(endpoint), port: 8765, using: NWParameters(tls: tls))
+                attempts.append(candidate)
+                candidate.stateUpdateHandler = { [weak self, weak candidate] state in
+                    guard let candidate else { return }
+                    Task { @MainActor in
+                        guard let self, current == self.generation else { return }
+                        switch state {
+                        case .ready:
+                            self.choose(candidate, network: network,
+                                        address: endpoint == network.lastIP ? endpoint : nil,
+                                        generation: current)
+                        case .failed, .cancelled:
+                            self.fail(candidate, generation: current)
+                        default:
+                            break
+                        }
                     }
                 }
+                candidate.start(queue: queue)
             }
-            candidate.start(queue: queue)
         }
         guard !attempts.isEmpty else { return }
         timeout = Task { [weak self] in
@@ -191,7 +213,7 @@ final class WiFiClient {
         }
     }
 
-    private func choose(_ candidate: NWConnection, network: PairedWiFiNetwork, generation current: Int) {
+    private func choose(_ candidate: NWConnection, network: PairedWiFiNetwork, address: String?, generation current: Int) {
         guard current == generation else { candidate.cancel(); return }
         guard connection == nil else { candidate.stateUpdateHandler = nil; candidate.cancel(); return }
         timeout?.cancel(); timeout = nil
@@ -204,6 +226,9 @@ final class WiFiClient {
         preferredHost = network.host
         host = network.host
         activeSSID = network.ssid
+        if let address, let index = networks.firstIndex(where: { $0.host == network.host }) {
+            networks[index].lastIP = address
+        }
         persist()
         ready = true
         onReady?()
