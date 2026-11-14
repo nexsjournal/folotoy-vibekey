@@ -17,7 +17,7 @@ FoloVibe Key 基于 [InputBetter](https://github.com/racall/InputBetter) 提交 
   - 字幕条上的「字幕记录」可以查看本场的全部字幕,拷贝或保存成文本文件;记录窗口可以固定在屏幕右侧,半透明并始终置顶。记录窗口的「总结」页可以让 AI 每隔几分钟总结一次刚才的内容(接口用设置里配置的服务,模型可另选;只在显示这一页并打开开关时总结,关窗口自动暂停)。
   - 结束字幕前在字幕条的 ⏹ 上弹出小气泡确认一次(可关闭,不弹模态框),结束后自动打开字幕记录窗口,可以在那里查看、总结(分段 / 全文)和保存。app 不保存字幕历史,记录只在内存里。
 - **Passport 硬件**(右侧从上到下:上键 / 下键 / OK 键,屏幕右边的提示贴着对应按键):
-  - USB、BLE 或同一局域网 Wi‑Fi 连接；首次通过 USB 在 设置 › Passport 配置 2.4 GHz Wi‑Fi，显示无线就绪后可拔线；最多保存 4 个网络。首次添加新网络须通过 USB；已经保存的网络可在设备在线时长按 ▲、离线时长按 ▼，用上下键选择，短按 OK 切换；长按 ▼ 仍用于 Agent 导航。菜单最后一项 `USE BLUETOOTH` 可保留配网并直接切蓝牙；
+  - USB、BLE 或同一局域网 Wi‑Fi 连接；首次通过 USB 在 设置 › Passport 配置 2.4 GHz Wi‑Fi，显示无线就绪后可拔线；最多保存 4 个网络。首次添加新网络须通过 USB；已经保存的网络可在设备在线时长按 ▲、离线时长按 ▼，用上下键选择，短按 OK 切换。蓝牙在线时选择当前标记的 Wi‑Fi 也会切回无线；Wi‑Fi 离线时选当前网络可重试连接。长按 ▼ 仍用于 Agent 导航，菜单最后一项 `USE BLUETOOTH` 可保留配网并直接切蓝牙；
   - 设置 › Passport › 连接状态显示当前链路、最后在线、固件 build、电量和充电电压；Agent 导航可逐个检测 Codex、DeepSeek、WorkBuddy、ZCode、Claude 等是否能读到项目和会话；
   - 设置 › 智能体 › 用量：读取 Codex 官方 app-server 的真实账户数据，显示今日 / 本周 / 累计 Token、每周额度剩余、重置倒计时、套餐和重置券；不读聊天正文，其他 Agent 没有公开用量接口时显示暂无数据；
   - 进入 Codex、DSH NEXT、WorkBuddy、ZCode、Claude 等 Agent 后，Passport 先显示该应用的 USAGE 首页：Codex 显示今日 / 本周 / 累计 Token、5 小时与每周额度；DSH 显示上下文、会话数、模型、轮次；Claude / ZCode / WorkBuddy 显示各自的 sessions / turns / traces / spans 与最近活动；短按 OK 进入 READY，READY 再次短按 OK 返回用量首页，长按 OK 直接说话，短按上下切换周期；

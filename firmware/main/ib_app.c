@@ -382,7 +382,9 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
                 if (s_ui_ok) ib_ui_set_offline_hint("SWITCHING TO BLUETOOTH...");
                 show_screen(IB_UI_OFFLINE);
                 s_wifi_restart_at = now + 700;
-            } else if (selected == ib_wifi_active_network()) {
+            // active_network 只是 NVS 里的首选配置；处于 BLE 或 Wi-Fi 离线时，选同一项仍应重启尝试 Wi-Fi。
+            } else if (selected == ib_wifi_active_network()
+                       && ib_links_alive(&s_links, IB_LINK_WIFI, now)) {
                 wifi_menu_close();
             } else if (ib_wifi_select_network(selected)) {
                 ib_wifi_clear_ble_fallback();
