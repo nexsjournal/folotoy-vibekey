@@ -197,6 +197,7 @@ void ib_app_on_button(bsp_btn_t btn, bsp_btn_ev_t ev, void *user)
     case BSP_BTN_PRESS: event.key_ev = IB_KEY_EV_DOWN; break;
     case BSP_BTN_RELEASE: event.key_ev = IB_KEY_EV_UP; break;
     case BSP_BTN_LONG: event.key_ev = IB_KEY_EV_LONG; break;
+    case BSP_BTN_EXTRA_LONG: event.key_ev = IB_KEY_EV_EXTRA_LONG; break;
     default: return;
     }
     xQueueSend(s_queue, &event, 0);
@@ -348,8 +349,9 @@ static void wifi_menu_close(void)
 
 static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
 {
-    if (!s_wifi_menu && ev == IB_KEY_EV_LONG &&
-        (key == IB_KEY_UP || (!s_online && key == IB_KEY_DOWN)) &&
+    if (!s_wifi_menu &&
+        ((ev == IB_KEY_EV_EXTRA_LONG && key == IB_KEY_UP) ||
+         (ev == IB_KEY_EV_LONG && key == IB_KEY_DOWN && (!s_online || s_ble_only))) &&
         (s_screen == IB_UI_IDLE || s_screen == IB_UI_USAGE || s_screen == IB_UI_OFFLINE)) {
         if (ib_wifi_network_count() == 0) {
             if (s_ui_ok) ib_ui_set_offline_hint("USB TO ADD WIFI");
@@ -359,6 +361,8 @@ static bool wifi_menu_key(ib_key_t key, ib_key_ev_t ev, int64_t now)
         s_wifi_menu = true;
         s_wifi_menu_ok = false;
         s_wifi_menu_sel = (uint8_t)ib_wifi_active_network();
+        // 菜单内按键由固件消费，松开事件不会再经过 ib_keys；清掉底层按下态，避免下一次按键被当成重复 down。
+        ib_keys_reset(&s_keys);
         wifi_menu_update(now);
         return true;
     }

@@ -6,7 +6,7 @@
 #include <string.h>
 
 static const char *const KEY_NAMES[IB_KEY_COUNT] = { "up", "down", "ok" };
-static const char *const KEY_EV_NAMES[IB_KEY_EV_COUNT] = { "down", "up", "long" };
+static const char *const KEY_EV_NAMES[IB_KEY_EV_COUNT] = { "down", "up", "long", "extra_long" };
 static const char *const STATE_NAMES[IB_ST_COUNT] = { "idle", "rec", "proc", "done", "err", "sub", "list", "usage" };
 static const char *const MODE_NAMES[IB_MODE_COUNT] = { "dict", "tr", "sub" };
 static const char *const AGENT_EV_NAMES[IB_AGENT_COUNT] = { "done", "input", "clear" };

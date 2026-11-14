@@ -52,6 +52,7 @@ typedef enum {
     IB_KEY_EV_DOWN = 0,     // 按下瞬间
     IB_KEY_EV_UP,           // 松开
     IB_KEY_EV_LONG,         // 按住 1 秒
+    IB_KEY_EV_EXTRA_LONG,   // 按住约 2.5 秒
     IB_KEY_EV_COUNT,
 } ib_key_ev_t;
 
@@ -204,7 +205,7 @@ typedef struct {
 } ib_cmd_t;
 
 const char *ib_key_name(ib_key_t key);          // "up" / "down" / "ok";越界 "?"
-const char *ib_key_ev_name(ib_key_ev_t ev);     // "down" / "up" / "long";越界 "?"
+const char *ib_key_ev_name(ib_key_ev_t ev);     // "down" / "up" / "long" / "extra_long";越界 "?"
 const char *ib_state_name(ib_state_t st);
 const char *ib_mode_name(ib_mode_t mode);
 const char *ib_agent_ev_name(ib_agent_ev_t ev);

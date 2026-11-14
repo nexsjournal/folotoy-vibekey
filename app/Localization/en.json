@@ -426,6 +426,7 @@
   "更轻量的多语言模型，下载更小。": "A lighter multilingual model with a smaller download.",
   "最后在线": "Last seen",
   "最多保存 4 个网络。首次添加请保留 USB；设备和 Mac 在同一局域网后，拔掉数据线即可使用。设备离线时长按 ▼ 也能切网；密码只经 USB 发给设备。": "Up to 4 networks can be saved. Keep USB connected for the first setup; once the device and Mac are on the same LAN, unplug the cable. When the device is offline, long-press ▼ to switch networks. Passwords are sent to the device over USB only.",
+  "最多保存 4 个网络。首次添加请保留 USB；长按 ▲ 约 1 秒切换听写、翻译和字幕，继续按住到约 2.5 秒切换网络或蓝牙。蓝牙模式或离线时长按 ▼ 也可打开网络列表。密码只经 USB 发给设备。": "Up to 4 networks can be saved. Keep USB connected for the first setup. Long-press ▲ for about 1 second to switch between dictation, translation and subtitles; keep holding until about 2.5 seconds to switch networks or Bluetooth. In Bluetooth mode or offline, long-press ▼ to open the network list. Passwords are sent to the device over USB only.",
   "有新固件": "Update Available",
   "有新版本 %@": "Version %@ available",
   "服务暂时不可用（%@）": "Service temporarily unavailable (%@)",
@@ -657,6 +658,7 @@
   "设备无响应，正在重新连接": "Device isn't responding. Reconnecting…",
   "设备未应答握手": "The device didn't answer the handshake",
   "设备端：离线时长按 ▼ 打开网络列表，短按上下选择，短按 OK 切换；长按 OK 返回。": "On the device: when offline, long-press ▼ to open the network list, use ▲/▼ to select, tap OK to switch, and long-press OK to go back.",
+  "设备端：长按 ▲ 约 1 秒切换听写、翻译和字幕，继续到约 2.5 秒打开网络列表；蓝牙模式或离线时长按 ▼ 也可打开。短按上下选择，短按 OK 切换；最后一项 USE BLUETOOTH 可直接切蓝牙。长按 OK 返回。": "On the device: long-press ▲ for about 1 second to switch between dictation, translation and subtitles; keep holding until about 2.5 seconds to open the network list. In Bluetooth mode or offline, long-press ▼ to open it too. Use ▲/▼ to select and tap OK to switch; the last item, USE BLUETOOTH, switches directly to Bluetooth. Long-press OK to go back.",
   "设置…": "Settings…",
   "设置说话快捷键": "Set Your Talk Shortcut",
   "识别": "Speech Recognition",
@@ -787,5 +789,14 @@
   "鼠标悬停可开始听写或打开字幕": "Hover to start dictation or captions",
   "（以服务商官网为准）": " (see the provider's website for current terms)",
   "（未下载）": " (Not Downloaded)",
-  "（未配置）": " (Not Set Up)"
+  "（未配置）": " (Not Set Up)",
+  "保持 USB 连接，重新输入 Wi-Fi 密码并点「添加并切换」；或点「改用蓝牙」跳过 Wi-Fi。": "Keep USB connected, re-enter the Wi-Fi password and click Add and Switch; or click Use Bluetooth to skip Wi-Fi.",
+  "信号 %lld dBm": "Signal %lld dBm",
+  "切换网络前请先连接设备": "Connect the device before switching networks.",
+  "切换蓝牙前请先连接设备": "Connect the device before switching to Bluetooth.",
+  "改用蓝牙": "Use Bluetooth",
+  "改用蓝牙不会删除已存网络；之后在设备上长按 ▲ 约 1 秒切换模式，继续按住到约 2.5 秒选择 Wi‑Fi 即可切回。": "Using Bluetooth keeps saved networks. To return, long-press ▲ for about 1 second to switch modes, then keep holding until about 2.5 seconds and select a Wi-Fi network.",
+  "热点信号较弱：靠近手机，iPhone 请打开「最大兼容性」以使用 2.4 GHz。": "Hotspot signal is weak. Move closer to the phone; on iPhone, enable Maximize Compatibility to use 2.4 GHz.",
+  "移除网络前请先连接设备": "Connect the device before removing a network.",
+  "蓝牙已连接（暂停 Wi-Fi）": "Bluetooth connected (Wi-Fi paused)"
 }

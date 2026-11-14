@@ -11,6 +11,8 @@ static void test_format(void)
 {
     char buf[IB_MSG_MAX];
 
+    CHECK_STR(ib_key_ev_name(IB_KEY_EV_EXTRA_LONG), "extra_long");
+
     CHECK(ib_format_hello(buf, sizeof(buf), "0.1.0", "1a2b3c4d", 0x9f3a21c4) == strlen(buf));
     CHECK_STR(buf, "{\"t\":\"hello\",\"fw\":\"vibekey\",\"proto\":1,\"ver\":\"0.1.0\","
                    "\"build\":\"1a2b3c4d\",\"boot\":\"9f3a21c4\"}\n");

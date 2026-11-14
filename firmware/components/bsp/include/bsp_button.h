@@ -17,10 +17,13 @@ typedef enum {
     BSP_BTN_PRESS = 0,   // 按下瞬间(已去抖)
     BSP_BTN_RELEASE,     // 松开瞬间(已去抖)
     BSP_BTN_LONG,        // 按住达到 BSP_BTN_LONG_MS
+    BSP_BTN_EXTRA_LONG,  // 按住达到 BSP_BTN_EXTRA_LONG_MS
 } bsp_btn_ev_t;
 
 // 长按触发时间(ms)。
 #define BSP_BTN_LONG_MS 1000
+// 第二段长按:普通长按先执行主操作,继续按住后用于扩展操作。
+#define BSP_BTN_EXTRA_LONG_MS 2500
 
 // 按键事件回调。运行于 button 组件的定时器任务,勿在其中阻塞或做重活。
 typedef void (*bsp_btn_cb_t)(bsp_btn_t btn, bsp_btn_ev_t ev, void *user);

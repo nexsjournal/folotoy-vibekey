@@ -10,6 +10,7 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "bsp_btn";
 
@@ -18,6 +19,8 @@ static const uint16_t BTN_MV[BSP_BTN_COUNT][2] = BSP_BTN_MV_TABLE;
 static button_handle_t s_btn[BSP_BTN_COUNT];
 static bsp_btn_cb_t    s_cb;
 static void           *s_user;
+static int64_t         s_press_us[BSP_BTN_COUNT];
+static bool            s_extra_long_fired[BSP_BTN_COUNT];
 
 // ADC1 是 unit 级独占资源:iot_button 与 bsp_button_read_mv() 必须共用同一个 oneshot
 // 句柄。谁第二个调 adc_oneshot_new_unit() 谁就拿到 "adc1 is already in use"。
@@ -35,9 +38,25 @@ static void on_event(void *arg, void *usr_data, bsp_btn_ev_t ev) {
     if (!s_cb) return;
     s_cb((bsp_btn_t)(intptr_t)usr_data, ev, s_user);
 }
-static void cb_press  (void *a, void *u) { on_event(a, u, BSP_BTN_PRESS);   }
-static void cb_release(void *a, void *u) { on_event(a, u, BSP_BTN_RELEASE); }
-static void cb_long   (void *a, void *u) { on_event(a, u, BSP_BTN_LONG);    }
+static void cb_press(void *a, void *u) {
+    const int idx = (int)(intptr_t)u;
+    s_press_us[idx] = esp_timer_get_time();
+    s_extra_long_fired[idx] = false;
+    on_event(a, u, BSP_BTN_PRESS);
+}
+static void cb_release(void *a, void *u) {
+    const int idx = (int)(intptr_t)u;
+    s_extra_long_fired[idx] = false;
+    on_event(a, u, BSP_BTN_RELEASE);
+}
+static void cb_long(void *a, void *u) { on_event(a, u, BSP_BTN_LONG); }
+static void cb_long_hold(void *a, void *u) {
+    const int idx = (int)(intptr_t)u;
+    if (s_extra_long_fired[idx] || !s_press_us[idx]) return;
+    if (esp_timer_get_time() - s_press_us[idx] < (int64_t)BSP_BTN_EXTRA_LONG_MS * 1000) return;
+    s_extra_long_fired[idx] = true;
+    on_event(a, u, BSP_BTN_EXTRA_LONG);
+}
 
 esp_err_t bsp_button_init(bsp_btn_cb_t cb, void *user) {
     s_cb = cb; s_user = user;
@@ -72,6 +91,7 @@ esp_err_t bsp_button_init(bsp_btn_cb_t cb, void *user) {
         iot_button_register_cb(s_btn[i], BUTTON_PRESS_DOWN,       NULL, cb_press,   idx);
         iot_button_register_cb(s_btn[i], BUTTON_PRESS_UP,         NULL, cb_release, idx);
         iot_button_register_cb(s_btn[i], BUTTON_LONG_PRESS_START, NULL, cb_long,    idx);
+        iot_button_register_cb(s_btn[i], BUTTON_LONG_PRESS_HOLD,  NULL, cb_long_hold, idx);
     }
 
     // 通道已由组件配置好,这里只补一份校准句柄给 bsp_button_read_mv() 用。

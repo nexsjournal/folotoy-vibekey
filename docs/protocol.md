@@ -29,7 +29,7 @@ Mac 设置 › Passport › Wi-Fi 无线连接中填写网络名与密码。仅�
 
 Mac 生成 32 字节随机 PSK，仅通过 USB 交给设备。Mac 私有 CredentialStore 保存网络数组（SSID + host + PSK）；旧版单条 host/key 首次读取时自动迁移。设备只向 USB 上报 `{"t":"wifi","stage":"connecting|ready|auth_error|not_found|config_error|network_error|server_error","host":"fb-<随机值>","ip":"<局域网地址或空>","ssid":"<SSID>","active":0,"count":2}`，不返回密码或密钥。`stage:"list"` 另带 `networks:[{"ssid":"Home","host":"fb-home","active":0},...]`。USB hello 也会补发当前状态；可附加 `heap` 空闲堆字节数用于诊断，界面不展示该实现细节。初始化失败时返回 network_error，不保留虚假的 connecting。`ready` 表示设备获得 IP；Mac 的 Wi-Fi `hello` 握手完成才显示无线可用。
 
-设备在线长按 ▲、离线长按 ▼ 打开本地网络列表，最后一项 `USE BLUETOOTH` 可直接重启到 BLE 单栈；短按 OK 写入 NVS active 后重启。蓝牙在线时选择 Wi-Fi（包括当前首选项）会清除蓝牙模式并重启到 Wi-Fi；Wi-Fi 离线时选择当前网络也会重试。只有 Wi-Fi 链路实际在线且选择当前网络时才直接关闭菜单。长按 ▼ 仍保留给 Agent 导航。这条路径不经过 Mac 协议。Mac 会同时尝试本机保存的所有 `host.local` 以及最近学到的局域网地址，第一个 TLS 握手成功的即当前网络；手机热点屏蔽 mDNS 时仍可走地址回退。
+长按 ▲ 约 1 秒切换听写、翻译、字幕模式；不松手继续到约 2.5 秒打开本地网络列表。蓝牙模式或完全离线时也可长按 ▼ 直接打开该列表，最后一项 `USE BLUETOOTH` 可直接重启到 BLE 单栈；短按 OK 写入 NVS active 后重启。蓝牙在线时选择 Wi-Fi（包括当前首选项）会清除蓝牙模式并重启到 Wi-Fi；Wi-Fi 离线时选择当前网络也会重试。只有 Wi-Fi 链路实际在线且选择当前网络时才直接关闭菜单。Wi-Fi 正常在线时长按 ▼ 仍保留给 Agent 导航。这条路径不经过 Mac 协议。Mac 会同时尝试本机保存的所有 `host.local` 以及最近学到的局域网地址，第一个 TLS 握手成功的即当前网络；手机热点屏蔽 mDNS 时仍可走地址回退。
 
 TLS 使用 USB 配对 PSK 验证双方并加密，无需云端。加密流内部沿用现有 JSON Lines 与 FF FE ADPCM 帧；2 个 ADPCM 块一帧，同 USB。断线自动重连并重发状态；心跳和超时策略与 USB 相同。局域网需允许设备间访问与 mDNS，访客隔离网络不适用；Mac 需运行且未锁屏，系统询问本地网络权限时允许 VibeKey。跨互联网连接不在本次范围内。
 
@@ -118,6 +118,7 @@ JSON Lines:每条消息是一行扁平 UTF-8 JSON 对象,以 `\n` 结尾,单行�
 | up 短按 | 默认读取并绑定当前 Codex 输入框中的手动／语音草稿，再核对全文后点击“发送”;可改成普通快捷键 | — | 开关本场字幕的翻译(与字幕条「译」菜单同一开关) |
 | down 短按 | 默认核对当前 Codex 任务正在运行后点击“停止”;可改成普通快捷键 | — | 收起 / 展开 Mac 上的字幕条(字幕条就是底部状态条的展开形态) |
 | up long | 切换模式 dict → tr → sub(循环) | — | 切换模式 |
+| up extra long | 打开网络 / 蓝牙列表 | — | 打开网络 / 蓝牙列表 |
 | down long | 默认打开「切换应用」列表(可在 设置 › Passport › 按键 改成其他动作) | 取消本次录音 | — |
 
 模式 `sub` 下按 OK 开始字幕,字幕应用为 Mac 设置里最后选择的应用。设备收到 `agent` 通知时,第一次按键关闭通知(上报的 `key` 带 `"ack":1`)。若为带来源会话的 Codex 完成卡,同一次 OK 短按的松开事件也会打开原对话;录音需要另一次长按。**录音中**通知只显示为顶部横幅、不拦截按键(否则松开 OK 结束录音会被当成关闭通知);离开录音页后横幅转为全屏通知层,下一次按键才带 ack 关闭它。
