@@ -286,7 +286,7 @@ final class DictationController {
             }
             do { try await validateInsertion?() }
             catch {
-                if !Task.isCancelled { fail(.codexTargetChanged) }
+                if !Task.isCancelled { fail(.other(error.localizedDescription)) }
                 return
             }
             guard !Task.isCancelled else { return }

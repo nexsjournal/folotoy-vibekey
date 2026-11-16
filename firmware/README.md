@@ -68,7 +68,7 @@ firmware/
 │   ├── ib_ui_statusbar.*  顶部状态栏(链路 / 电量 / 录音计时 / LIVE)
 │   ├── ib_ui_hints.*      右侧竖排按键提示(12 px 图标 + 小点;PROC 时禁用;三个键的纵坐标常量 IB_HINT_Y_* 在这里调)
 │   ├── ib_icons.*         keys 命令的图标 id ↔ 枚举(纯逻辑)
-│   ├── fonts/             终端 ASCII 字体 + SUB / LIST / Agent 名称用简体中文字体 ib_cjk_font_12.c（Noto Sans SC，OFL）
+│   ├── fonts/             终端 ASCII 字体 + SUB / LIST / Agent 名称用简体中文字体 ib_cjk_font_14.c（Noto Sans SC，OFL）
 │   ├── icons/             生成的图标字体 ib_icon_font_12.c / ib_icon_font_56.c、图标表 ib_icon_list.h / ib_icon_large_list.h、Apache-2.0 许可证
 │   ├── ib_ui_agent.*      Agent 通知层(全屏 / 录音中横幅)
 │   └── ib_ui_<页面>.c     offline / idle / rec / proc / done / err / sub / list 各页面
@@ -76,7 +76,7 @@ firmware/
 └── tools/
     ├── validate.sh        测试 + 编译校验
     ├── gen-icon-font.sh   重新生成图标字体(需要 Node.js;上游字体按固定提交下载并校验 SHA-256)
-    ├── gen-cjk-font.sh    重新生成 SUB 页简体中文字体(GB2312 全字集 + ASCII，12 px / 4 bpp)
+    ├── gen-cjk-font.sh    重新生成 SUB 页简体中文字体(GB2312 全字集 + ASCII，14 px / 4 bpp)
     └── ui-preview/        主机界面预览:离屏渲染各页面 / 动画帧并导出 PNG(见下文)
 ```
 
@@ -103,4 +103,4 @@ SCALE=3 tools/ui-preview/run.sh  # 放大 3 倍
 - **USB 在位**:`usb_serial_jtag_is_connected()` 只按 USB SOF 判断(约 4 ms 没收到就判断开),没有去抖;`ib_links_usb_present` 要求连续 1 s 不在位才清除 USB 链路。
 - **屏幕点亮**:按键、`state`、Agent 通知、链路恢复在线才点亮;`config`(Mac 每 5 分钟校时重发)不点亮。离线不清除 Mac 下发的状态,恢复在线回到原页面。
 
-Matrix 终端字体由 `tools/gen-terminal-font.sh` 从固定提交的 Roboto Mono 生成 ASCII 子集;SUB 页中文字体由 `tools/gen-cjk-font.sh` 从固定提交的 Noto Sans SC 生成 GB2312 子集。许可证分别位于 `main/fonts/LICENSE-roboto-mono` 与 `main/fonts/LICENSE-noto-sans-sc`。
+Matrix 终端字体由 `tools/gen-terminal-font.sh` 从固定提交的 Roboto Mono 生成 ASCII 子集;SUB / LIST / RESULT 中文字体由 `tools/gen-cjk-font.sh` 从固定提交的 Noto Sans SC 生成 GB2312 子集。许可证分别位于 `main/fonts/LICENSE-roboto-mono` 与 `main/fonts/LICENSE-noto-sans-sc`。

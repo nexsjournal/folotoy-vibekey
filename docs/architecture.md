@@ -313,7 +313,7 @@ AppSwitcher.activate(行为同 ⌘Tab / 点 Dock):取消隐藏 → AX 设为最�
 隐私:AgentSessionCatalogLoader 只读取 AX 角色、侧栏标题、窗口标题；不读取聊天正文，名称不写日志。
 健康检查:设置 › Passport › Agent 导航逐项调用 AgentSessionCatalogLoader.load，区分未安装 / 未运行 /
 AX 权限缺失 / 读到项目会话 / 没有聊天输入框 + 侧栏；检测会前置目标 App，失败不改变设备目标。
-列表显示:项目 / 会话名以 UTF-8(每项 ≤47 字节)下发，固件用 ib_cjk_font_12 显示中文；超出 180 px
+列表显示:项目 / 会话名以 UTF-8(每项 ≤47 字节)下发，固件用 ib_cjk_font_14 显示中文；超出 180 px
 行宽时末尾加 `..`。Agent 全屏通知的项目名先试 20 px，再降到 14 px，仍放不下才两行 + `..`。
 ```
 
@@ -550,20 +550,32 @@ PillPanelController.startMouseTracking → updateHover(热区来自 PillView.rep
 ## 7. Agent 通知(vibe coding)
 
 ```
-Claude Code hook:open -g 'folobutton-dev://agent?event=…'
- → AppDelegate.application(_:open:) → AppState.handle(url:)
- → AgentNotifier.handle(url:) → 入队 / 显示
-     ├─ current → PillView.agentPill(胶囊或字幕条上方)
-     └─ onNotice → DeviceBridge → DeviceLink.sendAgent → 设备通知层与提示音
+AgentCompletionMonitor(900 ms 轮询) → 只识别明确的终态记录:
+  Codex task_complete / Claude assistant end_turn / DSH turn 完成 / ZCode finishReason=stop / WorkBuddy assistant completed
+ → AgentCompletionEvent(来源、最终回复、项目、可选 Codex thread)
+ → AgentNotifier 与 Hook 事件按来源、回复、thread / turn 去重
+ → 即时提取结果、阻碍和下一步等原文重点 → DeviceBridge 提示音和完成动画
+ → 已配置 AI 且回复较长时 TextProcessor.summarizeAgentReply → 更新对应 RESULT；超时或失败时保留原文摘录
+ → Passport 使用 list 协议显示 RESULT，上下翻页；Mac 胶囊显示标题和摘要首行
+Claude Code / Codex Stop Hook(快速路径) → stdin 的 last_assistant_message 写入仅本用户可读的 UUID 临时收件箱
+ → open folobutton-dev://agent?...&payload=<UUID>(URL 不含正文) → AppDelegate → AgentNotifier
+ → 安全打开并删除收件箱文件 → 最多排队 8 条；当前摘要未关闭时，后续完成仍补发完成提示
 一键配置:VibePane.AgentHookRow → AgentHookInstaller.install(.claudeCode | .codex)
- → 读取并备份 ~/.claude/settings.json | ~/.codex/hooks.json → 合并同一格式的 hooks(去重)→ 写回
-   Claude Code:Stop / Notification / UserPromptSubmit;Codex:Stop / PermissionRequest / UserPromptSubmit
-   (Codex 需在 CLI 里 /hooks 信任新命令;不改动 Codex 的 notify 设置)
+ → 读取并备份 ~/.claude/settings.json | ~/.codex/hooks.json → 合并 hooks(去重)→ 写回
+ → 启动时只升级已存在的本应用 Stop Hook，保留其他 Hook；Codex 需在 /hooks 信任升级后的命令。
 ```
 
-Codex 续聊：`Stop` Hook 从 stdin 提取会话 UUID、轮次 ID 和裁剪后的项目名,原位升级旧命令。通知按轮次去重,最多排队 8 张,当前完成卡显示 15 秒。短按 OK 松开或点击 Mac 胶囊 → `DeviceBridge.openNotice → CodexThreadNavigator.open` → 用官方 `codex://threads/<UUID>` 打开并聚焦输入框 → 通过默认 ⌘⌥L 读回当前会话链接、核对 UUID 与输入目标,按原剪贴板代次恢复内容。成功显示 `READY TO TALK`,失败显示 `OPEN CODEX`。该按压只负责打开。
+本地监听只把最终 assistant 回复读入进程内存，不写日志、不持久化；长回复只有在用户已配置 AI 服务时才发送给该服务生成摘要。Hook 临时文件读取后立即删除，异常残留最多保留一天。设备协议只传显示用摘要、页码和短项目名，不传完整会话或绝对项目路径。
 
-打开后按住 OK → 采音并确认此时前台 Codex 的 AX 输入目标，同时读取可用的会话 UUID。手动切换后下一次录音绑定当前对话。新对话尚无 UUID 时也可绑定已核对的输入框。松开识别 → 粘贴前再次核对录音开始时的输入目标和会话链接状态，避免录音期间切页写错位置。短按上键也要核对目标后才发送。打开完成卡后最多暂缓后续完成通知 20 秒，给下一次 OK 留出时间。期间发送成功或打开失败会立即恢复队列。长按下键退出绑定、恢复原应用选择动作，也会立即恢复队列。停在草稿时，暂缓到期也会自动继续显示，草稿仍留在原对话。Hook 与设备协议均不传输对话正文、绝对项目路径或审批详情,会话 UUID 只留在 Mac。 [Codex Hooks](https://learn.chatgpt.com/docs/hooks) · [会话深链接](https://learn.chatgpt.com/docs/reference/commands#chats)
+Codex 续聊：短按 OK 或点击 Mac 胶囊 → `CodexThreadNavigator.open` → 官方 `codex://threads/<UUID>` → 回读当前会话链接，核对 UUID 和输入目标。打开后按住 OK 录音，粘贴前重新核对目标，短按上键发送；打开会话期间最多暂缓后续完成通知 20 秒。
+
+普通应用输入：设备选应用 → `DeviceInputTarget.prepare` 调用 AX 与 `NSRunningApplication.activate` 双重前置，并请求 Chromium 辅助功能树 → `AppSwitcher.focusedTextInput` 遍历前台窗口；优先已有的可编辑焦点，否则按评论、消息、回复和搜索的语义选择可见控件，排除浏览器工具栏及安全字段；最高分不唯一时不猜测。录音开始时绑定进程、窗口和 AX 控件 → 插入前 `validate` 重新核对前台窗口和焦点 → `TextInserter` 粘贴。上键再次核对绑定；非 Codex 应用优先按输入框附近唯一的发送按钮，搜索框或无按钮时发送回车；Codex 仍走专用目标与发送回执校验。
+
+Codex 的 Chromium 网页编辑器在首次获得真实焦点前可能只暴露空 AXGroup，导致 AX 已授权但预检误报没有输入框。`VisualInputFallback` 对 Codex 的主 composer 使用窗口相对坐标建立首次焦点，`DeviceInputTarget` 等待 120 ms 后重新读取 `AXFocusedUIElement`，优先绑定真实的 ProseMirror AX 控件；发送仍由 Codex 专用适配器核对会话、草稿和按钮，不按坐标粘贴或提交。
+
+微信 4.x 的正文运行在独立渲染进程中，主窗口 AX 树只保留标题栏；飞书聊天页在部分状态也不会暴露 composer。`VisualInputFallback` 对已实测的微信、飞书 Bundle ID 使用窗口相对坐标聚焦输入区与发送按钮。绑定后取面积最大的 `CGWindowList` 主窗口，插入与发送前重新点击输入区，并要求点击位置最上层窗口属于目标进程；这样既处理自绘窗口，也避免系统 frontmost 状态失真时把文字写入覆盖在前的其他应用。未知自绘应用仍显示错误，不猜坐标。
+
+[Codex Hooks](https://learn.chatgpt.com/docs/hooks) · [Claude Code Hooks](https://code.claude.com/docs/en/hooks) · [Chromium 辅助功能](https://www.chromium.org/developers/design-documents/accessibility/)
 
 ## 8. 模型下载
 
@@ -862,7 +874,7 @@ CodexTargetSnapshot.canSend 来自 enabled 且未 hidden 的发送控件；当�
 
 Log.codex 只记录阶段与字符数，不记录草稿、窗口标题或聊天内容。KeySender 的进程定向键事件与全局键事件共用唯一实现，测试宿主始终禁止真实投递。
 
-Electron 控件可见性：DeviceInputTarget 和 AccessibilityCodexDesktopAdapter 在授权后，通过官方 AXManualAccessibility 启用完整 Chromium 控件树，成功结果按进程缓存，不周期性反复开启。从其他全屏 Space 切到 Codex 时，系统切换加 Chromium 首次建树可能超过 2 s；DeviceInputTarget 等待 5 s，并在通用遍历失败后用 Codex 适配器复核，避免把尚未建树误报成无输入框。Codex 的独立 composer 片段还会沿 AXParent 向上补读孩子并去重，保留数量/深度限制。诊断在准备目标后输出控件结构；不将“不含发送按钮的残缺树”误当成应用真的忙。机制见 [Electron 官方文档](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md#macos)。
+Electron 控件可见性：DeviceInputTarget 和 AccessibilityCodexDesktopAdapter 在授权后，通过官方 AXManualAccessibility 启用完整 Chromium 控件树，成功结果按进程缓存，不周期性反复开启。从其他全屏 Space 切到 Codex 时，系统切换加 Chromium 首次建树可能超过 2 s；DeviceInputTarget 最多等待 3 s，先按窗口尺寸和坐标点击主 composer，再复核 AXFocusedUIElement，避免把尚未获得首次焦点的 Web 编辑器误报成无输入框。Codex 的独立 composer 片段还会沿 AXParent 向上补读孩子并去重，保留数量/深度限制。诊断在准备目标后输出控件结构；不将“不含发送按钮的残缺树”误当成应用真的忙。机制见 [Electron 官方文档](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md#macos)。
 
 AX 遍历按 AXUIElement 的真实相等性去重，不能按 CFHash 的数值去重。窗口与输入框标识由每个适配器拥有的有界匿名注册表提供，同一 AX 元素复用 ID，哈希碰撞的不同元素仍有独立 ID；仅在内存保存，不写入用户文本或磁盘。
 

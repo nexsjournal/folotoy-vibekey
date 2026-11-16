@@ -292,9 +292,16 @@ nonisolated enum WorkBuddyUsageReader {
     }
 }
 
+/// 各 Agent 本地记录共用的 ISO 8601 时间解析。
+nonisolated enum AgentTimestamp {
+    static func parse(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+}
+
 nonisolated private func parseISO(_ value: String?) -> Date? {
-    guard let value else { return nil }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    AgentTimestamp.parse(value)
 }

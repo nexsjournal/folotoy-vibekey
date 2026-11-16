@@ -335,21 +335,33 @@ struct PillView: View {
             ? String(localized: "\(notice.project ?? notice.source) 本轮结束", bundle: .l10n)
             : (done ? String(localized: "\(notice.source) 完成了", bundle: .l10n)
                     : String(localized: "\(notice.source) 在等你", bundle: .l10n))
+        let summary = done ? notice.summary : nil
         return Button(action: { actions.openAgentNotice(notice) }) {
-            HStack(spacing: 7) {
+            HStack(alignment: .center, spacing: 7) {
                 Image(systemName: done ? "checkmark.seal.fill" : "hand.raised.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(color)
                     .symbolEffect(.pulse, isActive: !done)
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.92))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+                    if let summary {
+                        Text(verbatim: summary)
+                            .font(.system(size: 10.5, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.68))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
             }
             .padding(.horizontal, 12)
-            .frame(height: 30)
-            .contentShape(Capsule())
+            .padding(.vertical, summary == nil ? 0 : 2)
+            .frame(minWidth: summary == nil ? nil : 220, maxWidth: summary == nil ? nil : 420, minHeight: 30)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(Text(verbatim: summary ?? title))
         .glassEffect(.regular.tint(.black.opacity(0.5)), in: .capsule)
         .glassEffectID(glassID, in: glass)
     }

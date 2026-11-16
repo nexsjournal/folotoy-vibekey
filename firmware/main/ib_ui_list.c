@@ -7,10 +7,12 @@
 //   行      x 14..193(宽 180)、高 32、行距 38,首行顶部 y=52;未选中不画底(浅灰字),选中为白色胶囊黑字
 //   滚动条  x=4 的 3 px 细轨道,总项数超过可见行数时显示滑块(右侧是按键提示列,所以放左边)
 // 选中胶囊是"弹性"的:前沿每帧靠近目标 45%、后沿 25%,移动中被拉长、约 200 ms 收回;文字颜色按胶囊覆盖过半切换。
+// `RESULT` 是只读摘要,保留 list 命令承载数据,但按普通正文重新排版为自动换行段落。
 #include "ib_ui_gfx.h"
 #include "ib_ui_page.h"
 
 #include <ctype.h>
+#include <string.h>
 
 #define ROW_X       14
 #define ROW_W       192
@@ -23,13 +25,16 @@
 #define TRACK_X     4
 #define TRACK_W     3
 #define TEXT_MAX    IB_UI_LIST_TEXT_MAX
+#define RESULT_MAX  (IB_UI_LIST_ROWS * TEXT_MAX)
 #define TITLE_CY    (36 - IB_UI_BAR_H)
 #define ROW_TEXT    0xC0C0C0    // 未选中行文字
 
 static lv_obj_t *s_title;
 static lv_obj_t *s_fx;
+static lv_obj_t *s_result;
 static char s_rows[IB_UI_LIST_ROWS][TEXT_MAX];  // 截断后的显示文本(绘制回调读取)
 static char s_title_text[TEXT_MAX];             // 大写后的标题
+static char s_result_text[RESULT_MAX + 1];
 static bool s_row_cjk[IB_UI_LIST_ROWS];
 static uint8_t s_count;
 static uint16_t s_n, s_top;
@@ -48,6 +53,32 @@ static bool has_non_ascii(const char *text)
         if (*p >= 0x80) return true;
     }
     return false;
+}
+
+static bool ascii_word_char(char ch)
+{
+    unsigned char u = (unsigned char)ch;
+    return (u >= '0' && u <= '9') || (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z');
+}
+
+/// 把 Mac 按 47-byte 上限切成六段的数据拼回正文。英文单词落在分段边界时补一个空格；
+/// 中文保持连续，已有空白或标点则原样拼接。
+static void join_result_rows(const ib_ui_list_t *l, uint8_t rows)
+{
+    size_t used = 0;
+    for (uint8_t i = 0; i < rows && used < RESULT_MAX; i++) {
+        const char *part = l->items[i];
+        if (part[0] == '\0') continue;
+        if (used > 0 && ascii_word_char(s_result_text[used - 1]) && ascii_word_char(part[0])
+            && used + 1 < RESULT_MAX) {
+            s_result_text[used++] = ' ';
+        }
+        size_t available = RESULT_MAX - used;
+        size_t length = strnlen(part, available);
+        memcpy(s_result_text + used, part, length);
+        used += length;
+    }
+    s_result_text[used] = '\0';
 }
 
 static void fx_draw(lv_event_t *e)
@@ -84,7 +115,7 @@ static void fx_draw(lv_event_t *e)
         int32_t y = row_y(i);
         int32_t overlap = s_target >= 0 ? LV_MIN(bottom, y + ROW_H) - LV_MAX(top, y) : 0;
         bool on = overlap * 2 > ROW_H;
-        const lv_font_t *row_font = s_row_cjk[i] ? &ib_cjk_font_12 : font;
+        const lv_font_t *row_font = s_row_cjk[i] ? &ib_cjk_font_14 : font;
         ib_fx_text_left(&fx, ROW_X + ROW_PAD, y + ROW_H / 2, s_rows[i], row_font, on ? black : idle, LV_OPA_COVER);
     }
 }
@@ -98,6 +129,13 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
     lv_label_set_long_mode(s_title, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_align(s_title, LV_ALIGN_TOP_LEFT, ROW_X, ib_font_top(&lv_font_montserrat_12, TITLE_CY));
     s_fx = ib_fx_create(root, 0, FX_Y, IB_UI_CONTENT_W, FX_H, fx_draw, NULL);
+    s_result = ib_label_create(root, &ib_cjk_font_14, ROW_TEXT, ROW_Y0, ROW_W - 2 * ROW_PAD);
+    lv_obj_align(s_result, LV_ALIGN_TOP_LEFT, ROW_X + ROW_PAD, ROW_Y0);
+    lv_obj_set_height(s_result, FX_H);
+    lv_obj_set_style_text_align(s_result, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_text_line_space(s_result, 4, 0);
+    lv_label_set_long_mode(s_result, LV_LABEL_LONG_MODE_WRAP);
+    lv_obj_add_flag(s_result, LV_OBJ_FLAG_HIDDEN);
     return root;
 }
 
@@ -110,19 +148,32 @@ static void update(const ib_ui_ctx_t *ctx)
         s_title_text[n] = ch < 0x80 ? (char)toupper(ch) : (char)ch;
     }
     s_title_text[n] = '\0';
-    lv_obj_set_style_text_font(s_title, has_non_ascii(s_title_text) ? &ib_cjk_font_12 : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(s_title, has_non_ascii(s_title_text) ? &ib_cjk_font_14 : &lv_font_montserrat_12, 0);
     lv_label_set_text_static(s_title, s_title_text);
     s_count = l->rows > IB_UI_LIST_ROWS ? IB_UI_LIST_ROWS : l->rows;
     s_n = l->n;
     s_top = l->top;
+    bool result = strncmp(l->title, "RESULT ", 7) == 0;
+    if (result) {
+        join_result_rows(l, s_count);
+        lv_obj_set_style_text_font(s_result, &ib_cjk_font_14, 0);
+        lv_label_set_text_static(s_result, s_result_text);
+        lv_obj_remove_flag(s_result, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_fx, LV_OBJ_FLAG_HIDDEN);
+        s_target = -1;
+        lv_obj_invalidate(s_result);
+        return;
+    }
+    lv_obj_add_flag(s_result, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_fx, LV_OBJ_FLAG_HIDDEN);
     for (int i = 0; i < s_count; i++) {
         s_row_cjk[i] = has_non_ascii(l->items[i]);
-        const lv_font_t *font = s_row_cjk[i] ? &ib_cjk_font_12 : &lv_font_montserrat_14;
+        const lv_font_t *font = s_row_cjk[i] ? &ib_cjk_font_14 : &lv_font_montserrat_14;
         ib_text_fit_utf8(l->items[i], font, ROW_W - 2 * ROW_PAD, s_rows[i], sizeof(s_rows[i]));
     }
     int32_t row = (int32_t)l->sel - (int32_t)l->top;
     bool was_hidden = s_target < 0;
-    s_target = (row >= 0 && row < s_count) ? row : -1;
+    s_target = row >= 0 && row < s_count ? row : -1;
     if (s_target >= 0 && was_hidden) s_lead = s_trail = row_y(s_target) * 16;     // 刚出现时直接就位,不从别处滑入
     lv_obj_invalidate(s_fx);
 }

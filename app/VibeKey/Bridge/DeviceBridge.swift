@@ -29,6 +29,8 @@ final class DeviceBridge {
         enum Purpose {
             case switchApp([SwitchableApp])
             case pickCaptionApp([AudioApp])
+            /// Agent 完成回复的分页；selected 是页码而不是列表行。
+            case agentSummary(id: UUID, pages: [[String]])
             /// Agent App 的项目列表：固定项（SWITCH APP / RECENT）+ 项目。
             case pickProject(catalog: AgentSessionCatalog, choices: [AgentProjectChoice])
             /// 某个项目或 RECENT 下的会话列表。
@@ -43,6 +45,7 @@ final class DeviceBridge {
             switch purpose {
             case .switchApp: "SWITCH APP"
             case .pickCaptionApp: "CAPTIONS"
+            case .agentSummary(_, let pages): "RESULT \(selected + 1)/\(pages.count)"
             case .pickProject(let catalog, _): "\(catalog.app.shortName) PROJECT"
             case .pickSession(let catalog, _, _): "\(catalog.app.shortName) SESSION"
             }
@@ -52,12 +55,16 @@ final class DeviceBridge {
             switch purpose {
             case .switchApp(let apps): apps.map(\.name)
             case .pickCaptionApp(let apps): apps.map { $0.isPlaying ? "\($0.name) *" : $0.name }
+            case .agentSummary(_, let pages): pages.indices.contains(selected) ? pages[selected] : []
             case .pickProject(_, let choices): choices.map(\.displayName)
             case .pickSession(_, _, let sessions): sessions.map(\.displayName)
             }
         }
 
-        var count: Int { names.count }
+        var count: Int {
+            if case .agentSummary(_, let pages) = purpose { return pages.count }
+            return names.count
+        }
     }
 
     /// 设备上当前选择的模式(长按上键切换)。
@@ -70,6 +77,8 @@ final class DeviceBridge {
     private let codex: CodexActionCoordinator
     private let settings: AppSettings
     private let inputTarget: DeviceInputTarget
+    private var selectedInput: DeviceInputTarget.Binding?
+    private var targetFocusTask: Task<Void, Never>?
     private let threadNavigator: CodexThreadNavigator
     private let hooks: Hooks
     private var timer: Timer?
@@ -87,6 +96,8 @@ final class DeviceBridge {
     private var followupChat: CodexThreadNavigator.ActiveChat?
     private var openingNotice: Task<Void, Never>?
     private var followupActionInFlight = false
+    private var pendingSummaryID: UUID?
+    private var summaryRevealTask: Task<Void, Never>?
     /// 列表关闭后忽略 OK 新按下的时长(防抖,避免误触听写)。
     private let okLockoutAfterList: TimeInterval = 0.25
     /// 这次 OK 按下交给了听写:松开发 pressUp;断线 / 切换链路时取消,避免丢失松开事件后误输入。
@@ -143,6 +154,24 @@ final class DeviceBridge {
             }
             let message = notice.threadID == nil ? notice.source : "OK OPEN " + (notice.project ?? notice.source)
             link.sendAgent(event, msg: message)
+            self.summaryRevealTask?.cancel()
+            self.pendingSummaryID = notice.summary == nil ? nil : notice.id
+            if notice.summary != nil {
+                self.summaryRevealTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(1200))
+                    guard !Task.isCancelled, let self else { return }
+                    self.summaryRevealTask = nil
+                    self.revealPendingSummary()
+                }
+            } else if notice.event == .clear, case .agentSummary = self.list?.purpose {
+                self.closeList()
+            }
+        }
+        agent.onSummaryUpdate = { [weak self] notice in self?.refreshSummary(notice) }
+        agent.onQueuedCompletion = { [weak self] notice in
+            guard let self, self.link.connection != .disconnected else { return }
+            // 不替换正在阅读的 RESULT 页，只补一次完成状态提示；摘要仍在队列中等待。
+            self.link.sendAgent(.done, msg: notice.source)
         }
         let timer = Timer(timeInterval: 1.0 / 16, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sync() }
@@ -228,8 +257,10 @@ final class DeviceBridge {
             case .normal: pressEnded(key, isTap: isTap)
             case .switcher: if key == .down, isTap { moveList(by: 1) }
             case .agentAck:
-                guard let notice = noticePresses.removeValue(forKey: key), agent.current == notice else { break }
+                guard let pressed = noticePresses.removeValue(forKey: key), let notice = agent.current,
+                      notice.id == pressed.id else { break }
                 if key == .ok, isTap { openNotice(notice, fromDevice: true) }
+                else if notice.summary != nil { revealPendingSummary() }
                 else { agent.dismiss(fromDevice: true) }
             case .ignored: break
             }
@@ -238,7 +269,7 @@ final class DeviceBridge {
 
     /// Mac 胶囊和设备 ACK 共用入口。打开过程中保持按键隔离，避免同一次按压启动录音。
     func openNotice(_ notice: AgentNotifier.Notice, fromDevice: Bool = false) {
-        guard agent.current == notice else { return }
+        guard agent.current?.id == notice.id else { return }
         guard let thread = notice.threadID else { agent.dismiss(fromDevice: fromDevice); return }
         guard !dictation.phase.isBusy, openingNotice == nil, !followupActionInFlight else { return }
         clearUsageHome()
@@ -259,6 +290,27 @@ final class DeviceBridge {
         }
         lastState = nil
         sync()
+    }
+
+    /// 延迟显示摘要，给完成动画留出时间；录音期间只保留横幅，结束后再显示。
+    private func revealPendingSummary() {
+        guard let id = pendingSummaryID, let notice = agent.current, notice.id == id,
+              let text = notice.summary, !dictation.phase.isBusy else { return }
+        let pages = AgentCompletionSummary.pages(text)
+        guard !pages.isEmpty else { return }
+        pendingSummaryID = nil
+        link.sendAgent(.clear, msg: "")
+        openList(ListSession(purpose: .agentSummary(id: id, pages: pages), selected: 0))
+    }
+
+    private func refreshSummary(_ notice: AgentNotifier.Notice) {
+        guard case .agentSummary(let id, _) = list?.purpose, id == notice.id,
+              let text = notice.summary else { return }
+        let pages = AgentCompletionSummary.pages(text)
+        guard !pages.isEmpty else { return }
+        let selected = min(list?.selected ?? 0, pages.count - 1)
+        list = ListSession(purpose: .agentSummary(id: id, pages: pages), selected: selected)
+        sendList()
     }
 
     /// 当前是否处于"字幕模式"(设备模式为字幕)。
@@ -292,13 +344,22 @@ final class DeviceBridge {
                 startFollowupDictation()
                 return
             }
+            targetFocusTask?.cancel()
+            selectedInput = nil
+            var recordingInput: DeviceInputTarget.Binding?
             dictation.pressDown(mode: mode == .tr ? .translate : .dictate, style: .pushToTalk,
                                 prepareTarget: { [inputTarget, codex] in
                                     let target = try await inputTarget.prepare()
+                                    recordingInput = inputTarget.binding
                                     if target.bundleIdentifier == AccessibilityCodexDesktopAdapter.bundleIdentifier {
                                         await codex.prepareNewDictation()
                                     }
                                     return target
+                                }, validateInsertion: { [weak self, inputTarget] in
+                                    if let recordingInput {
+                                        try inputTarget.validate(recordingInput)
+                                        self?.selectedInput = recordingInput
+                                    }
                                 })
             okDrivesDictation = true
         }
@@ -449,14 +510,18 @@ final class DeviceBridge {
             Task { [weak self] in
                 guard let self else { return }
                 do {
-                    let target = try await inputTarget.prepare()
+                    let target: NSRunningApplication
+                    if let selectedInput { target = try await inputTarget.prepareForSend(selectedInput) }
+                    else { target = try await inputTarget.prepare() }
                     if target.bundleIdentifier == AccessibilityCodexDesktopAdapter.bundleIdentifier {
                         await codex.send()
                         publish(codex.outcome)
                     } else {
                         // 明确选定的其他应用使用普通回车映射；不作为 Codex AX 失败的兜底。
-                        KeySender.perform(.enter)
-                        codexStatus = (.done, "ENTER", Date().addingTimeInterval(1.2))
+                        if let binding = selectedInput ?? inputTarget.binding { try inputTarget.submit(binding) }
+                        else { throw DeviceInputTarget.Failure.noInput }
+                        selectedInput = nil
+                        codexStatus = (.done, "SEND", Date().addingTimeInterval(1.2))
                         lastState = nil; sync()
                     }
                 } catch { publish(.checkMac) }
@@ -661,6 +726,7 @@ final class DeviceBridge {
             if opened {
                 self.settings.deviceTargetBundleID = app.bundleID
                 self.settings.deviceTargetName = app.targetName
+                self.inputTarget.remember(processID: app.pid)
                 self.followupChat = nil
                 self.usageHome = UsageHome(app: app)
                 self.usageHomeVisible = false
@@ -785,7 +851,14 @@ final class DeviceBridge {
                     settings.deviceTargetBundleID = identifier
                     settings.deviceTargetName = apps[current.selected].name
                 }
+                selectedInput = nil
+                targetFocusTask?.cancel()
+                inputTarget.remember(processID: apps[current.selected].pid)
                 AppSwitcher.activate(apps[current.selected])
+                targetFocusTask = Task { [weak self] in
+                    guard let self else { return }
+                    _ = try? await self.inputTarget.prepare()
+                }
                 if let running = NSRunningApplication(processIdentifier: apps[current.selected].pid),
                    let app = AgentSessionApp(running: running),
                    AgentAppDisplayName.isKnownAgent(bundleID: app.bundleID) {
@@ -793,6 +866,10 @@ final class DeviceBridge {
                 } else {
                     clearUsageHome()
                 }
+            case .agentSummary(let id, _):
+                guard let notice = agent.current, notice.id == id else { closeList(); return }
+                closeList()
+                openNotice(notice)
             case .pickCaptionApp(let apps):
                 guard apps.indices.contains(current.selected) else { closeList(); return }
                 closeList()
@@ -819,6 +896,9 @@ final class DeviceBridge {
         guard let current = list else { return }
         if case .pickSession(let catalog, _, _) = current.purpose {
             openProjectList(catalog)
+        } else if case .agentSummary(let id, _) = current.purpose {
+            closeList()
+            if agent.current?.id == id { agent.dismiss() }
         } else {
             closeList()
         }
@@ -841,7 +921,11 @@ final class DeviceBridge {
 
     private func sendList() {
         guard let list else { return }
-        link.sendList(title: list.title, items: list.names, selected: list.selected)
+        if case .agentSummary = list.purpose {
+            link.sendList(title: list.title, items: list.names, selected: 0)
+        } else {
+            link.sendList(title: list.title, items: list.names, selected: list.selected)
+        }
     }
 
     // MARK: - 状态同步
@@ -861,6 +945,7 @@ final class DeviceBridge {
 
         // 列表打开时开始了听写(Mac 上触发):设备已切到录音页,关闭列表,按键不再归列表。
         if list != nil, dictation.phase.isBusy {
+            if case .agentSummary(let id, _) = list?.purpose { pendingSummaryID = id }
             list = nil
             lastState = nil
         }
@@ -871,9 +956,10 @@ final class DeviceBridge {
             lastState = nil
         }
         if let current = list, Date().timeIntervalSince(current.touched) > listTimeout {
-            closeList()
-            return
+            if case .agentSummary = current.purpose { /* 摘要一直保留到用户处理 */ }
+            else { closeList(); return }
         }
+        if pendingSummaryID != nil, summaryRevealTask == nil, !dictation.phase.isBusy { revealPendingSummary() }
         let state = currentState()
         if lastState != state {
             lastState = state

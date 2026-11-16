@@ -29,6 +29,8 @@ final class AppState {
     /// 字幕记录窗口里的批量翻译 / AI 润色。
     let transcriptTranslator: TranscriptTranslator
     let agent: AgentNotifier
+    /// 自动监听 Codex、Claude、DSH、ZCode、WorkBuddy 的本地终态记录；不依赖 Hook 是否被信任。
+    @ObservationIgnored private let completionMonitor: AgentCompletionMonitor
     /// 只控制当前前台 Codex 桌面聊天的安全发送 / 停止编排。
     let codex: CodexActionCoordinator
     @ObservationIgnored private let threadNavigator: CodexThreadNavigator
@@ -71,7 +73,11 @@ final class AppState {
         translation = TranslationService(settings: settings, processor: processor, providers: translationProviders)
         llmModels = LLMModelCatalog(settings: settings)
         deviceLink = DeviceLink(credentials: credentials)
-        agent = AgentNotifier()
+        let notifier = AgentNotifier(processor: processor)
+        agent = notifier
+        completionMonitor = AgentCompletionMonitor { [weak notifier] event in
+            notifier?.postCompletion(event)
+        }
         codex = CodexActionCoordinator(adapter: AccessibilityCodexDesktopAdapter())
         firmware = FirmwareFlasher(link: deviceLink, downloader: FirmwareDownloader(manifestURL: Self.firmwareManifestURL))
         passportSetup = PassportSetupModel(link: deviceLink, flasher: firmware, settings: settings)
@@ -105,6 +111,13 @@ final class AppState {
 
     /// 启动:创建窗口与菜单、挂快捷键、连接设备、预加载模型。
     func launch() {
+        // 已配置过的旧 Stop Hook 原位升级；Codex 仍由自身的 /hooks 信任机制决定是否执行。
+        for agent in AgentHookInstaller.Agent.allCases {
+            do { try AgentHookInstaller.upgradeExistingStop(agent) }
+            catch { Log.app.error("agent hook upgrade failed: \(error.localizedDescription, privacy: .private)") }
+        }
+        AgentCompletionInbox.removeExpired()
+        completionMonitor.start()
         windows = WindowManager(app: self)
         menus = MenuBuilder(app: self)
         pill = PillPanelController(content: { [unowned self] ui, window in
@@ -194,6 +207,7 @@ final class AppState {
         updates?.stop()
         subtitles.stop()
         dictation.cancel()
+        completionMonitor.stop()
         deviceLink.stop()
     }
 

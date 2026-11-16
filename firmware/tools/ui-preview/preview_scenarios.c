@@ -85,6 +85,23 @@ static void set_chinese_list(void)
     ib_ui_set_list(&l);
 }
 
+// 与 Mac 摘要分页相同的只读行，检查中文未被截断且没有选中胶囊。
+static void set_agent_result(void)
+{
+    static const char *const ITEMS[] = {
+        "功能已更新，测试通过。", "但当前设备未连接，", "请连接后验证。", "下一步：重新信任", "Codex 的通知配置。", "完成后可以继续对话。",
+    };
+    ib_ui_list_t l;
+    memset(&l, 0, sizeof(l));
+    snprintf(l.title, sizeof(l.title), "RESULT 1/2");
+    for (uint16_t i = 0; i < sizeof(ITEMS) / sizeof(ITEMS[0]); i++) {
+        snprintf(l.items[i], sizeof(l.items[i]), "%s", ITEMS[i]);
+    }
+    l.rows = (uint8_t)(sizeof(ITEMS) / sizeof(ITEMS[0]));
+    l.n = l.rows;
+    ib_ui_set_list(&l);
+}
+
 int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
 {
     s_out_dir = out_dir;
@@ -321,6 +338,9 @@ int preview_run_scenarios(const char *out_dir, int scale, const char *filter)
     set_chinese_list();
     preview_advance(300);
     shot("list_chinese_project");
+    set_agent_result();
+    preview_advance(300);
+    shot("list_agent_result");
 
     // ---- AGENT 通知 ----
     keys(IB_ICON_ENTER, IB_ICON_ESC, IB_ICON_MIC);

@@ -49,17 +49,27 @@ nonisolated enum AgentHookInstaller {
     private static let marker = "folobutton-dev://agent"
 
     static func command(_ event: AgentNotifier.Event, agent: Agent) -> String {
-        if agent == .codex, event == .done {
-            // 只传会话、轮次和经过裁剪的项目名，Hook 原始 JSON 留在进程内。
-            return #"""
-            payload=$(/bin/cat)
-            thread=$(printf '%s' "$payload" | /usr/bin/plutil -extract session_id raw -o - - 2>/dev/null) || exit 0
-            case "$thread" in ''|*[!0-9A-Fa-f-]*) exit 0 ;; esac
-            turn=$(printf '%s' "$payload" | /usr/bin/plutil -extract turn_id raw -o - - 2>/dev/null) || turn=
+        if event == .done {
+            // 原始 Hook JSON 只写入本机私有临时收件箱；URL 只携带一次性随机文件名。
+            let source = agent == .codex ? "Codex" : "Claude%20Code"
+            let codexFields = agent == .codex ? #"""
+            thread=$(/usr/bin/plutil -extract session_id raw -o - "$file" 2>/dev/null) || thread=
+            case "$thread" in *[!0-9A-Fa-f-]*) thread= ;; esac
+            turn=$(/usr/bin/plutil -extract turn_id raw -o - "$file" 2>/dev/null) || turn=
             case "$turn" in *[!0-9A-Za-z_-]*) turn= ;; esac
-            cwd=$(printf '%s' "$payload" | /usr/bin/plutil -extract cwd raw -o - - 2>/dev/null) || cwd=
+            cwd=$(/usr/bin/plutil -extract cwd raw -o - "$file" 2>/dev/null) || cwd=
             project=$(printf '%s' "${cwd##*/}" | LC_ALL=C /usr/bin/tr -cd 'A-Za-z0-9._-' | /usr/bin/cut -c 1-15)
-            /usr/bin/open -g -b local.folobutton.dev "folobutton-dev://agent?event=done&source=Codex&thread=$thread&turn=$turn&project=$project"
+            extra="&thread=$thread&turn=$turn&project=$project"
+            """# : "extra="
+            return #"""
+            umask 077
+            dir="$HOME/Library/Caches/FoloVibeKey/AgentInbox"
+            /bin/mkdir -p "$dir" && /bin/chmod 700 "$dir" || exit 0
+            token=$(/usr/bin/uuidgen) || exit 0
+            file="$dir/$token.json"
+            /usr/bin/head -c 2097152 > "$file" || { /bin/rm -f "$file"; exit 0; }
+            \#(codexFields)
+            /usr/bin/open -g -b local.folobutton.dev "folobutton-dev://agent?event=done&source=\#(source)&payload=$token$extra" >/dev/null 2>&1 || /bin/rm -f "$file"
             """#
         }
         let source = agent.name.replacingOccurrences(of: " ", with: "%20")
@@ -68,7 +78,35 @@ nonisolated enum AgentHookInstaller {
 
     static func isInstalled(_ agent: Agent, at url: URL? = nil) -> Bool {
         guard let text = try? String(contentsOf: url ?? agent.configURL, encoding: .utf8) else { return false }
-        return text.contains(agent == .codex ? "&thread=$thread&turn=$turn" : marker)
+        return text.contains("&payload=$token")
+    }
+
+    /// 只升级以前由本应用写入的 Stop Hook；用户没有配置过时不创建配置或新增其他 Hook。
+    @discardableResult
+    static func upgradeExistingStop(_ agent: Agent, at url: URL? = nil) throws -> Bool {
+        let file = url ?? agent.configURL
+        guard let data = try? Data(contentsOf: file),
+              var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var hooks = root["hooks"] as? [String: Any],
+              var groups = hooks["Stop"] as? [[String: Any]] else { return false }
+        var changed = false
+        let updated = command(.done, agent: agent)
+        for index in groups.indices {
+            guard var entries = groups[index]["hooks"] as? [[String: Any]] else { continue }
+            for i in entries.indices {
+                guard let old = entries[i]["command"] as? String, old.contains(marker), old != updated else { continue }
+                entries[i]["command"] = updated
+                changed = true
+            }
+            groups[index]["hooks"] = entries
+        }
+        guard changed else { return false }
+        try backupOnce(data, beside: file)
+        hooks["Stop"] = groups
+        root["hooks"] = hooks
+        let result = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        try result.write(to: file, options: .atomic)
+        return true
     }
 
     /// 合并写入 hook;重复执行不会产生重复条目。`url` 仅供测试指定文件。
@@ -89,12 +127,12 @@ nonisolated enum AgentHookInstaller {
         var hooks = root["hooks"] as? [String: Any] ?? [:]
         for (hook, event) in agent.events {
             var groups = hooks[hook] as? [[String: Any]] ?? []
-            if agent == .codex, event == .done {
-                // 原位升级旧命令，保留同组用户 Hook 和运行选项。
-                let old = "open -g '\(marker)?event=done&source=Codex'"
+            if event == .done {
+                // 只替换由本应用安装的 Stop 命令，同组其他 Hook 和选项保持原样。
                 for index in groups.indices {
                     guard var entries = groups[index]["hooks"] as? [[String: Any]] else { continue }
-                    for entry in entries.indices where entries[entry]["command"] as? String == old {
+                    for entry in entries.indices {
+                        guard let old = entries[entry]["command"] as? String, old.contains(marker) else { continue }
                         entries[entry]["command"] = command(event, agent: agent)
                     }
                     groups[index]["hooks"] = entries

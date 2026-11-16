@@ -11,11 +11,14 @@ enum CodexAccessDiagnostics {
               arguments.indices.contains(index + 1) else { return false }
         let output = URL(fileURLWithPath: arguments[index + 1])
         Task {
+            let settings = AppSettings()
             var result: [String: Any] = [
                 "trusted": AXIsProcessTrusted(),
                 "bundleID": Bundle.main.bundleIdentifier ?? "",
-                "appPath": Bundle.main.bundleURL.path
+                "appPath": Bundle.main.bundleURL.path,
+                "targetBundleID": settings.deviceTargetBundleID
             ]
+            var preparedDeviceTarget = false
             do {
                 if let flag = arguments.firstIndex(of: "--followup-thread"), arguments.indices.contains(flag + 1),
                    let thread = UUID(uuidString: arguments[flag + 1]) {
@@ -24,20 +27,38 @@ enum CodexAccessDiagnostics {
                     result["followupReady"] = true
                 }
                 if arguments.contains("--prepare-device-target") {
-                    let target = try await DeviceInputTarget(settings: AppSettings()).prepare()
-                    result["preparedTarget"] = target.bundleIdentifier ?? ""
-                }
-                if let snapshot = try await AccessibilityCodexDesktopAdapter().inspectTarget() {
+                    let inputTarget = DeviceInputTarget(settings: settings)
+                    let target = try await inputTarget.prepare()
+                    preparedDeviceTarget = true
                     result["targetFound"] = true
-                    result["frontmost"] = snapshot.isFrontmost
-                    result["unlocked"] = snapshot.isUnlocked
-                    result["inputEmpty"] = snapshot.inputIsEmpty
-                    result["inputCharacters"] = snapshot.inputText.count
-                    result["runState"] = String(describing: snapshot.runState)
-                    result["approvalPending"] = snapshot.hasPendingApproval
-                    result["canSend"] = snapshot.canSend
-                } else {
-                    result["targetFound"] = false
+                    result["preparedTarget"] = target.bundleIdentifier ?? ""
+                    result["targetPid"] = target.processIdentifier
+                    result["targetFrontmost"] =
+                        NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier
+                    if let binding = inputTarget.binding {
+                        switch binding.input {
+                        case .accessibility:
+                            result["inputMode"] = "accessibility"
+                        case .visual:
+                            result["inputMode"] = "visual"
+                        }
+                    }
+                }
+                // 通用目标已经验证时不要再执行 Codex 专用检查；后者找不到 Codex 输入框时
+                // 会覆盖刚取得的微信 / 普通应用成功结果，造成诊断误报。
+                if !preparedDeviceTarget {
+                    if let snapshot = try await AccessibilityCodexDesktopAdapter().inspectTarget() {
+                        result["targetFound"] = true
+                        result["frontmost"] = snapshot.isFrontmost
+                        result["unlocked"] = snapshot.isUnlocked
+                        result["inputEmpty"] = snapshot.inputIsEmpty
+                        result["inputCharacters"] = snapshot.inputText.count
+                        result["runState"] = String(describing: snapshot.runState)
+                        result["approvalPending"] = snapshot.hasPendingApproval
+                        result["canSend"] = snapshot.canSend
+                    } else {
+                        result["targetFound"] = false
+                    }
                 }
             } catch {
                 result["error"] = String(describing: error)

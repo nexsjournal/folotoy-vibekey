@@ -10,7 +10,7 @@
     'ft.license': 'MIT open source', 'ft.support': 'Support',
     'pp.eyebrow': 'Optional companion hardware',
     'pp.title': 'A vibe-coding remote in your hand.',
-    'pp.lead': 'Flash the VibeKey firmware onto a FoloToy AI Passport and it becomes a three-button remote with a screen: hold to talk and the words land at your cursor on the Mac; Up is Return, Down is Esc; and it chimes when Claude Code or Codex finishes or needs your input.',
+    'pp.lead': 'Flash the VibeKey firmware onto a FoloToy AI Passport and it becomes a voice remote for chats, browsers and AI agents. It finds the comment, message or search field, types your voice when you release OK, and lets Up send it. When an agent finishes, paged result summaries appear on the device.',
     'pp.flash': 'Flash firmware in your browser',
     'pp.optional': 'No hardware? No problem — VibeKey is complete on its own. Passport is just one more input method for people who like to tinker.',
     'pp.fact1': 'USB-C or Bluetooth', 'pp.fact1d': 'Plug in and go — no pairing',
@@ -21,11 +21,11 @@
     'pp.k.okd': 'Hold to talk',
     'pp.feat.eyebrow': 'What it does', 'pp.feat.title': 'Three keys turn speech into action.',
     'pp.feat.lead': 'The device only reports key presses and renders what the Mac sends. Every meaning is decided by VibeKey on the Mac, so behavior improves with each app update.',
-    'pp.c1.t': 'Hold OK to talk', 'pp.c1.d': 'Let go and the text is typed at the Mac’s cursor. Tap once to start and again to stop for hands-free use. The Passport mic can also be your dictation input.',
+    'pp.c1.t': 'Voice input across apps', 'pp.c1.d': 'Hold OK in chat, browser and office apps. VibeKey brings the target window forward, finds a comment, message or search field, inserts the transcript when you release, and lets Up send it.',
     'pp.c2.t': 'Up is Return, Down is Esc', 'pp.c2.d': 'The default mapping: Return sends the prompt, Esc interrupts the agent. In Settings › Passport you can switch either to ⌫ Backspace, ⌦ Delete, ⌘Z Undo, Tab, ⇧Tab, ⌘↩, ⌃C, “approve the first option”, or “type the last dictation again”.',
     'pp.c3.t': 'Hold Up to switch mode', 'pp.c3.d': 'Dictate → Translate → Captions, in a loop; the dot-matrix icon rearranges into the new mode and the mode name flips over. In Captions mode, OK starts or stops captions, Up toggles translation and Down collapses the caption bar.',
-    'pp.c4.t': 'Hold Down to switch apps', 'pp.c4.d': 'The screen lists the apps running on your Mac. Pick one with Up / Down, confirm with OK, and its window comes to the front with focus. While recording, holding Down cancels the take.',
-    'pp.c5.t': 'A chime when the agent is done', 'pp.c5.d': 'Set up Claude Code / Codex hooks with one click in Settings › Vibe Coding. DONE plus a chime when a task finishes; YOUR TURN, repeated every 20 seconds, when it needs your input. Any key dismisses it.',
+    'pp.c4.t': 'Switch apps and agent chats', 'pp.c4.d': 'Hold Down to pick a Mac app; for Codex, Claude Code and other agents, continue into projects and conversations. The window and input field come back into focus so you can speak the next request.',
+    'pp.c5.t': 'Agent results at a glance', 'pp.c5.d': 'Codex, Claude Code, DeepSeek, ZCode and WorkBuddy chime and show a check when finished. Use Up / Down to page through the result and next step; on Codex, OK opens the original conversation.',
     'pp.c6.t': 'A dot-matrix screen', 'pp.c6.d': 'The whole screen is drawn with one kind of dot: mode icons, a waveform that moves with your voice, the scanning light while processing and the done state are the same dots, rearranging as you go. It never shows what you said; color is reserved for recording, done and agent alerts. Offline, it’s a dot-matrix clock.',
     'pp.keys.eyebrow': 'Key reference', 'pp.keys.title': 'Default mapping',
     'pp.keys.lead': 'Up and Down actions can be changed in VibeKey’s Settings › Passport; the hint icons next to the keys follow along.',
@@ -54,11 +54,11 @@
     'fw.safe': 'Only the firmware area is written — the flash is never erased and the device identity is left untouched.',
     'scr.idle': 'Idle: current mode and recognition engine', 'scr.rec': 'Holding OK — recording', 'scr.done': 'Released — typed at the Mac’s cursor',
     'scr.sub': 'Captions running, showing the app name', 'scr.list': 'Hold Down — switch apps', 'scr.agentDone': 'Claude Code is done',
-    'scr.agentInput': 'The agent is waiting for you', 'scr.offline': 'Not connected to a Mac? It’s a clock.',
+    'scr.agentResult': 'Paged summary of the result and next step', 'scr.agentInput': 'The agent is waiting for you', 'scr.offline': 'Not connected to a Mac? It’s a clock.',
   }, {
     'scr.idle': '待机：当前模式与识别引擎', 'scr.rec': '按住 OK，正在录音', 'scr.done': '松开，已输入到 Mac 的光标处',
     'scr.sub': '字幕运行中，显示应用名', 'scr.list': '长按下键：切换应用', 'scr.agentDone': 'Claude Code 完成了',
-    'scr.agentInput': 'Agent 在等你确认', 'scr.offline': '没连 Mac 的时候，是一只小时钟',
+    'scr.agentResult': '可翻页查看结果与下一步总结', 'scr.agentInput': 'Agent 在等你确认', 'scr.offline': '没连 Mac 的时候，是一只小时钟',
   });
 
   // ---------- 设备画面轮播 ----------

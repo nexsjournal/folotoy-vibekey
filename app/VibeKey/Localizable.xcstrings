@@ -549,6 +549,16 @@
         }
       }
     },
+    "Codex、Claude、DeepSeek、ZCode、WorkBuddy 的完成记录会自动监听；Hook 用于更快触发。较长的完成回复会发送到已配置的 AI 服务生成设备摘要，未配置或请求失败时显示原文摘录。配置 Hook 前会备份原文件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completion records from Codex, Claude, DeepSeek, ZCode, and WorkBuddy are monitored automatically; hooks trigger them faster. Longer replies are sent to the configured AI service for a device summary. If AI isn't configured or the request fails, excerpts from the original reply are shown. Existing files are backed up before hooks are configured."
+          }
+        }
+      }
+    },
     "Esc（打断）": {
       "localizations": {
         "en": {
@@ -1123,16 +1133,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Set Up"
-          }
-        }
-      }
-    },
-    "一键配置会写入各自的 hook 配置，只追加本开发版自己的条目；原文件会先备份为 .folobutton-dev.bak。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set Up adds only this development build’s hooks to each tool’s configuration. The original file is backed up first as .folobutton-dev.bak."
           }
         }
       }
@@ -3537,12 +3537,12 @@
         }
       }
     },
-    "按住 Passport 的 OK 键（或快捷键）对 Claude Code / Codex 说出需求": {
+    "按住 Passport 的 OK 键（或快捷键）对 Codex、Claude、DeepSeek、ZCode 或 WorkBuddy 说出需求": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hold OK on Passport (or your shortcut) and tell Claude Code or Codex what you need"
+            "value": "Press and hold Passport OK (or the shortcut) and speak to Codex, Claude, DeepSeek, ZCode, or WorkBuddy."
           }
         }
       }

@@ -118,7 +118,8 @@ nonisolated final class CoreLogicTests: XCTestCase {
     }
 
     func testHookCommandsPerAgent() {
-        XCTAssertEqual(AgentHookInstaller.command(.done, agent: .claudeCode), "open -g 'folobutton-dev://agent?event=done&source=Claude%20Code'")
+        XCTAssertTrue(AgentHookInstaller.command(.done, agent: .claudeCode).contains("&payload=$token"))
+        XCTAssertTrue(AgentHookInstaller.command(.done, agent: .codex).contains("&thread=$thread&turn=$turn"))
         XCTAssertEqual(AgentHookInstaller.Agent.codex.events.map(\.hook), ["Stop", "PermissionRequest", "UserPromptSubmit"])
     }
 
@@ -166,6 +167,28 @@ nonisolated final class CoreLogicTests: XCTestCase {
         XCTAssertNil(CodexThreadNavigator.threadID(from: "codex://threads/new"))
         XCTAssertNil(CodexThreadNavigator.threadID(from: link + "?prompt=test"))
         XCTAssertNil(CodexThreadNavigator.threadID(from: link.replacingOccurrences(of: "codex://", with: "https://")))
+    }
+
+    func testStartupUpgradeOnlyChangesExistingOwnedStop() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("hooks-\(UUID().uuidString).json")
+        defer {
+            try? FileManager.default.removeItem(at: file)
+            try? FileManager.default.removeItem(at: file.appendingPathExtension("folobutton-dev.bak"))
+        }
+        XCTAssertFalse(try AgentHookInstaller.upgradeExistingStop(.codex, at: file))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        let old = #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"open -g 'folobutton-dev://agent?event=done&source=Codex'"},{"type":"command","command":"other-hook"}]}]}}"#
+        try Data(old.utf8).write(to: file)
+        XCTAssertTrue(try AgentHookInstaller.upgradeExistingStop(.codex, at: file))
+        XCTAssertFalse(try AgentHookInstaller.upgradeExistingStop(.codex, at: file))
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        let hooks = try XCTUnwrap(root["hooks"] as? [String: Any])
+        XCTAssertNil(hooks["PermissionRequest"])
+        let groups = try XCTUnwrap(hooks["Stop"] as? [[String: Any]])
+        let entries = try XCTUnwrap(groups.first?["hooks"] as? [[String: Any]])
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0]["command"] as? String, AgentHookInstaller.command(.done, agent: .codex))
+        XCTAssertEqual(entries[1]["command"] as? String, "other-hook")
     }
 
     func testLegacyCodexStopHookUpgradesInPlace() throws {

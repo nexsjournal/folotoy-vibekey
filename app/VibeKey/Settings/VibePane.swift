@@ -15,14 +15,14 @@ struct VibePane: View {
             SettingsSection(title: "工作流") {
                 Card {
                     VStack(alignment: .leading, spacing: DS.Space.s) {
-                        step("1", "按住 Passport 的 OK 键（或快捷键）对 Claude Code / Codex 说出需求")
+                        step("1", "按住 Passport 的 OK 键（或快捷键）对 Codex、Claude、DeepSeek、ZCode 或 WorkBuddy 说出需求")
                         step("2", "按 ▲ 安全发送到当前 Codex；任务跑偏时按 ▼ 停止")
                         step("3", "Agent 完成或请求确认时，Passport 响铃并亮屏，状态条也会提醒")
                     }
                 }
             }
 
-            SettingsSection(title: "Agent 通知", footer: "一键配置会写入各自的 hook 配置，只追加本开发版自己的条目；原文件会先备份为 .folobutton-dev.bak。") {
+            SettingsSection(title: "Agent 通知", footer: "Codex、Claude、DeepSeek、ZCode、WorkBuddy 的完成记录会自动监听；Hook 用于更快触发。较长的完成回复会发送到已配置的 AI 服务生成设备摘要，未配置或请求失败时显示原文摘录。配置 Hook 前会备份原文件。") {
                 Card {
                     VStack(spacing: DS.Space.m) {
                         ForEach(AgentHookInstaller.Agent.allCases) { agent in
@@ -33,7 +33,14 @@ struct VibePane: View {
                 }
                 HStack {
                     Spacer()
-                    Button("测试通知") { app.agent.post(.done, source: "Claude Code") }
+                    Button("测试通知") {
+                        app.agent.postCompletion(.init(
+                            source: "FoloVibe Key",
+                            reply: "完成摘要链路正常。设备会先显示完成对号，再进入 RESULT 页面，用上下键翻页查看。",
+                            project: nil, threadID: nil, turnID: nil,
+                            deduplicationKey: "test:\(UUID().uuidString)"
+                        ))
+                    }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 .padding(.top, DS.Space.xs)

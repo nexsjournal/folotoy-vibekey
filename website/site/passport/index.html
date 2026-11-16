@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Passport — VibeKey</title>
-<meta name="description" content="可选的 FoloToy AI Passport 硬件：刷上 VibeKey 固件后，变成一只带屏幕的三键遥控器。按住 OK 说话、上键回车、下键 Esc、切换应用，Claude Code / Codex 完成时响铃。在浏览器里直接刷写固件。">
+<meta name="description" content="可选的 FoloToy AI Passport 硬件：刷上 VibeKey 固件后，变成为聊天、浏览器和 AI Agent 服务的语音遥控器。按住说话、自动聚焦输入框、切换应用与项目，并在任务完成后查看可翻页结果摘要。">
 <meta name="theme-color" content="#07080c">
 <meta property="og:title" content="Passport — VibeKey">
-<meta property="og:description" content="可选的极客硬件：三键遥控器，按住说话、回车、Esc，Agent 完成时响铃。">
+<meta property="og:description" content="跨应用语音输入、Agent 完成摘要与三键操作。">
 <meta property="og:image" content="/assets/icon.png">
 <link rel="icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/assets/icon.png">
@@ -34,7 +34,7 @@
     <div class="pp-copy">
       <span class="eyebrow" data-i18n="pp.eyebrow">可选的配套硬件</span>
       <h1 class="pp-title" data-i18n="pp.title">你手里的 vibe coding 遥控器。</h1>
-      <p class="pp-lead" data-i18n="pp.lead">给 FoloToy AI Passport 刷上 VibeKey 固件，它就成了一只带屏幕的三键遥控器：按住说话，文字进入 Mac 的光标处；上键回车、下键 Esc；Claude Code / Codex 完成或等你确认时，它会响铃提醒。</p>
+      <p class="pp-lead" data-i18n="pp.lead">给 FoloToy AI Passport 刷上 VibeKey 固件，它就成了一只为聊天、浏览器和 AI Agent 服务的语音遥控器：自动找到评论、消息或搜索框，按住说话，松开写入，上键发送；任务完成后还能在设备上翻看结果摘要。</p>
       <div class="pp-cta">
         <a class="btn primary" href="#firmware"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 6 13.5h5.5L11 21l7-10.5h-5.5z"/></svg><span data-i18n="pp.flash">在浏览器里刷入固件</span></a>
         <a class="btn ghost" href="{{DMG_URL}}" data-i18n="cta.download">下载 macOS 版</a>
@@ -63,6 +63,7 @@
             <img src="/assets/passport/sub.png" alt="" width="240" height="320" data-screen="sub" data-key="" loading="lazy">
             <img src="/assets/passport/list.png" alt="" width="240" height="320" data-screen="list" data-key="down" loading="lazy">
             <img src="/assets/passport/agent-done.png" alt="" width="240" height="320" data-screen="agentDone" data-key="" loading="lazy">
+            <img src="/assets/passport/agent-result.png" alt="" width="240" height="320" data-screen="agentResult" data-key="up" loading="lazy">
             <img src="/assets/passport/agent-input.png" alt="" width="240" height="320" data-screen="agentInput" data-key="" loading="lazy">
             <img src="/assets/passport/offline.png" alt="" width="240" height="320" data-screen="offline" data-key="" loading="lazy">
           </div>
@@ -90,8 +91,8 @@
       <article class="card reveal">
         <span class="idx">01</span>
         <span class="icon"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></span>
-        <h3 data-i18n="pp.c1.t">按住 OK 说话</h3>
-        <p data-i18n="pp.c1.d">松开后文字输入到 Mac 的当前光标处；短按一下开始、再按一下结束，可以免提。也可以把 Passport 的麦克风设为听写音源。</p>
+        <h3 data-i18n="pp.c1.t">跨应用语音输入</h3>
+        <p data-i18n="pp.c1.d">在聊天、浏览器和办公软件中按住 OK 说话。目标窗口会重新前置，App 自动找到评论、消息或搜索框；松开后写入，短按上键发送。</p>
       </article>
       <article class="card reveal" data-delay="60">
         <span class="idx">02</span>
@@ -108,14 +109,14 @@
       <article class="card reveal" data-delay="60">
         <span class="idx">04</span>
         <span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="3" y="13" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg></span>
-        <h3 data-i18n="pp.c4.t">长按下键切换应用</h3>
-        <p data-i18n="pp.c4.d">屏幕上列出 Mac 正在运行的应用，上下键选择、OK 确认，该应用的窗口就前置并聚焦。录音中长按下键则取消本次录音。</p>
+        <h3 data-i18n="pp.c4.t">切换应用与 Agent 会话</h3>
+        <p data-i18n="pp.c4.d">长按下键先选 Mac 应用；Codex、Claude Code 等 Agent 还可继续选项目和会话。确认后窗口与输入框会自动就位，可以直接说下一条。</p>
       </article>
       <article class="card reveal" data-delay="120">
         <span class="idx">05</span>
         <span class="icon"><svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>
-        <h3 data-i18n="pp.c5.t">Agent 完成时响铃</h3>
-        <p data-i18n="pp.c5.d">在 设置 › Vibe Coding 一键配置 Claude Code / Codex 的 hooks：任务完成显示 DONE 并响铃，等你确认时显示 YOUR TURN、每 20 秒提醒一次，按任意键关闭。</p>
+        <h3 data-i18n="pp.c5.t">Agent 完成结果送到手边</h3>
+        <p data-i18n="pp.c5.d">Codex、Claude Code、DeepSeek、ZCode、WorkBuddy 完成任务后会响铃并显示对号，随后用上下键翻看结果与下一步摘要；Codex 可直接用 OK 打开原会话。</p>
       </article>
       <article class="card reveal" data-delay="60">
         <span class="idx">06</span>

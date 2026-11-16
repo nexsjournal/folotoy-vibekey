@@ -1,9 +1,9 @@
 // main/ib_ui_sub.c: SUB 页:字幕运行中显示应用名 + 原文 + 译文。
 //
 // 布局(页面坐标,状态栏下方 296 px):
-//   应用名   12 px,左上 y=2,超长省略
-//   原文字幕 12 px 中文/英文,wrap,左上 y=22,高 76
-//   译文     12 px 中文/英文,wrap,左上 y=106,高 170;未开启翻译时隐藏
+//   应用名   14 px,左上 y=1,超长省略
+//   原文字幕 14 px 中文/英文,wrap,左上 y=22,高 76
+//   译文     14 px 中文/英文,wrap,左上 y=106,高 170;未开启翻译时隐藏
 // 进入时先播放点阵转场(CC 图标),转场结束后隐藏点阵、显示文字;之后只更新文字。
 // 字幕文本走 caption 命令(UTF-8),应用名走同一命令的 app 字段;state.msg 作为旧固件的 ASCII 回退。
 #include "ib_ui_dots.h"
@@ -12,7 +12,7 @@
 
 #define TEXT_X      8
 #define TEXT_W      (IB_UI_CONTENT_W - TEXT_X * 2)
-#define APP_TOP     2
+#define APP_TOP     1
 #define SRC_TOP     22
 #define SRC_H       76
 #define DST_TOP     106
@@ -34,9 +34,9 @@ static void fx_draw(lv_event_t *e)
 
 static lv_obj_t *text_label(lv_obj_t *parent, uint32_t color, int32_t top, int32_t height)
 {
-    lv_obj_t *label = ib_label_create(parent, &ib_cjk_font_12, color, top, TEXT_W);
+    lv_obj_t *label = ib_label_create(parent, &ib_cjk_font_14, color, top, TEXT_W);
     lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
-    lv_obj_set_style_text_line_space(label, 1, 0);
+    lv_obj_set_style_text_line_space(label, 0, 0);
     lv_obj_align(label, LV_ALIGN_TOP_LEFT, TEXT_X, top);
     lv_obj_set_height(label, height);
     lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_WRAP);
@@ -67,7 +67,7 @@ static lv_obj_t *create(lv_obj_t *parent, const ib_ui_ctx_t *ctx)
 
     s_fx = ib_fx_create(root, 0, IB_DOTS_BOX_Y, IB_UI_CONTENT_W, IB_DOTS_BOX_H, fx_draw, NULL);
 
-    s_app = ib_label_create(root, &ib_cjk_font_12, IB_COLOR_TEXT_MID, APP_TOP, TEXT_W);
+    s_app = ib_label_create(root, &ib_cjk_font_14, IB_COLOR_TEXT_MID, APP_TOP, TEXT_W);
     lv_obj_set_style_text_align(s_app, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_align(s_app, LV_ALIGN_TOP_LEFT, TEXT_X, APP_TOP);
     lv_label_set_long_mode(s_app, LV_LABEL_LONG_MODE_DOTS);

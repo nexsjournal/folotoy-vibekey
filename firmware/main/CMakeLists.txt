@@ -39,7 +39,7 @@ idf_component_register(
          "fonts/ib_terminal_font_20.c"
          "fonts/ib_terminal_font_24.c"
          "fonts/ib_terminal_font_26.c"
-         "fonts/ib_cjk_font_12.c"
+         "fonts/ib_cjk_font_14.c"
          "icons/ib_icon_font_12.c"
          "icons/ib_icon_font_56.c"
     INCLUDE_DIRS "."

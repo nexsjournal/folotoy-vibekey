@@ -42,11 +42,16 @@ enum AppSwitcher {
         if running.isHidden { running.unhide() }
 
         let element = AXUIElementCreateApplication(app.pid)
-        let frontmost = AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue) == .success
-        if !frontmost { running.activate(options: [.activateAllWindows]) }
+        AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        // AX 可能返回成功但只改变逻辑前台，不把窗口从遮挡层抬到最前；始终再调用应用激活，
+        // 让自绘窗口和普通应用的 z-order 都按 Dock/⌘Tab 的行为更新。
+        _ = running.activate(options: [.activateAllWindows])
 
         let windows = axWindows(of: element)
-        if let visible = windows.first(where: { !isMinimized($0) }) {
+        let focused = AgentAX.element(AgentAX.value(element, kAXFocusedWindowAttribute))
+        let visible = focused.flatMap { isMinimized($0) ? nil : $0 }
+            ?? windows.first(where: { !isMinimized($0) })
+        if let visible {
             AXUIElementPerformAction(visible, kAXRaiseAction as CFString)
             AXUIElementSetAttributeValue(visible, kAXMainAttribute as CFString, kCFBooleanTrue)
         } else if let minimized = windows.first {
@@ -66,35 +71,79 @@ enum AppSwitcher {
         return windows
     }
 
-    /// 优先恢复已经聚焦的多行输入框，否则只选择前台窗口中唯一的可见多行输入框。
-    /// 不把浏览器地址栏或搜索框当作聊天输入位置。
+    /// 恢复已有输入焦点，或在当前窗口里选择唯一可信的评论、消息或搜索控件。
+    /// 浏览器只搜索网页内容，不选择地址栏；候选分数相同时不猜测。
     static func focusTextInput(in running: NSRunningApplication) -> Bool {
-        guard AXIsProcessTrusted() else { return false }
+        focusedTextInput(in: running) != nil
+    }
+
+    static func focusedTextInput(in running: NSRunningApplication) -> AXUIElement? {
+        guard AXIsProcessTrusted() else { return nil }
         let app = AXUIElementCreateApplication(running.processIdentifier)
-        func read(_ node: AXUIElement, _ name: String) -> CFTypeRef? {
-            var result: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(node, name as CFString, &result) == .success else { return nil }
-            return result
-        }
-        func isInput(_ node: AXUIElement) -> Bool {
-            (read(node, kAXRoleAttribute) as? String) == (kAXTextAreaRole as String)
-                && (read(node, kAXEnabledAttribute) as? Bool) != false
-                && (read(node, kAXHiddenAttribute) as? Bool) != true
-        }
-        if let focused = read(app, kAXFocusedUIElementAttribute), CFGetTypeID(focused) == AXUIElementGetTypeID(),
-           isInput(focused as! AXUIElement) { return true }
-        let window = read(app, kAXFocusedWindowAttribute) ?? read(app, kAXMainWindowAttribute)
-        guard let window, CFGetTypeID(window) == AXUIElementGetTypeID() else { return false }
-        var pending = [window as! AXUIElement]
+        guard let window = AgentAX.element(AgentAX.value(app, kAXFocusedWindowAttribute))
+                ?? AgentAX.element(AgentAX.value(app, kAXMainWindowAttribute)) else { return nil }
+        let focused = AgentAX.element(AgentAX.value(app, kAXFocusedUIElementAttribute))
+        let browserIDs = ["com.google.Chrome", "com.apple.Safari", "org.mozilla.firefox", "com.microsoft.edgemac", "company.thebrowser.Browser"]
+        // 系统注册的 HTTPS 处理程序也视为浏览器，覆盖新安装的 Chromium 变体。
+        let handlers = NSWorkspace.shared.urlsForApplications(toOpen: URL(string: "https://example.com")!)
+        let browser = browserIDs.contains { running.bundleIdentifier?.hasPrefix($0) == true }
+            || handlers.contains { $0.standardizedFileURL == running.bundleURL?.standardizedFileURL }
+        let windowRect = rect(window)
+        var stack: [(AXUIElement, Bool, Int)] = [(window, false, 0)]
         var seen = Set<AXUIElement>()
-        var inputs: [AXUIElement] = []
-        while let node = pending.popLast(), seen.count < 15_000 {
+        var nodes: [AXUIElement] = []
+        var candidates: [InputCandidateRanking.Candidate] = []
+        while let (node, inWeb, depth) = stack.popLast(), seen.count < 12_000 {
             guard seen.insert(node).inserted else { continue }
-            if isInput(node) { inputs.append(node) }
-            pending.append(contentsOf: read(node, kAXChildrenAttribute) as? [AXUIElement] ?? [])
+            let role = AgentAX.string(node, kAXRoleAttribute)
+            let web = inWeb || role == "AXWebArea"
+            if ["AXTextArea", "AXTextField", "AXSearchField", "AXComboBox"].contains(role),
+               AgentAX.bool(node, kAXEnabledAttribute) != false,
+               AgentAX.bool(node, kAXHiddenAttribute) != true,
+               AgentAX.bool(node, "AXEditable") != false,
+               !AgentAX.string(node, kAXSubroleAttribute).localizedCaseInsensitiveContains("secure"),
+               isVisible(node, in: windowRect) {
+                var focusSettable = DarwinBoolean(false)
+                var valueSettable = DarwinBoolean(false)
+                var selectedSettable = DarwinBoolean(false)
+                AXUIElementIsAttributeSettable(node, kAXFocusedAttribute as CFString, &focusSettable)
+                AXUIElementIsAttributeSettable(node, kAXValueAttribute as CFString, &valueSettable)
+                AXUIElementIsAttributeSettable(node, kAXSelectedTextAttribute as CFString, &selectedSettable)
+                let isFocused = focused.map { CFEqual($0, node) } ?? false
+                if isFocused || (focusSettable.boolValue && (valueSettable.boolValue || selectedSettable.boolValue || web)) {
+                    let label = [kAXTitleAttribute, kAXDescriptionAttribute, "AXPlaceholderValue", kAXIdentifierAttribute, kAXSubroleAttribute]
+                        .map { AgentAX.string(node, $0) }.joined(separator: " ")
+                    nodes.append(node)
+                    candidates.append(.init(role: role, label: label, isWebContent: web, isBrowser: browser, focused: isFocused))
+                }
+            }
+            if depth < 45 {
+                for child in AgentAX.children(node).reversed() { stack.append((child, web, depth + 1)) }
+            }
         }
-        guard inputs.count == 1 else { return false }
-        return AXUIElementSetAttributeValue(inputs[0], kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success
+        guard let index = InputCandidateRanking.bestIndex(candidates) else { return nil }
+        let chosen = nodes[index]
+        if candidates[index].focused { return chosen }
+        guard AXUIElementSetAttributeValue(chosen, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success,
+              let actual = AgentAX.element(AgentAX.value(app, kAXFocusedUIElementAttribute)), CFEqual(actual, chosen) else { return nil }
+        return chosen
+    }
+
+    private static func rect(_ node: AXUIElement) -> CGRect? {
+        guard let position = AgentAX.value(node, kAXPositionAttribute),
+              let size = AgentAX.value(node, kAXSizeAttribute),
+              CFGetTypeID(position as CFTypeRef) == AXValueGetTypeID(),
+              CFGetTypeID(size as CFTypeRef) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero
+        var dimensions = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &point),
+              AXValueGetValue(size as! AXValue, .cgSize, &dimensions) else { return nil }
+        return CGRect(origin: point, size: dimensions)
+    }
+
+    private static func isVisible(_ node: AXUIElement, in window: CGRect?) -> Bool {
+        guard let bounds = rect(node), bounds.width > 2, bounds.height > 2 else { return false }
+        return window.map { $0.intersects(bounds) } ?? true
     }
 
     private static func isMinimized(_ window: AXUIElement) -> Bool {
